@@ -4,7 +4,7 @@
 
 # Tampo (丹保)
 
-**现代化日语生词记忆与 FSRS 智能间隔重复宝库**
+**现代化生词收集记忆 与 FSRS 智能学习解决方案**
 
 *A Modern Japanese Vocabulary & FSRS Spaced Repetition Learning Desktop App for Windows.*
 
