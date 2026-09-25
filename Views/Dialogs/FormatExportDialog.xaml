@@ -1,0 +1,238 @@
+<ContentDialog
+    x:Class="NihongoVocab.Views.Dialogs.FormatExportDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:NihongoVocab.Models"
+    mc:Ignorable="d"
+    Title="格式化导出 (Regex 替换)"
+    CloseButtonText="关闭"
+    DefaultButton="None"
+    CornerRadius="8">
+
+    <ContentDialog.Resources>
+        <ResourceDictionary>
+            <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
+            <x:Double x:Key="ContentDialogMinWidth">780</x:Double>
+        </ResourceDictionary>
+    </ContentDialog.Resources>
+
+    <Grid Margin="0,8,0,0" Width="840" Height="500" ColumnSpacing="16" HorizontalAlignment="Center">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="270"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 左列：已保存的导出预设列表 -->
+        <Border Grid.Column="0" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="12">
+            <Grid RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Spacing="2">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE8B7;" FontSize="14" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock x:Name="SavedRulesTitleText" Text="已保存导出规则库" FontWeight="SemiBold" FontSize="13"/>
+                    </StackPanel>
+                    <TextBlock x:Name="SavedRulesTipText" Text="点击选择可带入右侧表单进行测试或编辑" FontSize="11" Opacity="0.6"/>
+                </StackPanel>
+
+                <ListView x:Name="PresetsListView" Grid.Row="1" SelectionMode="Single"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          SelectionChanged="PresetsListView_SelectionChanged">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:ExportPreset">
+                            <Grid Padding="6,6" Margin="0,2" CornerRadius="6"
+                                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="12"/>
+                                    <TextBlock Text="{x:Bind Description}" FontSize="11" Opacity="0.6" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+
+                                <!-- 内置标记 / 删除按钮 -->
+                                <Border Grid.Column="1" VerticalAlignment="Center"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="4" Padding="4,2"
+                                        Visibility="{x:Bind IsBuiltIn}">
+                                    <TextBlock x:Name="BuiltInBadgeText" Text="内置" FontSize="10" Opacity="0.7"/>
+                                </Border>
+
+                                <Button Grid.Column="2" VerticalAlignment="Center"
+                                        Visibility="{x:Bind IsBuiltIn, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}"
+                                        Style="{ThemeResource SubtleButtonStyle}" Padding="4"
+                                        ToolTipService.ToolTip="删除此自定义预设">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                                    <Button.Flyout>
+                                        <Flyout Placement="Left">
+                                            <StackPanel Spacing="8" MinWidth="160" Padding="4">
+                                                <TextBlock Text="确定删除此预设？" FontSize="12" FontWeight="Medium"/>
+                                                <Button Content="删除" Style="{ThemeResource AccentButtonStyle}"
+                                                        Tag="{x:Bind}" Click="ConfirmDeletePreset_Click"
+                                                        HorizontalAlignment="Right" FontSize="11" Padding="10,4"/>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Border>
+
+        <!-- 右列：规则配置、即时单行测试与全量导出预览 -->
+        <Grid Grid.Column="1" RowSpacing="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 规则配置表单 -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="12">
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE70F;" FontSize="13" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock x:Name="ConfigRulesTitleText" Text="自定义格式化导出规则" FontWeight="SemiBold" FontSize="13"/>
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="PresetNameInput" PlaceholderText="输入预设名称..." Header="预设名称" FontSize="12"/>
+                        <Button x:Name="AddPresetButton" Grid.Column="1" VerticalAlignment="Bottom"
+                                Click="AddPreset_Click" Style="{ThemeResource AccentButtonStyle}" Padding="12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE74E;" FontSize="12"/>
+                                <TextBlock x:Name="AddPresetButtonText" Text="保存为新预设" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="PresetPatternInput"
+                                 Header="正则表达式 (Pattern)"
+                                 PlaceholderText="如：^(.*?)\t?(.*?)\t?(.*)$"
+                                 FontFamily="Consolas, 'Cascadia Code', monospace"
+                                 FontSize="12"
+                                 TextChanged="RuleInput_TextChanged"/>
+                        <TextBox x:Name="PresetReplacementInput" Grid.Column="1"
+                                 Header="替换表达式 (Replacement)"
+                                 PlaceholderText="如：$1【$2】 $3"
+                                 FontFamily="Consolas, 'Cascadia Code', monospace"
+                                 FontSize="12"
+                                 TextChanged="RuleInput_TextChanged"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 单行即时验证 -->
+            <Border Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="12">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock x:Name="InstantVerifyTitleText" Text="单行即时效果测试" FontWeight="SemiBold" FontSize="12"/>
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TestLineInput"
+                                 PlaceholderText="输入单行测试文本（如：日本語\tにほんご\t日语）..."
+                                 FontFamily="Consolas, 'Cascadia Code', monospace"
+                                 FontSize="11"
+                                 TextChanged="RuleInput_TextChanged"/>
+                        <TextBox x:Name="TestResultTextBox" Grid.Column="1"
+                                 IsReadOnly="True"
+                                 PlaceholderText="替换结果..."
+                                 FontFamily="Consolas, 'Cascadia Code', monospace"
+                                 FontSize="11"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 全量预览区 -->
+            <Border Grid.Row="2" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="12">
+                <Grid RowSpacing="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE890;" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock x:Name="FullPreviewTitleText" Text="所选单词导出预览" FontWeight="SemiBold" FontSize="12"/>
+                        </StackPanel>
+                        <TextBlock x:Name="SelectedCountSummaryText" Grid.Column="1" Text="共计 0 个词汇" FontSize="11" Opacity="0.6" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <TextBox x:Name="FullPreviewTextBox" Grid.Row="1"
+                             AcceptsReturn="True"
+                             IsReadOnly="True"
+                             TextWrapping="NoWrap"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             FontFamily="Consolas, 'Cascadia Code', monospace"
+                             FontSize="11"
+                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+                </Grid>
+            </Border>
+
+            <!-- 底部导出操作按钮栏 -->
+            <Grid Grid.Row="3" ColumnSpacing="10" Margin="0,4,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="ExportTipText" Text="提示：支持标准 Regex 捕获组（$1, $2 等）与 \t, \n 等换行转义"
+                           FontSize="11" Opacity="0.6" VerticalAlignment="Center"/>
+
+                <Button x:Name="CopyAllButton" Grid.Column="1" Click="CopyAllButton_Click" Padding="12,6">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE8C8;" FontSize="12"/>
+                        <TextBlock x:Name="CopyAllButtonText" Text="复制到剪贴板" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="ExportFileButton" Grid.Column="2" Style="{ThemeResource AccentButtonStyle}" Click="ExportFileButton_Click" Padding="12,6">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xEDE1;" FontSize="12"/>
+                        <TextBlock x:Name="ExportFileButtonText" Text="导出为文件..." FontSize="12"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentDialog>

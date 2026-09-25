@@ -1,0 +1,60 @@
+<UserControl
+    x:Class="NihongoVocab.Controls.CalendarHeatmap"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+          Padding="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题与点击提示 -->
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="TitleTextBlock" Text="热力图"
+                       Style="{ThemeResource SubtitleTextBlockStyle}"/>
+            <TextBlock Grid.Column="1" Text="点击方格查看当日明细"
+                       FontSize="11" Opacity="0.5" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 星期指示列与热力网格 -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <!-- 星期标签 -->
+                <StackPanel Spacing="3" Margin="0,0,4,0" VerticalAlignment="Center">
+                    <TextBlock Text="日" FontSize="10" Height="14" Opacity="0.5"/>
+                    <TextBlock Text="一" FontSize="10" Height="14" Opacity="0.5"/>
+                    <TextBlock Text="二" FontSize="10" Height="14" Opacity="0.5"/>
+                    <TextBlock Text="三" FontSize="10" Height="14" Opacity="0.5"/>
+                    <TextBlock Text="四" FontSize="10" Height="14" Opacity="0.5"/>
+                    <TextBlock Text="五" FontSize="10" Height="14" Opacity="0.5"/>
+                    <TextBlock Text="六" FontSize="10" Height="14" Opacity="0.5"/>
+                </StackPanel>
+
+                <!-- 动态生成的周列 -->
+                <StackPanel x:Name="WeeksContainer" Orientation="Horizontal" Spacing="3"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 图例 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4" Margin="0,12,0,0">
+            <TextBlock Text="少" FontSize="11" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,4,0"/>
+            <Border Width="12" Height="12" CornerRadius="2" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"/>
+            <Border x:Name="LegendLevel1" Width="12" Height="12" CornerRadius="2"/>
+            <Border x:Name="LegendLevel2" Width="12" Height="12" CornerRadius="2"/>
+            <Border x:Name="LegendLevel3" Width="12" Height="12" CornerRadius="2"/>
+            <Border x:Name="LegendLevel4" Width="12" Height="12" CornerRadius="2"/>
+            <TextBlock Text="多" FontSize="11" VerticalAlignment="Center" Opacity="0.6" Margin="4,0,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -1,0 +1,140 @@
+<Page
+    x:Class="NihongoVocab.Views.StudyPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:NihongoVocab.Models"
+    xmlns:services="using:NihongoVocab.Services"
+    mc:Ignorable="d">
+
+    <Grid x:Name="BackgroundGrid" Padding="24" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部操作控制条与会话进度指示 -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE7BE;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                <TextBlock x:Name="PageTitleTextBlock" Text="开始学习" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
+
+                <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="4,0"/>
+
+                <!-- 词单筛选切换 -->
+                <TextBlock x:Name="ListFilterLabelTextBlock" Text="学习范围:" VerticalAlignment="Center" Opacity="0.8"/>
+                <ComboBox x:Name="ListFilterComboBox" Width="180"
+                          ItemsSource="{x:Bind ViewModel.AvailableLists}"
+                          SelectedItem="{x:Bind ViewModel.SelectedList, Mode=TwoWay}"
+                          PlaceholderText="{x:Bind ViewModel.AllDueWordsPlaceholder, Mode=OneWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:WordList">
+                            <TextBlock Text="{x:Bind Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <!-- 会话统计指标（单色纯净标签） -->
+                <StackPanel Orientation="Horizontal" Spacing="12" Margin="12,0,0,0">
+                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE930;" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock x:Name="PendingCountLabelTextBlock" Text="待学" FontSize="12"/>
+                            <TextBlock Text="{x:Bind ViewModel.Cards.Count, Mode=OneWay}" FontSize="12" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="#22C55E"/>
+                            <TextBlock x:Name="CompletedCountLabelTextBlock" Text="记得" FontSize="12"/>
+                            <TextBlock Text="{x:Bind ViewModel.CompletedCount, Mode=OneWay}" FontSize="12" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE711;" FontSize="12" Foreground="#EF4444"/>
+                            <TextBlock x:Name="LapsedCountLabelTextBlock" Text="遗忘" FontSize="12"/>
+                            <TextBlock Text="{x:Bind ViewModel.LapsedCount, Mode=OneWay}" FontSize="12" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- 学习主体区：自适应流式网格平铺卡片（无释义，纯单词哲学） -->
+        <Grid Grid.Row="1">
+            <!-- 1. 卡片网格展示容器（当且仅当 Cards.Count > 0 时显示） -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{x:Bind ViewModel.IsSessionFinished, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <ItemsRepeater x:Name="CardsRepeater" ItemsSource="{x:Bind ViewModel.Cards}">
+                    <ItemsRepeater.Layout>
+                        <UniformGridLayout MinItemWidth="170" MinItemHeight="100" MinRowSpacing="16" MinColumnSpacing="16"/>
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="models:StudyCardItem">
+                            <!-- 单词卡片（带平滑双击状态机高亮交互与右键菜单拦截） -->
+                            <Border Background="{x:Bind State, Mode=OneWay, Converter={StaticResource CardStateToBackgroundBrushConverter}}"
+                                    BorderBrush="{x:Bind State, Mode=OneWay, Converter={StaticResource CardStateToBorderBrushConverter}}"
+                                    BorderThickness="2" CornerRadius="8" Padding="12"
+                                    Tag="{x:Bind}">
+                                <!-- 内部所有子元素统一设置 IsHitTestVisible="False"，杜绝指针被拦截 -->
+                                <Grid IsHitTestVisible="False">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- 顶部单色状态过渡提示标签 -->
+                                    <Grid>
+                                        <!-- 待确认记得状态提示 -->
+                                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                                    Visibility="{x:Bind IsPendingRemember, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <FontIcon Glyph="&#xE73E;" FontSize="11" Foreground="#16A34A"/>
+                                            <TextBlock Text="{x:Bind ConfirmRememberTip, Mode=OneWay}" FontSize="11" Foreground="#16A34A" FontWeight="SemiBold"/>
+                                        </StackPanel>
+
+                                        <!-- 待确认遗忘状态提示 -->
+                                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                                    Visibility="{x:Bind IsPendingForget, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <FontIcon Glyph="&#xE711;" FontSize="11" Foreground="#DC2626"/>
+                                            <TextBlock Text="{x:Bind ConfirmForgetTip, Mode=OneWay}" FontSize="11" Foreground="#DC2626" FontWeight="SemiBold"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- 纯单词主体（Zero-Definition: 绝对不展示任何释义与例句） -->
+                                    <TextBlock Grid.Row="1" Text="{x:Bind Word.Text}"
+                                               FontSize="20" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- 底部元信息微标（单色 FSRS 稳定性与复习次数字样） -->
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4" Opacity="0.5">
+                                        <TextBlock Text="Reps:" FontSize="10"/>
+                                        <TextBlock Text="{x:Bind Word.Reps}" FontSize="10"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+
+            <!-- 2. 会话完成或空词库保护面板 -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16"
+                        Visibility="{x:Bind ViewModel.IsSessionFinished, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                <FontIcon Glyph="&#xE73E;" FontSize="54" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                <TextBlock x:Name="SessionFinishedTitleTextBlock" Text="今日复习已全部完成！" Style="{ThemeResource TitleTextBlockStyle}" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="SessionFinishedTipTextBlock" Text="目前没有需要学习或复习的单词。" Opacity="0.6" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>

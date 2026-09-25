@@ -1,0 +1,189 @@
+<Window x:Class="NihongoVocab.Installer.UninstallWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tampo Uninstall"
+        Height="420" Width="520"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        FontFamily="{StaticResource FluentFont}"
+        Icon="AppIcon.ico">
+
+    <!-- 外层优雅卡片与阴影 -->
+    <Border Background="{StaticResource WindowBackgroundBrush}"
+            BorderBrush="{StaticResource WindowBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="12">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="4" Color="#000000" Opacity="0.08" />
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 顶部自定义拖拽标题栏 -->
+            <Grid Grid.Row="0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Background="Transparent">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Image Source="AppIcon.ico" Width="18" Height="18" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding UninstallTitle}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- 窗口控制按钮 -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <Button Content="—" Click="MinimizeButton_Click" Width="36" Height="30" Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" Cursor="Hand" FontSize="13">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#F1F5F9" />
+                                        <Setter Property="Foreground" Value="#0F172A" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                    <Button Content="✕" Click="CloseButton_Click" Width="36" Height="30" Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" Cursor="Hand" FontSize="12">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#FEE2E2" />
+                                        <Setter Property="Foreground" Value="#DC2626" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 主内容工作区 -->
+            <Grid Grid.Row="1" Margin="32,6,32,28">
+                <!-- 阶段 1: 确认面板 -->
+                <Grid x:Name="ConfirmStepPanel" Visibility="Visible">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 应用信息头 -->
+                    <StackPanel Grid.Row="0" Margin="0,2,0,18">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="46" Height="46" CornerRadius="10" Background="#F8FAFC" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Margin="0,0,14,0">
+                                <Image Source="AppIcon.ico" Width="34" Height="34" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding UninstallTitle}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                                <TextBlock Text="{Binding UninstallSubtitle}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 卸载选项卡片 -->
+                    <Border Grid.Row="1" Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,14,14,14" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="{Binding UninstallOptions}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10" />
+                            <CheckBox x:Name="KeepUserDataCheckBox" IsChecked="True" Content="{Binding KeepUserData}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" Margin="0,0,0,6" />
+                            <TextBlock Text="{Binding KeepUserDataDesc}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="22,0,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 按钮栏 -->
+                    <Grid Grid.Row="2" Margin="0,20,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="{Binding CancelButton}" Click="CloseButton_Click" Height="42" Background="{StaticResource SecondaryButtonBackgroundBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource SecondaryButtonBorderBrush}" BorderThickness="1" Cursor="Hand" FontSize="13">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="b" Property="Background" Value="{StaticResource SecondaryButtonHoverBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button Grid.Column="2" Content="{Binding ConfirmUninstallButton}" Click="UninstallButton_Click" Height="42" Background="{StaticResource DangerBrush}" Foreground="White" FontSize="13" FontWeight="SemiBold" BorderThickness="0" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="8">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="b" Property="Background" Value="{StaticResource DangerHoverBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </Grid>
+                </Grid>
+
+                <!-- 阶段 2: 进度面板 -->
+                <Grid x:Name="ProgressStepPanel" Visibility="Collapsed" VerticalAlignment="Center">
+                    <StackPanel HorizontalAlignment="Center" Width="400">
+                        <TextBlock Text="{Binding UninstallingTitle}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,20" />
+                        <ProgressBar x:Name="UninstallProgressBar" Height="8" Minimum="0" Maximum="100" Value="0" Background="#F1F5F9" Foreground="{StaticResource DangerBrush}" BorderThickness="0">
+                            <ProgressBar.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="4" />
+                                </Style>
+                            </ProgressBar.Resources>
+                        </ProgressBar>
+                        <TextBlock x:Name="ProgressStatusTextBlock" Text="{Binding UninstallingTitle}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,14,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- 阶段 3: 完成面板 -->
+                <Grid x:Name="FinishStepPanel" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Border Width="60" Height="60" CornerRadius="30" Background="#ECFDF5" HorizontalAlignment="Center" Margin="0,0,0,16">
+                            <TextBlock Text="✓" FontSize="32" Foreground="#10B981" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0" />
+                        </Border>
+                        <TextBlock Text="{Binding UninstallSuccess}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding UninstallSuccessDesc}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,6,0,24" />
+                    </StackPanel>
+
+                    <Button Grid.Row="1" Content="{Binding CloseButton}" Click="FinishButton_Click" Height="42" Background="{StaticResource AccentBrush}" Foreground="White" FontSize="14" FontWeight="SemiBold" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Stretch">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="finishBorder" Background="{TemplateBinding Background}" CornerRadius="8">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="finishBorder" Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Models\Word.cs" Link="Word.cs" />
+    <Compile Include="..\Models\CleansingPreset.cs" Link="CleansingPreset.cs" />
+    <Compile Include="..\Services\FsrsEngine.cs" Link="FsrsEngine.cs" />
+    <Compile Include="..\Services\PresetManager.cs" Link="PresetManager.cs" />
+    <Compile Include="..\Services\CrashLogger.cs" Link="CrashLogger.cs" />
+    <Compile Include="..\Services\LocalizationService.cs" Link="LocalizationService.cs" />
+    <Compile Include="..\Services\WebExportService.cs" Link="WebExportService.cs" />
+    <Compile Include="..\Models\ExportPreset.cs" Link="ExportPreset.cs" />
+    <Compile Include="..\Services\ExportPresetManager.cs" Link="ExportPresetManager.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,1497 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AboutContactLabel" xml:space="preserve">
+    <value>问题反馈与联系:</value>
+  </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>关于 Tampo</value>
+  </data>
+  <data name="ActivityCalendar_BackToYearView" xml:space="preserve">
+    <value>返回年视图</value>
+  </data>
+  <data name="ActivityCalendar_ButtonToday" xml:space="preserve">
+    <value>今天</value>
+  </data>
+  <data name="ActivityCalendar_MenuMonthView" xml:space="preserve">
+    <value>单月特写 (高精日历格)</value>
+  </data>
+  <data name="ActivityCalendar_MenuYearView" xml:space="preserve">
+    <value>年度概览 (12个月平铺)</value>
+  </data>
+  <data name="ActivityCalendar_TooltipNextPeriod" xml:space="preserve">
+    <value>切换至下一周期</value>
+  </data>
+  <data name="ActivityCalendar_TooltipPrevPeriod" xml:space="preserve">
+    <value>切换至上一周期</value>
+  </data>
+  <data name="ActivityCalendar_TotalImportDaysLabel" xml:space="preserve">
+    <value>导入活跃天数</value>
+  </data>
+  <data name="ActivityCalendar_TotalStudyDaysLabel" xml:space="preserve">
+    <value>复习打卡天数</value>
+  </data>
+  <data name="ActivityCalendar_TotalWordsLabel" xml:space="preserve">
+    <value>记录总词量</value>
+  </data>
+  <data name="ActivityCalendar_ViewModeButton" xml:space="preserve">
+    <value>年份缩放</value>
+  </data>
+  <data name="AllDueWordsPlaceholder" xml:space="preserve">
+    <value>全部到期复习词</value>
+  </data>
+  <data name="AllTimePanoramicOverview" xml:space="preserve">
+    <value>全部时间（全量总览）</value>
+  </data>
+  <data name="AllWordsOverviewOption" xml:space="preserve">
+    <value>全库总览（全部单词）</value>
+  </data>
+  <data name="AllWordsPageHeader" xml:space="preserve">
+    <value>词库</value>
+  </data>
+  <data name="AllWordsTitle" xml:space="preserve">
+    <value>词库全景</value>
+  </data>
+  <data name="AnalysisScopeLabel" xml:space="preserve">
+    <value>分析范围:</value>
+  </data>
+  <data name="AnalyticsScopeLabel" xml:space="preserve">
+    <value>分析切片范围：</value>
+  </data>
+  <data name="AnalyticsScreenTitle" xml:space="preserve">
+    <value>记忆分析与遗忘曲线</value>
+  </data>
+  <data name="AppTitle" xml:space="preserve">
+    <value>Tampo</value>
+  </data>
+  <data name="AppearanceAndLanguage" xml:space="preserve">
+    <value>外观与语言</value>
+  </data>
+  <data name="ArchLabel" xml:space="preserve">
+    <value>架构：.NET 8 · WinUI 3 · SQLite</value>
+  </data>
+  <data name="AuthorLinkText" xml:space="preserve">
+    <value>找我玩</value>
+  </data>
+  <data name="AverageRetentionLabel" xml:space="preserve">
+    <value>FSRS 平均记忆留存率</value>
+  </data>
+  <data name="AverageRetentionTip" xml:space="preserve">
+    <value>FSRS 复习队列词汇加权可提取概率（排除已掌握）</value>
+  </data>
+  <data name="AverageStabilityLabel" xml:space="preserve">
+    <value>FSRS 平均记忆稳定性</value>
+  </data>
+  <data name="AverageStabilityTip" xml:space="preserve">
+    <value>当前活跃词汇平均记忆半衰周期（排除已掌握）</value>
+  </data>
+  <data name="BackToYearView" xml:space="preserve">
+    <value>返回全年平铺视图</value>
+  </data>
+  <data name="ButtonAnotherSession" xml:space="preserve">
+    <value>再来一组</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="ButtonClearAllData" xml:space="preserve">
+    <value>清空所有数据</value>
+  </data>
+  <data name="ButtonClearSlice" xml:space="preserve">
+    <value>清除时间切片，查看全部</value>
+  </data>
+  <data name="ButtonClose" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="ButtonConfirm" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="ButtonConfirmClear" xml:space="preserve">
+    <value>确认清空</value>
+  </data>
+  <data name="ButtonConfirmCreate" xml:space="preserve">
+    <value>确认创建</value>
+  </data>
+  <data name="ButtonConfirmDelete" xml:space="preserve">
+    <value>确认删除</value>
+  </data>
+  <data name="ButtonConfirmDissolve" xml:space="preserve">
+    <value>确认解散</value>
+  </data>
+  <data name="ButtonConfirmPack" xml:space="preserve">
+    <value>确认打包</value>
+  </data>
+  <data name="ButtonCopied" xml:space="preserve">
+    <value>已复制！</value>
+  </data>
+  <data name="ButtonCopyToClipboard" xml:space="preserve">
+    <value>复制到剪贴板</value>
+  </data>
+  <data name="ButtonCreateCustomList" xml:space="preserve">
+    <value>新建自选词单</value>
+  </data>
+  <data name="ButtonDelete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="ButtonDeleteCompletely" xml:space="preserve">
+    <value>彻底删除</value>
+  </data>
+  <data name="ButtonExport" xml:space="preserve">
+    <value>导出</value>
+  </data>
+  <data name="ButtonExportSuccess" xml:space="preserve">
+    <value>已保存！</value>
+  </data>
+  <data name="ButtonExportToFile" xml:space="preserve">
+    <value>导出为文件...</value>
+  </data>
+  <data name="ButtonFinish" xml:space="preserve">
+    <value>完成</value>
+  </data>
+  <data name="ButtonImport" xml:space="preserve">
+    <value>批量导入到词库</value>
+  </data>
+  <data name="ButtonImportAudio" xml:space="preserve">
+    <value>导入音频...</value>
+  </data>
+  <data name="ButtonImportToVault" xml:space="preserve">
+    <value>导入到词库</value>
+  </data>
+  <data name="ButtonManageList" xml:space="preserve">
+    <value>管理词单</value>
+  </data>
+  <data name="ButtonManagePresets" xml:space="preserve">
+    <value>管理清洗预设</value>
+  </data>
+  <data name="ButtonMerge" xml:space="preserve">
+    <value>合并</value>
+  </data>
+  <data name="ButtonMoveToList" xml:space="preserve">
+    <value>移动到词单...</value>
+  </data>
+  <data name="ButtonOpenDirectory" xml:space="preserve">
+    <value>打开目录</value>
+  </data>
+  <data name="ButtonPackSelection" xml:space="preserve">
+    <value>将所选勾选项打包为新词单</value>
+  </data>
+  <data name="ButtonPackSliceToList" xml:space="preserve">
+    <value>打包此切片为新词单</value>
+  </data>
+  <data name="ButtonRefresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="ButtonRefreshData" xml:space="preserve">
+    <value>刷新数据</value>
+  </data>
+  <data name="ButtonResetDefault" xml:space="preserve">
+    <value>恢复默认</value>
+  </data>
+  <data name="ButtonRestartSession" xml:space="preserve">
+    <value>重新检查 / 刷新待学队列</value>
+  </data>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="ButtonSaveNewPreset" xml:space="preserve">
+    <value>保存为新预设</value>
+  </data>
+  <data name="ButtonTestSound" xml:space="preserve">
+    <value>试听</value>
+  </data>
+  <data name="ButtonToday" xml:space="preserve">
+    <value>今日</value>
+  </data>
+  <data name="CalendarMonthView" xml:space="preserve">
+    <value>月 (单月份放大明细)</value>
+  </data>
+  <data name="CalendarNext" xml:space="preserve">
+    <value>下一周期</value>
+  </data>
+  <data name="CalendarPrev" xml:space="preserve">
+    <value>上一周期</value>
+  </data>
+  <data name="CalendarToday" xml:space="preserve">
+    <value>今天</value>
+  </data>
+  <data name="CalendarYearView" xml:space="preserve">
+    <value>年 (12个月全景平铺)</value>
+  </data>
+  <data name="CaptureGroupHeader" xml:space="preserve">
+    <value>捕获组索引</value>
+  </data>
+  <data name="CardToggleTip" xml:space="preserve">
+    <value>左键单击直接在「记得」与「遗忘」之间切换</value>
+  </data>
+  <data name="ClearDataDialogContent" xml:space="preserve">
+    <value>此操作将永久清空本地数据库中的所有已导入单词、全部自定义词单以及历史 FSRS 复习打卡日志。数据将无法恢复。\\n\\n是否确认继续清空？</value>
+  </data>
+  <data name="ClearDataDialogTitle" xml:space="preserve">
+    <value>警告：确认清除所有导入记录？</value>
+  </data>
+  <data name="ClearDataLabel" xml:space="preserve">
+    <value>清空所有词库与复习数据</value>
+  </data>
+  <data name="ClearDataSubLabel" xml:space="preserve">
+    <value>彻底清空本地所有单词、词单及复习日志，不可恢复</value>
+  </data>
+  <data name="ClickToggleOppositeTip" xml:space="preserve">
+    <value>点击切换为相反状态</value>
+  </data>
+  <data name="ClickToggleRatingTip" xml:space="preserve">
+    <value>左键单击直接在「记得」与「遗忘」之间切换</value>
+  </data>
+  <data name="CollapseAll" xml:space="preserve">
+    <value>折叠全部</value>
+  </data>
+  <data name="CollapseAllTip" xml:space="preserve">
+    <value>折叠所有项</value>
+  </data>
+  <data name="CollectionWordCountFormat" xml:space="preserve">
+    <value>当前集合包含 {0} 个单词</value>
+  </data>
+  <data name="CompletedCountLabel" xml:space="preserve">
+    <value>已记住：</value>
+  </data>
+  <data name="ConfigExportRulesTitle" xml:space="preserve">
+    <value>自定义格式化导出规则</value>
+  </data>
+  <data name="ConfigRulesTitle" xml:space="preserve">
+    <value>自定义清洗规则配置</value>
+  </data>
+  <data name="ConfirmForgetTip" xml:space="preserve">
+    <value>再次右键确认遗忘</value>
+  </data>
+  <data name="ConfirmRememberTip" xml:space="preserve">
+    <value>再次左键确认记得</value>
+  </data>
+  <data name="CopySoundLabel" xml:space="preserve">
+    <value>鼠标中键复制单词音效</value>
+  </data>
+  <data name="CurrentRetrievalProbability" xml:space="preserve">
+    <value>当前理论可提取概率 (Retrievability):</value>
+  </data>
+  <data name="CurrentViewTitleAll" xml:space="preserve">
+    <value>词库未归档词汇全景</value>
+  </data>
+  <data name="CurrentViewTitleListFormat" xml:space="preserve">
+    <value>词单：{0}</value>
+  </data>
+  <data name="CurrentViewTitleNone" xml:space="preserve">
+    <value>当前未选择任何词单或集合</value>
+  </data>
+  <data name="CurrentViewTitleTimeFormat" xml:space="preserve">
+    <value>时间集合：{0}</value>
+  </data>
+  <data name="CustomListsSubTitle" xml:space="preserve">
+    <value>右键可重命名、合并、解散或导出</value>
+  </data>
+  <data name="CustomListsTitle" xml:space="preserve">
+    <value>自定义专属词单</value>
+  </data>
+  <data name="DataMaintenance" xml:space="preserve">
+    <value>数据维护</value>
+  </data>
+  <data name="DateTreeNodeDayFormat" xml:space="preserve">
+    <value>{0:yyyy-MM-dd} ({1} 词)</value>
+  </data>
+  <data name="DateTreeNodeMonthFormat" xml:space="preserve">
+    <value>{0} 年 {1:D2} 月 ({2} 词)</value>
+  </data>
+  <data name="DateTreeNodeMonthSubFormat" xml:space="preserve">
+    <value>{0} 月 ({1} 词)</value>
+  </data>
+  <data name="DateTreeNodeQuarterFormat" xml:space="preserve">
+    <value>{0} 年第 {1} 季度 ({2} 词)</value>
+  </data>
+  <data name="DateTreeNodeQuarterSubFormat" xml:space="preserve">
+    <value>第 {0} 季度 ({1} 词)</value>
+  </data>
+  <data name="DateTreeNodeWeekFormat" xml:space="preserve">
+    <value>{0} 年第 {1} 周 ({2} 词)</value>
+  </data>
+  <data name="DateTreeNodeWeekSubFormat" xml:space="preserve">
+    <value>第 {0} 周 ({1} 词)</value>
+  </data>
+  <data name="DateTreeNodeYearFormat" xml:space="preserve">
+    <value>{0} 年 ({1} 词)</value>
+  </data>
+  <data name="DayFriday" xml:space="preserve">
+    <value>五</value>
+  </data>
+  <data name="DayMonday" xml:space="preserve">
+    <value>一</value>
+  </data>
+  <data name="DaySaturday" xml:space="preserve">
+    <value>六</value>
+  </data>
+  <data name="DaySunday" xml:space="preserve">
+    <value>日</value>
+  </data>
+  <data name="DayThursday" xml:space="preserve">
+    <value>四</value>
+  </data>
+  <data name="DayTuesday" xml:space="preserve">
+    <value>二</value>
+  </data>
+  <data name="DayWednesday" xml:space="preserve">
+    <value>三</value>
+  </data>
+  <data name="DaysUnit" xml:space="preserve">
+    <value>天</value>
+  </data>
+  <data name="DecayForecastTitle" xml:space="preserve">
+    <value>记忆状态预测（衰减曲线）</value>
+  </data>
+  <data name="DefaultDateListNamePrefix" xml:space="preserve">
+    <value>时间词单_</value>
+  </data>
+  <data name="DefaultListNamePrefix" xml:space="preserve">
+    <value>自选词单</value>
+  </data>
+  <data name="DefaultSliceListNamePrefix" xml:space="preserve">
+    <value>切片词单_</value>
+  </data>
+  <data name="DetailImportCountFormat" xml:space="preserve">
+    <value>新收录 {0} 词</value>
+  </data>
+  <data name="DetailNoImportWords" xml:space="preserve">
+    <value>当日无新词收录</value>
+  </data>
+  <data name="DetailNoReviewLogs" xml:space="preserve">
+    <value>当日无打卡复习记录</value>
+  </data>
+  <data name="DetailReviewCountFormat" xml:space="preserve">
+    <value>复习打卡 {0} 词</value>
+  </data>
+  <data name="DetailTabImport" xml:space="preserve">
+    <value>新收录词</value>
+  </data>
+  <data name="DetailTabReview" xml:space="preserve">
+    <value>复习打卡</value>
+  </data>
+  <data name="DiagnosticAndLogs" xml:space="preserve">
+    <value>诊断与日志</value>
+  </data>
+  <data name="DialogMsgDeleteListCompletely" xml:space="preserve">
+    <value>确定要彻底删除词单「{0}」及其包含的所有单词吗？\\n此操作不可撤销，关联的单词和复习记录将彻底从数据库中移除。</value>
+  </data>
+  <data name="DialogMsgDeletePresetFormat" xml:space="preserve">
+    <value>确定要删除自定义预设「{0}」吗？</value>
+  </data>
+  <data name="DialogMsgDeleteWordsFormat" xml:space="preserve">
+    <value>确定要永久删除所选的 {0} 个单词吗？\\n此操作将同时删除相关复习记录且不可撤销。</value>
+  </data>
+  <data name="DialogMsgDissolveList" xml:space="preserve">
+    <value>确定要解散词单「{0}」吗？\\n解散后单词本身不会丢失，将重新恢复为未归档状态，并依原来导入的时间进行排序。</value>
+  </data>
+  <data name="DialogMsgNoOtherListsToMerge" xml:space="preserve">
+    <value>当前没有其他词单可供合并。</value>
+  </data>
+  <data name="DialogMsgPackSelectionFormat" xml:space="preserve">
+    <value>即将把当前选中的 {0} 个单词打包为新词单：</value>
+  </data>
+  <data name="DialogMsgPackSliceFormat" xml:space="preserve">
+    <value>即将把时间切片「{0}」下的所有词汇打包为新词单：</value>
+  </data>
+  <data name="DialogMsgPleaseSelectTreeWordsToPack" xml:space="preserve">
+    <value>请先在时间层级树中勾选想要打包的日期或节点！</value>
+  </data>
+  <data name="DialogMsgPleaseSelectWordsToPack" xml:space="preserve">
+    <value>请先在右侧列表中勾选需要打包为新词单的单词！</value>
+  </data>
+  <data name="DialogMsgSelectTargetListFormat" xml:space="preserve">
+    <value>请选择将「{0}」合并入哪个目标词单：</value>
+  </data>
+  <data name="DialogMsgWordListCreateFailedFormat" xml:space="preserve">
+    <value>创建词单失败：{0}</value>
+  </data>
+  <data name="DialogMsgWordListCreatedSuccessFormat" xml:space="preserve">
+    <value>已成功创建词单「{0}」，共包含 {1} 个单词。</value>
+  </data>
+  <data name="DialogTitleCreateCustomList" xml:space="preserve">
+    <value>创建自选专属词单</value>
+  </data>
+  <data name="DialogTitleCreateTip" xml:space="preserve">
+    <value>创建提示</value>
+  </data>
+  <data name="DialogTitleDayDetail" xml:space="preserve">
+    <value>当日活动详情</value>
+  </data>
+  <data name="DialogTitleDeleteListCompletely" xml:space="preserve">
+    <value>彻底删除词单</value>
+  </data>
+  <data name="DialogTitleDeletePreset" xml:space="preserve">
+    <value>删除清洗预设</value>
+  </data>
+  <data name="DialogTitleDeleteWords" xml:space="preserve">
+    <value>删除所选单词</value>
+  </data>
+  <data name="DialogTitleDissolveList" xml:space="preserve">
+    <value>确认解散词单</value>
+  </data>
+  <data name="DialogTitleMergeList" xml:space="preserve">
+    <value>合并词单</value>
+  </data>
+  <data name="DialogTitleMergeTip" xml:space="preserve">
+    <value>合并提示</value>
+  </data>
+  <data name="DialogTitlePackSlice" xml:space="preserve">
+    <value>打包当前切片为新词单</value>
+  </data>
+  <data name="DialogTitleRenameList" xml:space="preserve">
+    <value>重命名词单</value>
+  </data>
+  <data name="DialogTitleStateWordsCountFormat" xml:space="preserve">
+    <value>{0} · 包含 {1} 词</value>
+  </data>
+  <data name="DialogTitleWordDetail" xml:space="preserve">
+    <value>单词记忆与复习详情</value>
+  </data>
+  <data name="DifficultyEasyFormat" xml:space="preserve">
+    <value>难度：{0:F1} (较易)</value>
+  </data>
+  <data name="DifficultyHardFormat" xml:space="preserve">
+    <value>难度：{0:F1} (较难)</value>
+  </data>
+  <data name="DifficultyInitial" xml:space="preserve">
+    <value>难度：初始新词</value>
+  </data>
+  <data name="DifficultyMediumFormat" xml:space="preserve">
+    <value>难度：{0:F1} (适中)</value>
+  </data>
+  <data name="DimensionDay" xml:space="preserve">
+    <value>按日分类</value>
+  </data>
+  <data name="DimensionMonth" xml:space="preserve">
+    <value>按月分类</value>
+  </data>
+  <data name="DimensionQuarter" xml:space="preserve">
+    <value>按季分类</value>
+  </data>
+  <data name="DimensionWeek" xml:space="preserve">
+    <value>按周分类</value>
+  </data>
+  <data name="DimensionYear" xml:space="preserve">
+    <value>按年分类</value>
+  </data>
+  <data name="DuplicateSamplesFormat" xml:space="preserve">
+    <value>\\n（跳过样本：{0} 等）</value>
+  </data>
+  <data name="EngineLabel" xml:space="preserve">
+    <value>算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)</value>
+  </data>
+  <data name="ExpandAll" xml:space="preserve">
+    <value>展开全部</value>
+  </data>
+  <data name="ExpandAllTip" xml:space="preserve">
+    <value>展开所有项</value>
+  </data>
+  <data name="ExportCurrentSetWeb" xml:space="preserve">
+    <value>在浏览器中查看此集合</value>
+  </data>
+  <data name="ExportTipRegex" xml:space="preserve">
+    <value>提示：支持标准 Regex 捕获组（$1, $2 等）与 \t, \n 等换行转义</value>
+  </data>
+  <data name="ExportWordsCountSummaryFormat" xml:space="preserve">
+    <value>共计 {0} 个词汇</value>
+  </data>
+  <data name="ExtractedCountLabel" xml:space="preserve">
+    <value>已提取：</value>
+  </data>
+  <data name="FilterAll" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="FilterAllToday" xml:space="preserve">
+    <value>全部打卡</value>
+  </data>
+  <data name="FilterLearningFormat" xml:space="preserve">
+    <value>学习中 ({0})</value>
+  </data>
+  <data name="FilterMasteredFormat" xml:space="preserve">
+    <value>已掌握 ({0})</value>
+  </data>
+  <data name="FilterNewFormat" xml:space="preserve">
+    <value>未学习 ({0})</value>
+  </data>
+  <data name="FilterReviewFormat" xml:space="preserve">
+    <value>复习中 ({0})</value>
+  </data>
+  <data name="FlatLevelMode" xml:space="preserve">
+    <value>仅显示当前层级（单层扁平模式）</value>
+  </data>
+  <data name="ForgetCountLabel" xml:space="preserve">
+    <value>遗忘:</value>
+  </data>
+  <data name="ForgetLabel" xml:space="preserve">
+    <value>遗忘:</value>
+  </data>
+  <data name="ForgetText" xml:space="preserve">
+    <value>遗忘</value>
+  </data>
+  <data name="FormatExportDialogTitle" xml:space="preserve">
+    <value>格式化导出 (Regex 替换)</value>
+  </data>
+  <data name="FriLong" xml:space="preserve">
+    <value>周五</value>
+  </data>
+  <data name="FriShort" xml:space="preserve">
+    <value>五</value>
+  </data>
+  <data name="FsrsActiveCountFormat" xml:space="preserve">
+    <value>FSRS 活跃总数: {0} 词</value>
+  </data>
+  <data name="FsrsActiveTotalFormat" xml:space="preserve">
+    <value>FSRS 活跃总数: {0} 词</value>
+  </data>
+  <data name="FsrsAvgRetentionLabel" xml:space="preserve">
+    <value>FSRS 平均记忆留存率</value>
+  </data>
+  <data name="FsrsAvgStabilityLabel" xml:space="preserve">
+    <value>FSRS 平均记忆稳定性</value>
+  </data>
+  <data name="FsrsDistributionTitle" xml:space="preserve">
+    <value>FSRS 动态记忆状态层级分布</value>
+  </data>
+  <data name="FsrsLearningSubTip" xml:space="preserve">
+    <value>短期高频建立记忆印痕</value>
+  </data>
+  <data name="FsrsLearningTitle" xml:space="preserve">
+    <value>初学中 (Learning)</value>
+  </data>
+  <data name="FsrsModelLabel" xml:space="preserve">
+    <value>调度模型：FSRS (Free Spaced Repetition Scheduler)</value>
+  </data>
+  <data name="FsrsNewSubTip" xml:space="preserve">
+    <value>待激活新词 · 点击查看</value>
+  </data>
+  <data name="FsrsNewTitle" xml:space="preserve">
+    <value>未学习 (New)</value>
+  </data>
+  <data name="FsrsRelearningSubTip" xml:space="preserve">
+    <value>发生遗忘，立即触发记忆修补</value>
+  </data>
+  <data name="FsrsRelearningTitle" xml:space="preserve">
+    <value>重新学习 (Relearning)</value>
+  </data>
+  <data name="FsrsRetentionDesc" xml:space="preserve">
+    <value>当前活跃复习池整体记忆概率</value>
+  </data>
+  <data name="FsrsReviewSubTip" xml:space="preserve">
+    <value>进入指数级间隔递增调度</value>
+  </data>
+  <data name="FsrsReviewTitle" xml:space="preserve">
+    <value>复习中 (Review)</value>
+  </data>
+  <data name="FsrsStabilityDesc" xml:space="preserve">
+    <value>遗忘至 90% 所需的平均时间间隔</value>
+  </data>
+  <data name="FullPreviewTitle" xml:space="preserve">
+    <value>所选单词导出预览</value>
+  </data>
+  <data name="GridViewText" xml:space="preserve">
+    <value>网格显示</value>
+  </data>
+  <data name="GridViewTip" xml:space="preserve">
+    <value>网格视图（红绿卡片，点击直接切换状态）</value>
+  </data>
+  <data name="GridViewToolTip" xml:space="preserve">
+    <value>网格视图（红绿卡片，点击直接切换状态）</value>
+  </data>
+  <data name="ImportBadgeFormat" xml:space="preserve">
+    <value>收录 {0}</value>
+  </data>
+  <data name="ImportDoneDialogTitle" xml:space="preserve">
+    <value>导入完成</value>
+  </data>
+  <data name="ImportPreviewTip" xml:space="preserve">
+    <value>候选词清洗预览（悬浮高亮原文，点击右上角删除单项）</value>
+  </data>
+  <data name="ImportRawTextTip" xml:space="preserve">
+    <value>原始文本（悬浮右侧候选词可双向溯源高亮定位）</value>
+  </data>
+  <data name="ImportSummaryFormat" xml:space="preserve">
+    <value>导入统计完成：\\n• 成功新增入库：{0} 词\\n• 查重跳过已有词：{1} 词</value>
+  </data>
+  <data name="ImportTitle" xml:space="preserve">
+    <value>批量导入与正则清洗</value>
+  </data>
+  <data name="Import_OriginalTextPlaceholder" xml:space="preserve">
+    <value>输入或粘贴文本...</value>
+  </data>
+  <data name="IndependentMasteredPoolDesc" xml:space="preserve">
+    <value>已完全脱离日常遗忘调度流</value>
+  </data>
+  <data name="IndependentMasteredPoolLabel" xml:space="preserve">
+    <value>独立已掌握归档池</value>
+  </data>
+  <data name="IndividualCurveDesc" xml:space="preserve">
+    <value>输入任一单词，实时推演记忆留存衰减轨迹与复习时机</value>
+  </data>
+  <data name="IndividualCurveTitle" xml:space="preserve">
+    <value>个体单词遗忘曲线与记忆健康度</value>
+  </data>
+  <data name="InstantVerifyTitle" xml:space="preserve">
+    <value>单行即时提取验证</value>
+  </data>
+  <data name="IntervalDays" xml:space="preserve">
+    <value>{0} 天后</value>
+  </data>
+  <data name="IntervalDue" xml:space="preserve">
+    <value>已到期 (随时可复习)</value>
+  </data>
+  <data name="IntervalHours" xml:space="preserve">
+    <value>{0} 小时后</value>
+  </data>
+  <data name="IntervalMastered" xml:space="preserve">
+    <value>已掌握 (免复习)</value>
+  </data>
+  <data name="IntervalMinutes" xml:space="preserve">
+    <value>{0} 分钟后</value>
+  </data>
+  <data name="IntervalMonths" xml:space="preserve">
+    <value>{0} 个月后</value>
+  </data>
+  <data name="IntervalUnscheduled" xml:space="preserve">
+    <value>未安排 (待学习)</value>
+  </data>
+  <data name="IntervalYears" xml:space="preserve">
+    <value>{0:F1} 年后</value>
+  </data>
+  <data name="LabelExtractedCount" xml:space="preserve">
+    <value>提取总数:</value>
+  </data>
+  <data name="LabelForgotten" xml:space="preserve">
+    <value>遗忘</value>
+  </data>
+  <data name="LabelPendingStudy" xml:space="preserve">
+    <value>待学</value>
+  </data>
+  <data name="LabelPreset" xml:space="preserve">
+    <value>文本清洗预设:</value>
+  </data>
+  <data name="LabelRemembered" xml:space="preserve">
+    <value>记得</value>
+  </data>
+  <data name="LabelStateFilter" xml:space="preserve">
+    <value>状态筛选:</value>
+  </data>
+  <data name="LabelStudyScope" xml:space="preserve">
+    <value>学习范围:</value>
+  </data>
+  <data name="LabelTimeSpan" xml:space="preserve">
+    <value>时间跨度:</value>
+  </data>
+  <data name="LabelTodayStudy" xml:space="preserve">
+    <value>今日学习:</value>
+  </data>
+  <data name="LabelTotalFound" xml:space="preserve">
+    <value>共计查得:</value>
+  </data>
+  <data name="LangEnUS" xml:space="preserve">
+    <value>English (en-US)</value>
+  </data>
+  <data name="LangJaJP" xml:space="preserve">
+    <value>日本語 (ja-JP)</value>
+  </data>
+  <data name="LangZhCN" xml:space="preserve">
+    <value>简体中文 (zh-CN)</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="LanguageSettings" xml:space="preserve">
+    <value>显示语言</value>
+  </data>
+  <data name="LapsedCountLabel" xml:space="preserve">
+    <value>遗忘重学：</value>
+  </data>
+  <data name="ListViewText" xml:space="preserve">
+    <value>列表显示</value>
+  </data>
+  <data name="ListViewTip" xml:space="preserve">
+    <value>列表视图（条目清晰，右侧提供状态切换按钮）</value>
+  </data>
+  <data name="ListViewToolTip" xml:space="preserve">
+    <value>列表视图（条目清晰，右侧提供状态切换按钮）</value>
+  </data>
+  <data name="LogPathLabel" xml:space="preserve">
+    <value>运行日志路径</value>
+  </data>
+  <data name="ManagePresets" xml:space="preserve">
+    <value>管理预设...</value>
+  </data>
+  <data name="MasteredVaultLabel" xml:space="preserve">
+    <value>独立已掌握归档池</value>
+  </data>
+  <data name="MasteredVaultTip" xml:space="preserve">
+    <value>已彻底稳固掌握，独立归档不占用复习调度</value>
+  </data>
+  <data name="MatchedCountLabel" xml:space="preserve">
+    <value>共命中:</value>
+  </data>
+  <data name="MemoryAnalyticsTitle" xml:space="preserve">
+    <value>记忆洞察</value>
+  </data>
+  <data name="MemoryAnalytics_SearchPlaceholder" xml:space="preserve">
+    <value>搜索历史单词...</value>
+  </data>
+  <data name="MemoryAnalytics_TooltipBrowseStateWords" xml:space="preserve">
+    <value>在全部词库中查看该状态下的全部单词</value>
+  </data>
+  <data name="MemoryHalfLifeLabel" xml:space="preserve">
+    <value>记忆半衰期 (Stability):</value>
+  </data>
+  <data name="MenuCopyLines" xml:space="preserve">
+    <value>一键复制 (换行)</value>
+  </data>
+  <data name="MenuCreateCustomListDots" xml:space="preserve">
+    <value>新建自选词单...</value>
+  </data>
+  <data name="MenuCreateListFromSelected" xml:space="preserve">
+    <value>将已选单词新建为词单...</value>
+  </data>
+  <data name="MenuDeleteListCompletely" xml:space="preserve">
+    <value>彻底删除词单及全部单词</value>
+  </data>
+  <data name="MenuDeleteSelected" xml:space="preserve">
+    <value>删除所选单词</value>
+  </data>
+  <data name="MenuDeleteWords" xml:space="preserve">
+    <value>删除所选单词</value>
+  </data>
+  <data name="MenuDisbandList" xml:space="preserve">
+    <value>解散词单（词汇恢复未归档）</value>
+  </data>
+  <data name="MenuDissolveList" xml:space="preserve">
+    <value>解散词单（词汇恢复未归档）</value>
+  </data>
+  <data name="MenuExportList" xml:space="preserve">
+    <value>在浏览器中查看</value>
+  </data>
+  <data name="MenuFormatExport" xml:space="preserve">
+    <value>格式化导出...</value>
+  </data>
+  <data name="MenuMarkMastered" xml:space="preserve">
+    <value>标记为：已掌握</value>
+  </data>
+  <data name="MenuMarkNew" xml:space="preserve">
+    <value>标记为：未学习</value>
+  </data>
+  <data name="MenuMergeList" xml:space="preserve">
+    <value>合并至其他词单...</value>
+  </data>
+  <data name="MenuReimportToday" xml:space="preserve">
+    <value>重新在今天导入</value>
+  </data>
+  <data name="MenuRenameList" xml:space="preserve">
+    <value>重命名词单</value>
+  </data>
+  <data name="MenuSetStateMastered" xml:space="preserve">
+    <value>标记为：已掌握</value>
+  </data>
+  <data name="MenuSetStateNew" xml:space="preserve">
+    <value>标记为：未学习</value>
+  </data>
+  <data name="MenuViewInBrowser" xml:space="preserve">
+    <value>在浏览器中查看</value>
+  </data>
+  <data name="MetricDifficultyLabel" xml:space="preserve">
+    <value>FSRS 记忆难度</value>
+  </data>
+  <data name="MetricNotEvaluated" xml:space="preserve">
+    <value>尚未评测</value>
+  </data>
+  <data name="MetricReviewStatsLabel" xml:space="preserve">
+    <value>复习统计</value>
+  </data>
+  <data name="MetricStabilityLabel" xml:space="preserve">
+    <value>FSRS 稳定性 (半衰期)</value>
+  </data>
+  <data name="MonLong" xml:space="preserve">
+    <value>周一</value>
+  </data>
+  <data name="MonShort" xml:space="preserve">
+    <value>一</value>
+  </data>
+  <data name="MonthUnit" xml:space="preserve">
+    <value>月</value>
+  </data>
+  <data name="MonthViewOption" xml:space="preserve">
+    <value>月 (单月份放大明细)</value>
+  </data>
+  <data name="MsgCopiedLinesSuccessFormat" xml:space="preserve">
+    <value>已复制 {0} 个单词到剪贴板</value>
+  </data>
+  <data name="MsgStudyFinishedTip" xml:space="preserve">
+    <value>目前没有需要学习或复习的单词。</value>
+  </data>
+  <data name="MsgStudyFinishedTitle" xml:space="preserve">
+    <value>今日复习已全部完成！</value>
+  </data>
+  <data name="MsgWordListDeletedCompletely" xml:space="preserve">
+    <value>已彻底删除词单「{0}」及其全部单词。</value>
+  </data>
+  <data name="MsgWordListDisbanded" xml:space="preserve">
+    <value>已解散词单「{0}」，单词已恢复为未归档状态。</value>
+  </data>
+  <data name="NavActivity" xml:space="preserve">
+    <value>日历</value>
+  </data>
+  <data name="NavAllWords" xml:space="preserve">
+    <value>词库</value>
+  </data>
+  <data name="NavAnalytics" xml:space="preserve">
+    <value>记忆分析</value>
+  </data>
+  <data name="NavCalendar" xml:space="preserve">
+    <value>日历</value>
+  </data>
+  <data name="NavImport" xml:space="preserve">
+    <value>导入</value>
+  </data>
+  <data name="NavRecentStudy" xml:space="preserve">
+    <value>最近学习</value>
+  </data>
+  <data name="NavSettings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="NavStudy" xml:space="preserve">
+    <value>学习</value>
+  </data>
+  <data name="NavTodayStudy" xml:space="preserve">
+    <value>今日</value>
+  </data>
+  <data name="NavWordLists" xml:space="preserve">
+    <value>归档</value>
+  </data>
+  <data name="NextReviewLabel" xml:space="preserve">
+    <value>下次复习</value>
+  </data>
+  <data name="NoActivityDayTip" xml:space="preserve">
+    <value>当日暂无收录或打卡记录</value>
+  </data>
+  <data name="NoCandidatesDialogContent" xml:space="preserve">
+    <value>当前右侧预览中没有清洗出的有效候选词，请先输入原始文本或调整清洗预设。</value>
+  </data>
+  <data name="NoCandidatesDialogTitle" xml:space="preserve">
+    <value>无候选词</value>
+  </data>
+  <data name="NoDueWordsSubTitle" xml:space="preserve">
+    <value>所有单词均已处于最佳记忆保护期，或当前选定词单暂无单词</value>
+  </data>
+  <data name="NoDueWordsTitle" xml:space="preserve">
+    <value>当前范围内无待复习单词</value>
+  </data>
+  <data name="NoMatchingWords" xml:space="preserve">
+    <value>无匹配单词</value>
+  </data>
+  <data name="NoReviewLogsYet" xml:space="preserve">
+    <value>该单词尚未建立复习打卡日志</value>
+  </data>
+  <data name="NotRecalled" xml:space="preserve">
+    <value>未召回</value>
+  </data>
+  <data name="OptimalReviewRecommendation" xml:space="preserve">
+    <value>建议下次回顾时间:</value>
+  </data>
+  <data name="OriginalTextPlaceholder" xml:space="preserve">
+    <value>在此粘贴原始日语文本、电子书笔记或段落...</value>
+  </data>
+  <data name="PlaceholderNewListName" xml:space="preserve">
+    <value>请输入新词单名称...</value>
+  </data>
+  <data name="PlaceholderRenameList" xml:space="preserve">
+    <value>输入新的词单名称...</value>
+  </data>
+  <data name="PresetBuiltInBadge" xml:space="preserve">
+    <value>内置</value>
+  </data>
+  <data name="PresetCaptureGroupHeader" xml:space="preserve">
+    <value>捕获组索引</value>
+  </data>
+  <data name="PresetConfigTitle" xml:space="preserve">
+    <value>自定义清洗规则配置</value>
+  </data>
+  <data name="PresetDeleteTip" xml:space="preserve">
+    <value>删除此自定义预设</value>
+  </data>
+  <data name="PresetDialogTitle" xml:space="preserve">
+    <value>正则清洗预设管理</value>
+  </data>
+  <data name="PresetNameHeader" xml:space="preserve">
+    <value>预设名称</value>
+  </data>
+  <data name="PresetNamePlaceholder" xml:space="preserve">
+    <value>输入预设名称...</value>
+  </data>
+  <data name="PresetPatternHeader" xml:space="preserve">
+    <value>正则表达式</value>
+  </data>
+  <data name="PresetPatternPlaceholder" xml:space="preserve">
+    <value>正则表达式（如：([ぁ-ん]+)）...</value>
+  </data>
+  <data name="PresetSaveButton" xml:space="preserve">
+    <value>保存为新预设</value>
+  </data>
+  <data name="PresetSavedRulesTip" xml:space="preserve">
+    <value>点击选择可带入右侧表单进行测试或编辑</value>
+  </data>
+  <data name="PresetSavedRulesTitle" xml:space="preserve">
+    <value>已保存规则库</value>
+  </data>
+  <data name="PresetSelectorLabel" xml:space="preserve">
+    <value>清洗预设：</value>
+  </data>
+  <data name="PresetTestPlaceholder" xml:space="preserve">
+    <value>输入单行测试文本...</value>
+  </data>
+  <data name="PresetTestResultPrefix" xml:space="preserve">
+    <value>提取结果：</value>
+  </data>
+  <data name="PresetTestTitle" xml:space="preserve">
+    <value>单行即时提取验证</value>
+  </data>
+  <data name="PromptCandidates" xml:space="preserve">
+    <value>清洗并提取出的候选词（鼠标悬浮高亮在原文中的位置，点击可移除单个）：</value>
+  </data>
+  <data name="PromptRawText" xml:space="preserve">
+    <value>在此粘贴或输入需要提取的日语原文（支持批量长文输入）：</value>
+  </data>
+  <data name="RatingForgetOption" xml:space="preserve">
+    <value>遗忘 (Again)</value>
+  </data>
+  <data name="RatingForgotten" xml:space="preserve">
+    <value>遗忘</value>
+  </data>
+  <data name="RatingRememberOption" xml:space="preserve">
+    <value>记得 (Good)</value>
+  </data>
+  <data name="RatingRemembered" xml:space="preserve">
+    <value>记得</value>
+  </data>
+  <data name="RecentStudyHeader" xml:space="preserve">
+    <value>最近学习</value>
+  </data>
+  <data name="RecentStudyTitle" xml:space="preserve">
+    <value>最近学习</value>
+  </data>
+  <data name="RecentStudy_SearchPlaceholder" xml:space="preserve">
+    <value>在查得词汇中检索...</value>
+  </data>
+  <data name="RecentStudy_SelectAll" xml:space="preserve">
+    <value>全选查得词汇</value>
+  </data>
+  <data name="RegexPatternHeader" xml:space="preserve">
+    <value>正则表达式 (Pattern)</value>
+  </data>
+  <data name="RegexPatternPlaceholder" xml:space="preserve">
+    <value>如：^(.*?)\t?(.*?)\t?(.*)$</value>
+  </data>
+  <data name="RegexReplacementHeader" xml:space="preserve">
+    <value>替换表达式 (Replacement)</value>
+  </data>
+  <data name="RegexReplacementPlaceholder" xml:space="preserve">
+    <value>如：$1【$2】 $3</value>
+  </data>
+  <data name="RemainingCountLabel" xml:space="preserve">
+    <value>剩余待认：</value>
+  </data>
+  <data name="RememberCountLabel" xml:space="preserve">
+    <value>记得:</value>
+  </data>
+  <data name="RememberLabel" xml:space="preserve">
+    <value>记得:</value>
+  </data>
+  <data name="RememberText" xml:space="preserve">
+    <value>记得</value>
+  </data>
+  <data name="RemoveCandidateTip" xml:space="preserve">
+    <value>移除此候选词</value>
+  </data>
+  <data name="RemoveFromList" xml:space="preserve">
+    <value>移出词单</value>
+  </data>
+  <data name="RemoveFromListTip" xml:space="preserve">
+    <value>将所选单词移出词单，恢复未归档</value>
+  </data>
+  <data name="RepsCountSuffixFormat" xml:space="preserve">
+    <value>已复习 {0} 次</value>
+  </data>
+  <data name="RetentionCritical" xml:space="preserve">
+    <value>临界遗忘，建议复习</value>
+  </data>
+  <data name="RetentionCurveTitle" xml:space="preserve">
+    <value>记忆程度与学习进度曲线 (FSRS)</value>
+  </data>
+  <data name="RetentionGood" xml:space="preserve">
+    <value>状态良好</value>
+  </data>
+  <data name="RetentionPending" xml:space="preserve">
+    <value>待学习</value>
+  </data>
+  <data name="RetentionRateFormat" xml:space="preserve">
+    <value>留存率 {0}%</value>
+  </data>
+  <data name="RetentionSolid" xml:space="preserve">
+    <value>记忆牢固</value>
+  </data>
+  <data name="RetentionUrgent" xml:space="preserve">
+    <value>急需复习强化</value>
+  </data>
+  <data name="RevertRecordTip" xml:space="preserve">
+    <value>撤销此单词的今日记录</value>
+  </data>
+  <data name="RevertTodayRecordTip" xml:space="preserve">
+    <value>撤销此单词的今日记录</value>
+  </data>
+  <data name="ReviewBadgeFormat" xml:space="preserve">
+    <value>复习 {0}</value>
+  </data>
+  <data name="ReviewCountFormat" xml:space="preserve">
+    <value>复习: {0} 次</value>
+  </data>
+  <data name="ReviewStatsFormat" xml:space="preserve">
+    <value>已复习 {0} 次 / 遗忘 {1} 次</value>
+  </data>
+  <data name="ReviewTimelineFormat" xml:space="preserve">
+    <value>学习与复习历史记录时间轴 ({0} 次)</value>
+  </data>
+  <data name="RightClickActionHint" xml:space="preserve">
+    <value>多选单词后右键已选词弹出操作菜单</value>
+  </data>
+  <data name="RightClickMenuTip" xml:space="preserve">
+    <value>多选单词后右键已选词弹出操作菜单</value>
+  </data>
+  <data name="SatLong" xml:space="preserve">
+    <value>周六</value>
+  </data>
+  <data name="SatShort" xml:space="preserve">
+    <value>六</value>
+  </data>
+  <data name="SavedExportRulesTitle" xml:space="preserve">
+    <value>已保存导出规则库</value>
+  </data>
+  <data name="SavedRulesTip" xml:space="preserve">
+    <value>点击选择可带入右侧表单进行测试或编辑</value>
+  </data>
+  <data name="SavedRulesTitle" xml:space="preserve">
+    <value>已保存规则库</value>
+  </data>
+  <data name="SearchInCollectionPlaceholder" xml:space="preserve">
+    <value>在当前集合中查找单词...</value>
+  </data>
+  <data name="SearchInWordCountFormat" xml:space="preserve">
+    <value>在 {0} 个单词中搜索...</value>
+  </data>
+  <data name="SearchPlaceholder" xml:space="preserve">
+    <value>搜索单词...</value>
+  </data>
+  <data name="SearchRecentPlaceholder" xml:space="preserve">
+    <value>搜索最近学习词汇...</value>
+  </data>
+  <data name="SearchRecentWordsPlaceholder" xml:space="preserve">
+    <value>搜索最近学习词汇...</value>
+  </data>
+  <data name="SearchRetentionPlaceholder" xml:space="preserve">
+    <value>输入单词检索记忆留存率...</value>
+  </data>
+  <data name="SearchWordCurvePlaceholder" xml:space="preserve">
+    <value>搜索单词分析记忆曲线...</value>
+  </data>
+  <data name="SearchWordsPlaceholder" xml:space="preserve">
+    <value>输入单词查找...</value>
+  </data>
+  <data name="SectionLogs" xml:space="preserve">
+    <value>运行日志</value>
+  </data>
+  <data name="SectionSound" xml:space="preserve">
+    <value>音效与提示</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>全选当前列表</value>
+  </data>
+  <data name="SelectAllResults" xml:space="preserve">
+    <value>全选当前结果</value>
+  </data>
+  <data name="SelectedCountFormat" xml:space="preserve">
+    <value>已选 {0} 项</value>
+  </data>
+  <data name="SettingsNavTitle" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="SingleLineTestTitle" xml:space="preserve">
+    <value>单行即时效果测试</value>
+  </data>
+  <data name="SliceLearning" xml:space="preserve">
+    <value>学习</value>
+  </data>
+  <data name="SliceMastered" xml:space="preserve">
+    <value>掌握</value>
+  </data>
+  <data name="SliceNew" xml:space="preserve">
+    <value>未学</value>
+  </data>
+  <data name="SliceReviewing" xml:space="preserve">
+    <value>复习</value>
+  </data>
+  <data name="SoundCustomDescFormat" xml:space="preserve">
+    <value>当前自定义音频：{0}</value>
+  </data>
+  <data name="SoundDefaultCopyDesc" xml:space="preserve">
+    <value>当前音效：Windows 默认提示音效</value>
+  </data>
+  <data name="SoundDefaultStudyDesc" xml:space="preserve">
+    <value>当前音效：Windows 默认通知音效</value>
+  </data>
+  <data name="SoundToggleSub" xml:space="preserve">
+    <value>开启打卡标记与中键复制时的音频反馈提示</value>
+  </data>
+  <data name="StabilityDaysFormat" xml:space="preserve">
+    <value>{0:F1} 天</value>
+  </data>
+  <data name="StabilityHoursFormat" xml:space="preserve">
+    <value>预计维持：约 {0:F0} 小时</value>
+  </data>
+  <data name="StabilityUnreviewed" xml:space="preserve">
+    <value>预计维持：尚未复习</value>
+  </data>
+  <data name="StateAll" xml:space="preserve">
+    <value>全部状态</value>
+  </data>
+  <data name="StateDistributionTitle" xml:space="preserve">
+    <value>FSRS 算法调度状态分布</value>
+  </data>
+  <data name="StateFilterAll" xml:space="preserve">
+    <value>全部状态</value>
+  </data>
+  <data name="StateFilterLabel" xml:space="preserve">
+    <value>状态层级：</value>
+  </data>
+  <data name="StateFilterLearning" xml:space="preserve">
+    <value>学习中 (Learning)</value>
+  </data>
+  <data name="StateFilterMastered" xml:space="preserve">
+    <value>已掌握 (Mastered)</value>
+  </data>
+  <data name="StateFilterNew" xml:space="preserve">
+    <value>未学习 (New)</value>
+  </data>
+  <data name="StateFilterReview" xml:space="preserve">
+    <value>复习中 (Review)</value>
+  </data>
+  <data name="StateLearning" xml:space="preserve">
+    <value>初学中</value>
+  </data>
+  <data name="StateLearningDesc" xml:space="preserve">
+    <value>打卡次数较少，正在建立初始记忆痕迹</value>
+  </data>
+  <data name="StateLearningHeader" xml:space="preserve">
+    <value>初学中 (Learning)</value>
+  </data>
+  <data name="StateMastered" xml:space="preserve">
+    <value>已掌握</value>
+  </data>
+  <data name="StateNew" xml:space="preserve">
+    <value>未学习</value>
+  </data>
+  <data name="StateNewDesc" xml:space="preserve">
+    <value>尚未开始打卡复习的新导入词</value>
+  </data>
+  <data name="StateNewHeader" xml:space="preserve">
+    <value>未学习 (New)</value>
+  </data>
+  <data name="StateRelearning" xml:space="preserve">
+    <value>重新学习</value>
+  </data>
+  <data name="StateRelearningDesc" xml:space="preserve">
+    <value>发生遗忘，稳定性重置进入巩固阶段</value>
+  </data>
+  <data name="StateRelearningHeader" xml:space="preserve">
+    <value>重新学习 (Relearning)</value>
+  </data>
+  <data name="StateReview" xml:space="preserve">
+    <value>复习中</value>
+  </data>
+  <data name="StateReviewDesc" xml:space="preserve">
+    <value>记忆稳定性上升，处于中长期间隔复习</value>
+  </data>
+  <data name="StateReviewHeader" xml:space="preserve">
+    <value>复习中 (Review)</value>
+  </data>
+  <data name="StateScheduling" xml:space="preserve">
+    <value>调度状态</value>
+  </data>
+  <data name="StateUnknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="StatusFilterLabel" xml:space="preserve">
+    <value>状态层级：</value>
+  </data>
+  <data name="StatusTierAll" xml:space="preserve">
+    <value>全部打卡</value>
+  </data>
+  <data name="StatusTierForget" xml:space="preserve">
+    <value>遗忘 (Again)</value>
+  </data>
+  <data name="StatusTierLabel" xml:space="preserve">
+    <value>状态层级：</value>
+  </data>
+  <data name="StatusTierRemember" xml:space="preserve">
+    <value>记得 (Good)</value>
+  </data>
+  <data name="StudyMarkSoundLabel" xml:space="preserve">
+    <value>【学习】单词打卡标记音效</value>
+  </data>
+  <data name="StudyScopeLabel" xml:space="preserve">
+    <value>复习范围：</value>
+  </data>
+  <data name="StudyStartTitle" xml:space="preserve">
+    <value>开始学习</value>
+  </data>
+  <data name="StudyStart_AllDueWordsPlaceholder" xml:space="preserve">
+    <value>全部到期词汇</value>
+  </data>
+  <data name="SunLong" xml:space="preserve">
+    <value>周日</value>
+  </data>
+  <data name="SunShort" xml:space="preserve">
+    <value>日</value>
+  </data>
+  <data name="TestLinePlaceholder" xml:space="preserve">
+    <value>输入单行测试文本...</value>
+  </data>
+  <data name="TestLinePlaceholderExport" xml:space="preserve">
+    <value>输入单行测试文本（如：日本語\tにほんご\t日语）...</value>
+  </data>
+  <data name="TestResultPlaceholder" xml:space="preserve">
+    <value>替换结果...</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>深色模式</value>
+  </data>
+  <data name="ThemeDefault" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>明亮模式</value>
+  </data>
+  <data name="ThemeSettings" xml:space="preserve">
+    <value>应用主题</value>
+  </data>
+  <data name="ThuLong" xml:space="preserve">
+    <value>周四</value>
+  </data>
+  <data name="ThuShort" xml:space="preserve">
+    <value>四</value>
+  </data>
+  <data name="TimeFilterLabel" xml:space="preserve">
+    <value>时间层级：</value>
+  </data>
+  <data name="TimeSliceSelectedLabel" xml:space="preserve">
+    <value>时间切片筛选状态</value>
+  </data>
+  <data name="TimeSliceTip" xml:space="preserve">
+    <value>点击时间节点可筛选该区间导入的词汇</value>
+  </data>
+  <data name="TimeSliceTitle" xml:space="preserve">
+    <value>时间节点切片</value>
+  </data>
+  <data name="TimeSpan24h" xml:space="preserve">
+    <value>日 (最近24h)</value>
+  </data>
+  <data name="TimeSpan30d" xml:space="preserve">
+    <value>月 (最近30天)</value>
+  </data>
+  <data name="TimeSpan7d" xml:space="preserve">
+    <value>周 (最近7天)</value>
+  </data>
+  <data name="TimeSpan90d" xml:space="preserve">
+    <value>季度 (最近90天)</value>
+  </data>
+  <data name="TimeSpanDay" xml:space="preserve">
+    <value>日 (最近24h)</value>
+  </data>
+  <data name="TimeSpanLabel" xml:space="preserve">
+    <value>时间层级：</value>
+  </data>
+  <data name="TimeSpanMonth" xml:space="preserve">
+    <value>月 (最近30天)</value>
+  </data>
+  <data name="TimeSpanQuarter" xml:space="preserve">
+    <value>季度 (最近90天)</value>
+  </data>
+  <data name="TimeSpanWeek" xml:space="preserve">
+    <value>周 (最近7天)</value>
+  </data>
+  <data name="TipMiddleClickCopy" xml:space="preserve">
+    <value>提示：中键点击单词可直接复制到剪贴板</value>
+  </data>
+  <data name="TipViewWordCurveAndMiddleCopy" xml:space="preserve">
+    <value>左键查看学习记录与记忆曲线，中键复制</value>
+  </data>
+  <data name="TodayCountLabel" xml:space="preserve">
+    <value>今日已学:</value>
+  </data>
+  <data name="TodayLearnedLabel" xml:space="preserve">
+    <value>今日已学:</value>
+  </data>
+  <data name="TodayStudyHeader" xml:space="preserve">
+    <value>今日学习</value>
+  </data>
+  <data name="TodayStudyTitle" xml:space="preserve">
+    <value>今日学习</value>
+  </data>
+  <data name="ToggleOppositeTip" xml:space="preserve">
+    <value>点击切换为相反状态</value>
+  </data>
+  <data name="TooltipBrowseStateWords" xml:space="preserve">
+    <value>点击浏览该状态的单词列表</value>
+  </data>
+  <data name="TooltipDifficulty" xml:space="preserve">
+    <value>FSRS 单词内在记忆难度（1-10分）。分值越高表示遗忘频次越高或记忆耗费脑力越多</value>
+  </data>
+  <data name="TooltipNextPeriod" xml:space="preserve">
+    <value>下一周期</value>
+  </data>
+  <data name="TooltipPrevPeriod" xml:space="preserve">
+    <value>上一周期</value>
+  </data>
+  <data name="TooltipReps" xml:space="preserve">
+    <value>累计有效复习轮数</value>
+  </data>
+  <data name="TooltipRetention" xml:space="preserve">
+    <value>基于 FSRS 记忆衰减公式计算得出的当前瞬间记忆召回概率</value>
+  </data>
+  <data name="TooltipStability" xml:space="preserve">
+    <value>FSRS 记忆稳定性指标：在没有任何复习介入的情况下，该词留存率跌至 90% 所需的理论天数</value>
+  </data>
+  <data name="TooltipWordCurveItem" xml:space="preserve">
+    <value>左键点击查看个体学习记录与记忆曲线，中键点击复制</value>
+  </data>
+  <data name="TotalFoundLabel" xml:space="preserve">
+    <value>共命中:</value>
+  </data>
+  <data name="TotalImportDays" xml:space="preserve">
+    <value>累计导入天数:</value>
+  </data>
+  <data name="TotalImportDaysLabel" xml:space="preserve">
+    <value>累计导入天数:</value>
+  </data>
+  <data name="TotalReviewDaysLabel" xml:space="preserve">
+    <value>累计复习打卡天数:</value>
+  </data>
+  <data name="TotalStudyDays" xml:space="preserve">
+    <value>累计复习打卡天数:</value>
+  </data>
+  <data name="TotalWordCount" xml:space="preserve">
+    <value>累计词汇总量</value>
+  </data>
+  <data name="TotalWordsRecorded" xml:space="preserve">
+    <value>累计收录词数:</value>
+  </data>
+  <data name="TotalWordsRecordedLabel" xml:space="preserve">
+    <value>累计收录词数:</value>
+  </data>
+  <data name="TreeListNameInputPlaceholder" xml:space="preserve">
+    <value>输入打包后的新词单名称...</value>
+  </data>
+  <data name="TueLong" xml:space="preserve">
+    <value>周二</value>
+  </data>
+  <data name="TueShort" xml:space="preserve">
+    <value>二</value>
+  </data>
+  <data name="ValidationNoInput" xml:space="preserve">
+    <value>提取结果：(无输入)</value>
+  </data>
+  <data name="ValidationNoMatch" xml:space="preserve">
+    <value>未匹配到任何结果。</value>
+  </data>
+  <data name="ValidationRegexError" xml:space="preserve">
+    <value>正则语法错误：</value>
+  </data>
+  <data name="ValidationSuccessFormat" xml:space="preserve">
+    <value>提取成功：「{0}」 (捕获组: {1})</value>
+  </data>
+  <data name="VersionLabel" xml:space="preserve">
+    <value>版本：1.1.0</value>
+  </data>
+  <data name="ViewModeGrid" xml:space="preserve">
+    <value>网格</value>
+  </data>
+  <data name="ViewModeGridLabel" xml:space="preserve">
+    <value>网格显示</value>
+  </data>
+  <data name="ViewModeList" xml:space="preserve">
+    <value>列表</value>
+  </data>
+  <data name="ViewModeListLabel" xml:space="preserve">
+    <value>列表显示</value>
+  </data>
+  <data name="WedLong" xml:space="preserve">
+    <value>周三</value>
+  </data>
+  <data name="WedShort" xml:space="preserve">
+    <value>三</value>
+  </data>
+  <data name="WeekFri" xml:space="preserve">
+    <value>周五</value>
+  </data>
+  <data name="WeekMon" xml:space="preserve">
+    <value>周一</value>
+  </data>
+  <data name="WeekSat" xml:space="preserve">
+    <value>周六</value>
+  </data>
+  <data name="WeekSun" xml:space="preserve">
+    <value>周日</value>
+  </data>
+  <data name="WeekThu" xml:space="preserve">
+    <value>周四</value>
+  </data>
+  <data name="WeekTue" xml:space="preserve">
+    <value>周二</value>
+  </data>
+  <data name="WeekWed" xml:space="preserve">
+    <value>周三</value>
+  </data>
+  <data name="WordListOptionFormat" xml:space="preserve">
+    <value>词单：{0} ({1}词)</value>
+  </data>
+  <data name="WordListPageTitle" xml:space="preserve">
+    <value>归档</value>
+  </data>
+  <data name="WordListTreeTip" xml:space="preserve">
+    <value>点击节点即可在右侧预览其单词；勾选复选框可组合打包</value>
+  </data>
+  <data name="WordListTreeTitle" xml:space="preserve">
+    <value>时间维度折叠树</value>
+  </data>
+  <data name="WordsSuffixFormat" xml:space="preserve">
+    <value>{0} 词</value>
+  </data>
+  <data name="WordsSummaryEtcFormat" xml:space="preserve">
+    <value> 等共 {0} 词</value>
+  </data>
+  <data name="YearUnit" xml:space="preserve">
+    <value>年</value>
+  </data>
+  <data name="YearViewOption" xml:space="preserve">
+    <value>年 (12个月全景平铺)</value>
+  </data>
+<data name="InverseFilterLabel" xml:space="preserve"><value>反向过滤 (排除匹配行)</value></data><data name="InverseFilterToolTip" xml:space="preserve"><value>开启后，凡是匹配该正则表达式的行将被作为黑名单剔除，仅保留未匹配的行</value></data><data name="PresetIsInverseLabel" xml:space="preserve"><value>反向排除模式</value></data><data name="ValidationExcludedFormat" xml:space="preserve"><value>命中排除规则：该行将被作为黑名单过滤剔除</value></data><data name="ValidationRetainedFormat" xml:space="preserve"><value>未命中排除规则：保留文本「{0}」</value></data><data name="ExcludeMatchOnlyLabel" xml:space="preserve"><value>仅排除命中的内容 (非整行)</value></data><data name="ExcludeMatchOnlyToolTip" xml:space="preserve"><value>勾选后仅剔除命中正则的局部字符/标记，保留该行剩余干净文本；未勾选时将直接排除整行</value></data><data name="ValidationMatchOnlyExcludedFormat" xml:space="preserve"><value>已剔除 {0} 处命中内容，保留剩余文本：「{1}」</value></data><data name="ValidationNoMatchRetainedFormat" xml:space="preserve"><value>无命中内容，完整保留文本：「{0}」</value></data><data name="IsInverseFilterLabel" xml:space="preserve"><value>反向过滤</value></data><data name="IsInverseFilterToolTip" xml:space="preserve"><value>勾选后为反向模式，匹配字符将被剔除或删除；未勾选时为正向提取模式</value></data><data name="MatchWholeLineLabel" xml:space="preserve"><value>匹配整行</value></data><data name="MatchWholeLineToolTip" xml:space="preserve"><value>勾选后无论正向还是反向均对整行生效：反向时只要行内命中任意字符即删除整行；正向时只要行内命中任意字符即整行输出</value></data><data name="ValidationInverseLineExcluded" xml:space="preserve"><value>命中反向规则：整行将被删除剔除</value></data><data name="ValidationNormalLineMatchedFormat" xml:space="preserve"><value>命中规则：整行输出「{0}」</value></data><data name="DefaultCustomListNamePrefix" xml:space="preserve"><value>自选词单_</value></data><data name="MsgReimportWordsTodaySuccessFormat" xml:space="preserve"><value>已将 {0} 个单词重置并在今天重新导入</value></data><data name="MsgBatchUpdateStateSuccessFormat" xml:space="preserve"><value>已将 {0} 个单词状态变更为 {1}</value></data><data name="MsgBatchDeleteWordsSuccessFormat" xml:space="preserve"><value>已成功删除 {0} 个单词</value></data><data name="RetentionCurveDesc" xml:space="preserve"><value>纵轴为记忆留存度 (0-100%)，横轴为时间与打卡推进进度</value></data><data name="LegendHistory" xml:space="preserve"><value>历史复习轨迹</value></data><data name="LegendForecast" xml:space="preserve"><value>未来记忆衰减预测</value></data><data name="TargetRetentionLineLabel" xml:space="preserve"><value>目标阈值 90%</value></data><data name="CurrentRetentionLabel" xml:space="preserve"><value>当前记忆程度</value></data><data name="TodayMarkerLabel" xml:space="preserve"><value>今日</value></data><data name="StartMarkerLabel" xml:space="preserve"><value>首次导入</value></data><data name="NextReviewMarkerFormat" xml:space="preserve"><value>下次复习 ({0})</value></data><data name="NewWordNoReviewCurveTip" xml:space="preserve"><value>该词尚未开始打卡复习，当前展示初次学习后的理论记忆衰减模拟曲线</value></data><data name="AllDueWordsOption" xml:space="preserve"><value>全部到期词汇</value></data><data name="FilterUnarchivedFormat" xml:space="preserve"><value>未归档 ({0})</value></data><data name="FilterArchivedFormat" xml:space="preserve"><value>已归档 ({0})</value></data><data name="TabTimeSliceText" xml:space="preserve"><value>时间切片</value></data><data name="TabCustomListsText" xml:space="preserve"><value>专属词单</value></data><data name="CustomWordListActiveTitleFormat" xml:space="preserve"><value>专属词单：{0}</value></data></root>

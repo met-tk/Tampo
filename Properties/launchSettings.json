@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "NihongoVocab (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "NihongoVocab (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,311 @@
+<Page
+    x:Class="NihongoVocab.Views.ActivityCalendarPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:NihongoVocab.ViewModels"
+    xmlns:controls="using:NihongoVocab.Controls"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="CompactDayTemplate" x:DataType="viewmodels:MonthCalendarDayItem">
+            <Border Height="24" MinWidth="24" CornerRadius="3"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    Background="{x:Bind DayBackground}"
+                    PointerPressed="MonthDetailDay_PointerPressed">
+                <ToolTipService.ToolTip>
+                    <ToolTip MaxWidth="320" Padding="12,10">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{x:Bind DetailHeaderTitle}" FontWeight="SemiBold" FontSize="12"/>
+                            <StackPanel Visibility="{x:Bind HasImportedVisibility}" Spacing="2">
+                                <TextBlock Text="{x:Bind ImportBadgeText}" FontSize="11" FontWeight="SemiBold" Foreground="#10B981"/>
+                                <TextBlock Text="{x:Bind ImportedWordsSummary}" FontSize="11" TextWrapping="Wrap" Opacity="0.85"/>
+                            </StackPanel>
+                            <StackPanel Visibility="{x:Bind HasStudiedVisibility}" Spacing="2">
+                                <TextBlock Text="{x:Bind StudyBadgeText}" FontSize="11" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                                <TextBlock Text="{x:Bind StudiedWordsSummary}" FontSize="11" TextWrapping="Wrap" Opacity="0.85"/>
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind NoActivityTip}" Visibility="{x:Bind NoActivityVisibility}" FontSize="11" Opacity="0.5"/>
+                        </StackPanel>
+                    </ToolTip>
+                </ToolTipService.ToolTip>
+                <TextBlock Text="{x:Bind DayNumber}" FontSize="11"
+                           FontWeight="{x:Bind DayFontWeight}"
+                           Foreground="{x:Bind DayForeground}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid x:Name="RootLayoutGrid" Padding="24,18,24,20" RowSpacing="16" Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 1. 顶部专业日历导航控制条（完全参考附图设计规范） -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧大标题：年份或年月 -->
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE787;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                <TextBlock Text="{x:Bind ViewModel.HeaderTitle, Mode=OneWay}" 
+                           FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- 右侧操作工具条：缩放切换下拉菜单与翻页按钮 -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <!-- 视图粒度缩放下拉菜单 -->
+                <DropDownButton x:Name="ViewModeDropDownButton" Content="年份缩放">
+                    <DropDownButton.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem x:Name="MenuSelectYearViewItem" Text="年度概览 (12个月平铺)"/>
+                            <MenuFlyoutItem x:Name="MenuSelectMonthViewItem" Text="单月特写 (高精日历格)"/>
+                        </MenuFlyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
+
+                <!-- 翻页控制器 [<] [今天] [>] -->
+                <Button x:Name="PrevPeriodButton" Style="{ThemeResource SubtleButtonStyle}">
+                    <FontIcon Glyph="&#xE76B;" FontSize="11"/>
+                </Button>
+                <Button x:Name="TodayButton" Content="今天" Style="{ThemeResource SubtleButtonStyle}"/>
+                <Button x:Name="NextPeriodButton" Style="{ThemeResource SubtleButtonStyle}">
+                    <FontIcon Glyph="&#xE76C;" FontSize="11"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 2. 打卡指标概览条 -->
+        <Grid Grid.Row="1" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="12,8">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE8D2;" FontSize="14" Opacity="0.7"/>
+                    <TextBlock x:Name="TotalWordsLabelTextBlock" Text="记录总词量" FontSize="12" Opacity="0.7"/>
+                    <TextBlock Text="{x:Bind ViewModel.TotalWords, Mode=OneWay}" FontSize="14" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="12,8">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xED28;" FontSize="14" Opacity="0.7"/>
+                    <TextBlock x:Name="TotalImportDaysLabelTextBlock" Text="导入活跃天数" FontSize="12" Opacity="0.7"/>
+                    <TextBlock Text="{x:Bind ViewModel.TotalImportDays, Mode=OneWay}" FontSize="14" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="12,8">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE73E;" FontSize="14" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                    <TextBlock x:Name="TotalStudyDaysLabelTextBlock" Text="复习打卡天数" FontSize="12" Opacity="0.7"/>
+                    <TextBlock Text="{x:Bind ViewModel.TotalStudyDays, Mode=OneWay}" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 3. 主体内容区：支持年视图（12个月平铺）与月视图（单月放大）双模式 -->
+        <Grid Grid.Row="2">
+
+            <!-- 模式 A：年视图（12 个月平铺网格，完全复刻附图样式） -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="YearScrollViewer">
+                <ItemsRepeater x:Name="YearRepeater" ItemsSource="{x:Bind ViewModel.YearMonths}">
+                    <ItemsRepeater.Layout>
+                        <UniformGridLayout MinItemWidth="230" MinItemHeight="210" MinRowSpacing="18" MinColumnSpacing="18"/>
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="viewmodels:YearMonthItem">
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                    CornerRadius="8" Padding="12">
+                                <StackPanel Spacing="6">
+                                    <!-- 月份标题：点击钻取至该月 -->
+                                    <Button Tag="{x:Bind}" Padding="6,3" HorizontalAlignment="Left" 
+                                            Style="{ThemeResource SubtleButtonStyle}"
+                                            Click="MonthHeader_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{x:Bind MonthTitle}" FontWeight="Bold" FontSize="14"/>
+                                            <FontIcon Glyph="&#xE76C;" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- 星期标头行：日 一 二 三 四 五 六（与日期网格严格对齐） -->
+                                    <Grid ColumnSpacing="4" Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{x:Bind SunShort}" FontSize="11" Opacity="0.5" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{x:Bind MonShort}" FontSize="11" Opacity="0.5" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{x:Bind TueShort}" FontSize="11" Opacity="0.5" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="{x:Bind WedShort}" FontSize="11" Opacity="0.5" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="4" Text="{x:Bind ThuShort}" FontSize="11" Opacity="0.5" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="5" Text="{x:Bind FriShort}" FontSize="11" Opacity="0.5" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="6" Text="{x:Bind SatShort}" FontSize="11" Opacity="0.5" HorizontalAlignment="Center"/>
+                                    </Grid>
+
+                                    <!-- 42 天紧凑数字网格（6行 × 7列，严格通过 CalendarGridPanel 精准数学排布，彻底根除行重叠 Bug） -->
+                                    <ItemsControl ItemsSource="{x:Bind Days}"
+                                                  ItemTemplate="{StaticResource CompactDayTemplate}">
+                                        <ItemsControl.ItemsPanel>
+                                             <ItemsPanelTemplate>
+                                                 <controls:CalendarGridPanel RowSpacing="4" ColumnSpacing="4" CellHeight="24"/>
+                                             </ItemsPanelTemplate>
+                                         </ItemsControl.ItemsPanel>
+                                     </ItemsControl>
+                                 </StackPanel>
+                             </Border>
+                         </DataTemplate>
+                     </ItemsRepeater.ItemTemplate>
+                 </ItemsRepeater>
+             </ScrollViewer>
+
+             <!-- 模式 B：月视图（单月放大明细） -->
+             <Border x:Name="MonthDetailViewBorder"
+                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                     CornerRadius="8" Padding="18" Visibility="Collapsed">
+                 <Grid RowSpacing="12">
+                     <Grid.RowDefinitions>
+                         <RowDefinition Height="Auto"/>
+                         <RowDefinition Height="*"/>
+                     </Grid.RowDefinitions>
+
+                     <!-- 返回年视图面包屑 -->
+                     <StackPanel Orientation="Horizontal" Spacing="8">
+                         <Button x:Name="BackToYearViewButton" Style="{ThemeResource SubtleButtonStyle}">
+                             <StackPanel Orientation="Horizontal" Spacing="6">
+                                 <FontIcon Glyph="&#xE72B;" FontSize="12"/>
+                                 <TextBlock x:Name="BackToYearViewTextBlock" Text="返回年视图"/>
+                             </StackPanel>
+                         </Button>
+                     </StackPanel>
+
+                     <!-- 统一滚动容器：将星期表头与网格放在同一个 ScrollViewer 和内层 Grid 中，彻底解决滚动条不对齐与列宽偏差 -->
+                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                         <StackPanel Spacing="8">
+                             <!-- 星期表头行（周日到周六） -->
+                             <Grid ColumnSpacing="6">
+                                 <Grid.ColumnDefinitions>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="*"/>
+                                 </Grid.ColumnDefinitions>
+                                 <TextBlock x:Name="MonthWeekCol0" Grid.Column="0" Text="周日" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
+                                 <TextBlock x:Name="MonthWeekCol1" Grid.Column="1" Text="周一" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
+                                 <TextBlock x:Name="MonthWeekCol2" Grid.Column="2" Text="周二" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
+                                 <TextBlock x:Name="MonthWeekCol3" Grid.Column="3" Text="周三" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
+                                 <TextBlock x:Name="MonthWeekCol4" Grid.Column="4" Text="周四" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
+                                 <TextBlock x:Name="MonthWeekCol5" Grid.Column="5" Text="周五" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
+                                 <TextBlock x:Name="MonthWeekCol6" Grid.Column="6" Text="周六" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
+                             </Grid>
+
+                             <!-- 42 天大单元格网格（7列严格通过 CalendarGridPanel 精准数学排布对齐） -->
+                             <ItemsControl ItemsSource="{x:Bind ViewModel.CurrentMonthDays}" >
+                                 <ItemsControl.ItemsPanel>
+                                     <ItemsPanelTemplate>
+                                         <controls:CalendarGridPanel RowSpacing="6" ColumnSpacing="6" CellHeight="82"/>
+                                     </ItemsPanelTemplate>
+                                 </ItemsControl.ItemsPanel>
+                                 <ItemsControl.ItemTemplate>
+                                     <DataTemplate x:DataType="viewmodels:MonthCalendarDayItem">
+                                         <Border CornerRadius="6" Padding="8,6"
+                                                 HorizontalAlignment="Stretch"
+                                                 MinHeight="74"
+                                                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                                 PointerPressed="MonthDetailDay_PointerPressed">
+                                             <ToolTipService.ToolTip>
+                                                 <ToolTip MaxWidth="360" Padding="14,12">
+                                                     <StackPanel Spacing="8">
+                                                         <StackPanel Orientation="Horizontal" Spacing="6">
+                                                             <FontIcon Glyph="&#xE787;" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                             <TextBlock Text="{x:Bind DetailHeaderTitle}" FontWeight="SemiBold" FontSize="13"/>
+                                                         </StackPanel>
+                                                         <StackPanel Visibility="{x:Bind HasImportedVisibility}" Spacing="3">
+                                                             <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                 <FontIcon Glyph="&#xE8D2;" FontSize="11" Foreground="#10B981"/>
+                                                                 <TextBlock Text="{x:Bind ImportBadgeText}" FontSize="12" FontWeight="SemiBold" Foreground="#10B981"/>
+                                                             </StackPanel>
+                                                             <TextBlock Text="{x:Bind ImportedWordsSummary}" FontSize="11" TextWrapping="Wrap" Opacity="0.85"/>
+                                                         </StackPanel>
+                                                         <StackPanel Visibility="{x:Bind HasStudiedVisibility}" Spacing="3">
+                                                             <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                 <FontIcon Glyph="&#xE73E;" FontSize="11" Foreground="#38BDF8"/>
+                                                                 <TextBlock Text="{x:Bind StudyBadgeText}" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                                                             </StackPanel>
+                                                             <TextBlock Text="{x:Bind StudiedWordsSummary}" FontSize="11" TextWrapping="Wrap" Opacity="0.85"/>
+                                                         </StackPanel>
+                                                         <TextBlock Text="{x:Bind NoActivityTip}" Visibility="{x:Bind NoActivityVisibility}" FontSize="11" Opacity="0.5"/>
+                                                     </StackPanel>
+                                                 </ToolTip>
+                                             </ToolTipService.ToolTip>
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+
+                                                <!-- 日期号（当天为深色高亮小方块，否则正常） -->
+                                                <Border CornerRadius="3" Padding="4,1" HorizontalAlignment="Right"
+                                                        Background="{x:Bind DayBackground}">
+                                                    <TextBlock Text="{x:Bind DayNumber}" FontSize="12"
+                                                               FontWeight="{x:Bind DayFontWeight}"
+                                                               Foreground="{x:Bind DayForeground}"/>
+                                                </Border>
+
+                                                <!-- 打卡与导入活动小徽章 -->
+                                                <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Spacing="2">
+                                                    <Border CornerRadius="3" Padding="4,1" HorizontalAlignment="Left"
+                                                            Background="#1A38BDF8"
+                                                            Visibility="{x:Bind StudyBadgeVisibility}">
+                                                        <TextBlock Text="{x:Bind StudyBadgeText}" FontSize="10" Foreground="#38BDF8"/>
+                                                    </Border>
+                                                    <Border CornerRadius="3" Padding="4,1" HorizontalAlignment="Left"
+                                                            Background="#1A10B981"
+                                                            Visibility="{x:Bind ImportBadgeVisibility}">
+                                                        <TextBlock Text="{x:Bind ImportBadgeText}" FontSize="10" Foreground="#10B981"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                </Grid>
+            </Border>
+
+        </Grid>
+    </Grid>
+</Page>

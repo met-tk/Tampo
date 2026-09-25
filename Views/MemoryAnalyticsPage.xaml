@@ -1,0 +1,282 @@
+<Page
+    x:Class="NihongoVocab.Views.MemoryAnalyticsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:NihongoVocab.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer Padding="24">
+        <StackPanel Spacing="20">
+            <!-- 顶部标题区与切片选择器 -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE9D2;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                    <TextBlock Text="{x:Bind ViewModel.MemoryAnalyticsTitle, Mode=OneWay}" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
+                </StackPanel>
+
+                <!-- 词单切片选择器 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.AnalysisScopeLabel, Mode=OneWay}" FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{x:Bind ViewModel.FilterOptions}"
+                              SelectedItem="{x:Bind ViewModel.SelectedOption, Mode=TwoWay}"
+                              DisplayMemberPath="DisplayName"
+                              MinWidth="220"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 1. FSRS 核心记忆健康度指标卡片群（严格排除已掌握归档池） -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- FSRS 平均记忆留存率 -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE774;" FontSize="14" Opacity="0.7"/>
+                            <TextBlock Text="{x:Bind ViewModel.FsrsAvgRetentionLabel, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.Stats.AverageRetention, Mode=OneWay, Converter={StaticResource PercentageConverter}}"
+                                   FontSize="26" FontWeight="SemiBold"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="{x:Bind ViewModel.FsrsRetentionDesc, Mode=OneWay}" FontSize="11" Opacity="0.5"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- FSRS 平均记忆稳定性 (半衰期) -->
+                <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE9D2;" FontSize="14" Foreground="#3B82F6"/>
+                            <TextBlock Text="{x:Bind ViewModel.FsrsAvgStabilityLabel, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.StabilityDaysFormatText, Mode=OneWay}"
+                                   FontSize="26" FontWeight="SemiBold" Foreground="#3B82F6"/>
+                        <TextBlock Text="{x:Bind ViewModel.FsrsStabilityDesc, Mode=OneWay}" FontSize="11" Opacity="0.5"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 独立已掌握词库归档池 (全局仅此处展示) -->
+                <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE73E;" FontSize="14" Foreground="#22C55E"/>
+                            <TextBlock Text="{x:Bind ViewModel.IndependentMasteredPoolLabel, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.Stats.MasteredCount, Mode=OneWay}"
+                                   FontSize="26" FontWeight="SemiBold" Foreground="#22C55E"/>
+                        <TextBlock Text="{x:Bind ViewModel.IndependentMasteredPoolDesc, Mode=OneWay}" FontSize="11" Opacity="0.5"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 2. FSRS 算法调度状态分布（未学习、初学中、复习中、重新学习 4 态） -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{x:Bind ViewModel.FsrsDistributionTitle, Mode=OneWay}" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Grid.Column="1" 
+                                   Text="{x:Bind ViewModel.ActiveCountFormatText, Mode=OneWay}"
+                                   FontSize="12" Opacity="0.6"/>
+                    </Grid>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 未学习 (New) -->
+                        <Border x:Name="BorderStateNew" Tag="0" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="12"
+                                PointerPressed="StateCard_PointerPressed">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="{x:Bind ViewModel.StateNewHeader, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                                    <FontIcon Glyph="&#xE8A7;" FontSize="10" Opacity="0.4" HorizontalAlignment="Right" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.FsrsNewCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                                <ProgressBar Value="{x:Bind ViewModel.Stats.FsrsNewCount, Mode=OneWay}"
+                                             Maximum="{x:Bind ViewModel.Stats.FsrsActiveCount, Mode=OneWay}"
+                                             Foreground="#3B82F6" Height="4"/>
+                                <TextBlock Text="{x:Bind ViewModel.StateNewDesc, Mode=OneWay}" FontSize="11" Opacity="0.5"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 初学中 (Learning) -->
+                        <Border x:Name="BorderStateLearning" Grid.Column="1" Tag="1" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="12"
+                                PointerPressed="StateCard_PointerPressed">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="{x:Bind ViewModel.StateLearningHeader, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                                    <FontIcon Glyph="&#xE8A7;" FontSize="10" Opacity="0.4" HorizontalAlignment="Right" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.FsrsLearningCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                                <ProgressBar Value="{x:Bind ViewModel.Stats.FsrsLearningCount, Mode=OneWay}"
+                                             Maximum="{x:Bind ViewModel.Stats.FsrsActiveCount, Mode=OneWay}"
+                                             Foreground="#EAB308" Height="4"/>
+                                <TextBlock Text="{x:Bind ViewModel.StateLearningDesc, Mode=OneWay}" FontSize="11" Opacity="0.5"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 复习中 (Review) -->
+                        <Border x:Name="BorderStateReview" Grid.Column="2" Tag="2" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="12"
+                                PointerPressed="StateCard_PointerPressed">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="{x:Bind ViewModel.StateReviewHeader, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                                    <FontIcon Glyph="&#xE8A7;" FontSize="10" Opacity="0.4" HorizontalAlignment="Right" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.FsrsReviewCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                                <ProgressBar Value="{x:Bind ViewModel.Stats.FsrsReviewCount, Mode=OneWay}"
+                                             Maximum="{x:Bind ViewModel.Stats.FsrsActiveCount, Mode=OneWay}"
+                                             Foreground="#A855F7" Height="4"/>
+                                <TextBlock Text="{x:Bind ViewModel.StateReviewDesc, Mode=OneWay}" FontSize="11" Opacity="0.5"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 重新学习 (Relearning) -->
+                        <Border x:Name="BorderStateRelearning" Grid.Column="3" Tag="3" Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="12"
+                                PointerPressed="StateCard_PointerPressed">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="{x:Bind ViewModel.StateRelearningHeader, Mode=OneWay}" FontSize="12" Opacity="0.7"/>
+                                    <FontIcon Glyph="&#xE8A7;" FontSize="10" Opacity="0.4" HorizontalAlignment="Right" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.FsrsRelearningCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                                <ProgressBar Value="{x:Bind ViewModel.Stats.FsrsRelearningCount, Mode=OneWay}"
+                                             Maximum="{x:Bind ViewModel.Stats.FsrsActiveCount, Mode=OneWay}"
+                                             Foreground="#EF4444" Height="4"/>
+                                <TextBlock Text="{x:Bind ViewModel.StateRelearningDesc, Mode=OneWay}" FontSize="11" Opacity="0.5"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. 个体单词遗忘曲线与记忆健康度实时检索 -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{x:Bind ViewModel.IndividualCurveTitle, Mode=OneWay}" FontWeight="SemiBold" FontSize="14"/>
+                            <TextBlock Text="{x:Bind ViewModel.IndividualCurveDesc, Mode=OneWay}" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+
+                        <!-- 搜索框 -->
+                        <AutoSuggestBox x:Name="SearchWordCurveBox" Grid.Column="1" Width="260"
+                                        PlaceholderText="{x:Bind ViewModel.SearchWordCurvePlaceholder, Mode=OneWay}"
+                                        Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}"
+                                        QueryIcon="Find"/>
+                    </Grid>
+
+                    <!-- 单词健康度明细列表 -->
+                    <ListView ItemsSource="{x:Bind ViewModel.SearchResults, Mode=OneWay}"
+                              SelectionMode="None"
+                              MaxHeight="450">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Word">
+                                <Border Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="14,10"
+                                        Margin="0,4"
+                                        PointerPressed="WordItem_PointerPressed"
+                                        ToolTipService.ToolTip="{x:Bind CurveItemToolTip, Mode=OneWay}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="180"/>
+                                            <ColumnDefinition Width="180"/>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- 单词文本 -->
+                                        <TextBlock Text="{x:Bind Text}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="16"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- 通俗记忆留存率 (带色彩) -->
+                                        <Border Grid.Column="1" VerticalAlignment="Center">
+                                             <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Border Width="8" Height="8" CornerRadius="4"
+                                                        Background="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"/>
+                                                <TextBlock Text="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToTagConverter}}"
+                                                           FontSize="12" FontWeight="Medium"
+                                                           Foreground="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 记忆半衰期 (稳定性) -->
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{x:Bind Stability, Converter={StaticResource StabilityToHalfLifeConverter}}"
+                                                   FontSize="12" Opacity="0.8"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- 记忆难度评级 (Difficulty) -->
+                                        <TextBlock Grid.Column="3"
+                                                   Text="{x:Bind Difficulty, Converter={StaticResource DifficultyToRatingConverter}}"
+                                                   FontSize="12" Opacity="0.8"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- 复习频次与流转状态 -->
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Border Background="{x:Bind State, Converter={StaticResource WordStateToColorConverter}}"
+                                                    CornerRadius="4" Padding="6,2">
+                                                <TextBlock Text="{x:Bind State, Converter={StaticResource WordStateToNameConverter}}"
+                                                           FontSize="11" Foreground="White"/>
+                                            </Border>
+                                            <TextBlock Text="{x:Bind Reps, Converter={StaticResource RepsCountSuffixConverter}}"
+                                                       FontSize="11" Opacity="0.5" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

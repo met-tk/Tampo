@@ -1,0 +1,236 @@
+<Page
+    x:Class="NihongoVocab.Views.StatisticsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:NihongoVocab.Controls"
+    xmlns:models="using:NihongoVocab.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer Padding="24">
+        <StackPanel Spacing="20">
+            <!-- 顶部标题 -->
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE9D2;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                <TextBlock Text="全景数据大屏与双日历热力图" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
+            </StackPanel>
+
+            <!-- 1. 全维度总量统计卡片群（极简单色卡片） -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 累计总词数 -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8D2;" FontSize="14" Opacity="0.7"/>
+                            <TextBlock Text="累计导入总词数" FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.Stats.TotalWords, Mode=OneWay}"
+                                   FontSize="26" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 累计导入天数 -->
+                <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xED28;" FontSize="14" Opacity="0.7"/>
+                            <TextBlock Text="累计导入天数" FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.Stats.TotalImportDays, Mode=OneWay}"
+                                   FontSize="26" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 累计打卡天数 -->
+                <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE73E;" FontSize="14" Opacity="0.7"/>
+                            <TextBlock Text="累计学习打卡天数" FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.Stats.TotalStudyDays, Mode=OneWay}"
+                                   FontSize="26" FontWeight="SemiBold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 平均记忆健康度 (留存率) -->
+                <Border Grid.Column="3" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE774;" FontSize="14" Opacity="0.7"/>
+                            <TextBlock Text="系统整体记忆留存率" FontSize="12" Opacity="0.7"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.Stats.AverageRetention, Mode=OneWay, Converter={StaticResource PercentageConverter}}"
+                                   FontSize="26" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 2. 学习周期阶段分布 -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="学习周期阶段分布（FSRS 状态流转）" FontWeight="SemiBold" FontSize="14"/>
+
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 新词 -->
+                        <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="6" Padding="12">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="8" Height="8" CornerRadius="4" Background="#3B82F6"/>
+                                    <TextBlock Text="新词 (New)" FontSize="12" Opacity="0.7"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.NewCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 学习中 -->
+                        <Border Grid.Column="1" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="6" Padding="12">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="8" Height="8" CornerRadius="4" Background="#EAB308"/>
+                                    <TextBlock Text="学习中 (Learning)" FontSize="12" Opacity="0.7"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.LearningCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 复习中 -->
+                        <Border Grid.Column="2" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="6" Padding="12">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="8" Height="8" CornerRadius="4" Background="#A855F7"/>
+                                    <TextBlock Text="复习中 (Review)" FontSize="12" Opacity="0.7"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.ReviewCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 完全掌握 -->
+                        <Border Grid.Column="3" Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="6" Padding="12">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="8" Height="8" CornerRadius="4" Background="#22C55E"/>
+                                    <TextBlock Text="已完全掌握 (Mastered)" FontSize="12" Opacity="0.7"/>
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind ViewModel.Stats.MasteredCount, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. 双日历热力图（Dual Calendar Heatmap） -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 导入日历热力图（蓝绿色阶） -->
+                <controls:CalendarHeatmap x:Name="ImportHeatmapControl"
+                                          Title="导入日历热力图（输入历史）"
+                                          HeatmapColor="#0284C7"
+                                          Data="{x:Bind ViewModel.ImportHeatmapData, Mode=OneWay}"/>
+
+                <!-- 学习日历打卡热力图（绿色彩阶） -->
+                <controls:CalendarHeatmap Grid.Column="1" x:Name="StudyHeatmapControl"
+                                          Title="学习打卡热力图（复习行为）"
+                                          HeatmapColor="#16A34A"
+                                          Data="{x:Bind ViewModel.StudyHeatmapData, Mode=OneWay}"/>
+            </Grid>
+
+            <!-- 4. 遗忘曲线与单词留存概率个体检索 -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="280"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="个体记忆留存概率与遗忘曲线检索" FontWeight="SemiBold" FontSize="14"/>
+                            <TextBlock Text="依据 FSRS 算法实时推算每个单词当前的 Retrievability 遗忘留存率" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+
+                        <!-- 检索框 -->
+                        <AutoSuggestBox Grid.Column="1" QueryIcon="Find"
+                                        PlaceholderText="输入单词实时检索留存率..."
+                                        Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
+
+                    <!-- 单词留存率列表展示 -->
+                    <ListView ItemsSource="{x:Bind ViewModel.SearchResults}" SelectionMode="None" MaxHeight="280">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Word">
+                                <Grid Padding="6" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="140"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- 单词主体 -->
+                                    <TextBlock Text="{x:Bind Text}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+
+                                    <!-- 状态 -->
+                                    <Border Grid.Column="1" VerticalAlignment="Center" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                        <TextBlock Text="{x:Bind State, Converter={StaticResource WordStateToNameConverter}}"
+                                                   FontSize="11" Foreground="{x:Bind State, Converter={StaticResource WordStateToColorConverter}}"/>
+                                    </Border>
+
+                                    <!-- 留存率进度条与百分比 -->
+                                    <Grid Grid.Column="2" VerticalAlignment="Center" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ProgressBar Value="{x:Bind CurrentRetrievability}" Maximum="1.0" Height="6"/>
+                                        <TextBlock Grid.Column="1" Text="{x:Bind CurrentRetrievability, Converter={StaticResource PercentageConverter}}" FontSize="11" Opacity="0.7"/>
+                                    </Grid>
+
+                                    <!-- 稳定性 S -->
+                                    <TextBlock Grid.Column="3" Text="{x:Bind Stability}"
+                                               FontSize="11" Opacity="0.7" VerticalAlignment="Center"/>
+
+                                    <!-- 下次复习时间 -->
+                                    <TextBlock Grid.Column="4" Text="{x:Bind NextReviewDate, Converter={StaticResource DateToStringConverter}}"
+                                               FontSize="11" Opacity="0.7" VerticalAlignment="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

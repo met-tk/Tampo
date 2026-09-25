@@ -1,0 +1,302 @@
+# -*- coding: utf-8 -*-
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+
+entries = [
+    # 核心应用与侧边导航
+    ("AppTitle", "Tampo", "Tampo", "Tampo"),
+    ("NavImport", "导入", "Import", "インポート"),
+    ("NavWordLists", "归档", "Archive", "アーカイブ"),
+    ("NavAllWords", "词库", "Vocabulary", "単語庫"),
+    ("NavStudy", "学习", "Study", "研習"),
+    ("NavTodayStudy", "今日", "Today", "今日"),
+    ("NavRecentStudy", "履历", "History", "履歴"),
+    ("NavActivity", "日历", "Calendar", "カレンダー"),
+    ("NavCalendar", "日历", "Calendar", "カレンダー"),
+    ("NavAnalytics", "记忆分析", "Memory Analytics", "記憶分析"),
+    ("NavSettings", "设置", "Settings", "設定"),
+
+    # 单词学习状态
+    ("StateNew", "未学习", "New", "未学習"),
+    ("StateLearning", "初学中", "Learning", "初学中"),
+    ("StateReview", "复习中", "Reviewing", "復習中"),
+    ("StateRelearning", "重新学习", "Relearning", "再学習"),
+    ("StateMastered", "已掌握", "Mastered", "習得済み"),
+    ("StateAll", "全部状态", "All States", "すべての状態"),
+
+    # 通用动作与按钮
+    ("ButtonConfirm", "确定", "Confirm", "確定"),
+    ("ButtonCancel", "取消", "Cancel", "キャンセル"),
+    ("ButtonSave", "保存", "Save", "保存"),
+    ("ButtonDelete", "删除", "Delete", "削除"),
+    ("ButtonRefresh", "刷新", "Refresh", "更新"),
+    ("ButtonRefreshData", "刷新数据", "Refresh Data", "データを更新"),
+    ("ButtonClose", "关闭", "Close", "閉じる"),
+    ("ButtonFinish", "完成", "Done", "完了"),
+    ("ButtonExport", "导出", "Export", "エクスポート"),
+    ("ButtonImport", "批量导入到词库", "Import to Vault", "単語庫へインポート"),
+    ("SelectAll", "全选当前列表", "Select All", "すべて選択"),
+    ("SelectAllResults", "全选当前结果", "Select All Results", "すべての検索結果を選択"),
+    ("SelectedCountFormat", "已选 {0} 项", "Selected {0} items", "{0} 項目選択中"),
+    ("SearchPlaceholder", "搜索单词...", "Search words...", "単語を検索..."),
+    ("ExpandAll", "展开全部", "Expand All", "すべて展開"),
+    ("CollapseAll", "折叠全部", "Collapse All", "すべて折りたたむ"),
+    ("ExpandAllTip", "展开所有项", "Expand All", "すべて展開"),
+    ("CollapseAllTip", "折叠所有项", "Collapse All", "すべて折りたたむ"),
+
+    # 复习间隔时间与状态标签
+    ("IntervalMastered", "已掌握 (免复习)", "Mastered (No review)", "習得済み (復習不要)"),
+    ("IntervalUnscheduled", "未安排 (待学习)", "Pending (Not scheduled)", "未スケジュール (未学習)"),
+    ("IntervalDue", "已到期 (随时可复习)", "Due (Ready for review)", "期日到来 (復習可能)"),
+    ("IntervalMinutes", "{0} 分钟后", "In {0} mins", "{0} 分後"),
+    ("IntervalHours", "{0} 小时后", "In {0} hours", "{0} 時間後"),
+    ("IntervalDays", "{0} 天后", "In {0} days", "{0} 日後"),
+    ("IntervalMonths", "{0} 个月后", "In {0} months", "{0} ヶ月後"),
+    ("IntervalYears", "{0:F1} 年后", "In {0:F1} years", "{0:F1} 年後"),
+
+    # 设置模块 (SettingsPage)
+    ("SettingsTitle", "设置", "Settings", "設定"),
+    ("SettingsNavTitle", "设置", "Settings", "設定"),
+    ("AppearanceAndLanguage", "外观与语言", "Appearance & Language", "外観と表示言語"),
+    ("ThemeSettings", "应用主题", "App Theme", "外観テーマ"),
+    ("ThemeDefault", "跟随系统", "System Default", "システムに従う"),
+    ("ThemeLight", "明亮模式", "Light Mode", "ライトモード"),
+    ("ThemeDark", "深色模式", "Dark Mode", "ダークモード"),
+    ("LanguageSettings", "显示语言", "Display Language", "表示言語"),
+    ("LangZhCN", "简体中文 (zh-CN)", "Simplified Chinese (zh-CN)", "簡体字中国語 (zh-CN)"),
+    ("LangJaJP", "日本語 (ja-JP)", "Japanese (ja-JP)", "日本語 (ja-JP)"),
+    ("LangEnUS", "English (en-US)", "English (en-US)", "English (en-US)"),
+    ("DiagnosticAndLogs", "诊断与日志", "Diagnostics & Logs", "診断とログ"),
+    ("LogPathLabel", "运行日志路径", "Runtime Log Path", "実行ログのパス"),
+    ("ButtonOpenDirectory", "打开目录", "Open Folder", "フォルダを開く"),
+    ("DataMaintenance", "数据维护", "Data Maintenance", "データ管理"),
+    ("ClearDataLabel", "清空所有词库与复习数据", "Clear All Vocabulary & Review Data", "すべての単語と復習データを削除"),
+    ("ClearDataSubLabel", "彻底清空本地所有单词、词单及复习日志，不可恢复", "Permanently clears all words, lists, and review logs locally. Cannot be undone.", "ローカルのすべての単語、単語帳、復習ログを完全に消去します。元に戻せません。"),
+    ("ButtonClearAllData", "清空所有数据", "Clear All Data", "すべてのデータを消去"),
+    ("ClearDataDialogTitle", "警告：确认清除所有导入记录？", "Warning: Confirm Clearing All Records?", "警告：すべてのインポート記録を消去しますか？"),
+    ("ClearDataDialogContent", "此操作将永久清空本地数据库中的所有已导入单词、全部自定义词单以及历史 FSRS 复习打卡日志。数据将无法恢复。\n\n是否确认继续清空？", "This will permanently clear all imported words, custom word lists, and historical FSRS review logs. Data cannot be recovered.\n\nAre you sure you want to proceed?", "この操作を行うと、ローカルデータベース内のすべてのインポート済み単語、すべてのカスタム単語帳、および過去のFSRS復習ログが完全に消去されます。データは復元できません。\n\n本当に消去しますか？"),
+    ("ButtonConfirmClear", "确认清空", "Confirm Clear", "消去を確定"),
+    ("AboutTitle", "关于 Tampo", "About Tampo", "Tampo につきまして"),
+    ("VersionLabel", "版本：1.1.0", "Version: 1.1.0", "バージョン：1.1.0"),
+    ("ArchLabel", "架构：.NET 8 · WinUI 3 · SQLite", "Architecture: .NET 8 · WinUI 3 · SQLite", "アーキテクチャ：.NET 8 · WinUI 3 · SQLite"),
+    ("FsrsModelLabel", "调度模型：FSRS (Free Spaced Repetition Scheduler)", "Scheduler: FSRS (Free Spaced Repetition Scheduler)", "スケジューリングモデル：FSRS (Free Spaced Repetition Scheduler)"),
+
+    # 导入模块与预设管理 (ImportPage & ManagePresetsDialog)
+    ("ImportTitle", "批量导入与正则清洗", "Batch Import & Regex Cleansing", "一括インポート＆正規表現クレンジング"),
+    ("PresetSelectorLabel", "清洗预设：", "Cleansing Preset:", "クレンジングプリセット："),
+    ("ManagePresets", "管理预设...", "Manage Presets...", "プリセット管理..."),
+    ("ButtonImportToVault", "导入到词库", "Import to Vault", "単語庫へインポート"),
+    ("ImportRawTextTip", "原始文本（悬浮右侧候选词可双向溯源高亮定位）", "Raw Text (Hover candidates to trace and highlight)", "生テキスト（候補単語にホバーで双方向トレース）"),
+    ("OriginalTextPlaceholder", "在此粘贴原始日语文本、电子书笔记或段落...", "Paste raw Japanese text, e-book notes or paragraphs here...", "ここに生の日本語テキスト、電子書籍の抜粋などを貼り付けてください..."),
+    ("ImportPreviewTip", "候选词清洗预览（悬浮高亮原文，点击右上角删除单项）", "Candidate Preview (Hover to highlight raw text, click corner to remove)", "クレンジング候補プレビュー（ホバーで原文ハイライト、右上で削除）"),
+    ("ExtractedCountLabel", "已提取：", "Extracted:", "抽出数："),
+    ("RemoveCandidateTip", "移除此候选词", "Remove candidate", "この候補を削除"),
+    ("NoCandidatesDialogTitle", "无候选词", "No Candidates", "候補単語なし"),
+    ("NoCandidatesDialogContent", "当前右侧预览中没有清洗出的有效候选词，请先输入原始文本或调整清洗预设。", "No valid candidate words were extracted. Please paste raw text or adjust the preset.", "有効な候補単語が抽出されていません。テキストを入力するかプリセットを調整してください。"),
+    ("ImportDoneDialogTitle", "导入完成", "Import Complete", "インポート完了"),
+    ("ImportSummaryFormat", "导入统计完成：\n• 成功新增入库：{0} 词\n• 查重跳过已有词：{1} 词", "Import completed:\n• Newly added: {0} words\n• Skipped duplicates: {1} words", "インポート完了：\n• 新規追加：{0} 語\n• 重複スキップ：{1} 語"),
+    ("DuplicateSamplesFormat", "\n（跳过样本：{0} 等）", "\n(Skipped samples: {0}, etc.)", "\n（スキップされたサンプル：{0} など）"),
+    ("PresetDialogTitle", "正则清洗预设管理", "Regex Cleansing Preset Manager", "正規表現クレンジングプリセット管理"),
+    ("PresetSavedRulesTitle", "已保存规则库", "Saved Rule Library", "保存済みルール一覧"),
+    ("PresetSavedRulesTip", "点击选择可带入右侧表单进行测试或编辑", "Select to test or edit in the right form", "選択して右側のフォームでテストまたは編集"),
+    ("PresetBuiltInBadge", "内置", "Built-in", "内蔵"),
+    ("PresetDeleteTip", "删除此自定义预设", "Delete custom preset", "このカスタムプリセットを削除"),
+    ("PresetConfigTitle", "自定义清洗规则配置", "Custom Rule Configuration", "カスタムルール設定"),
+    ("PresetNameHeader", "预设名称", "Preset Name", "プリセット名"),
+    ("PresetNamePlaceholder", "输入预设名称...", "Enter preset name...", "プリセット名を入力..."),
+    ("PresetCaptureGroupHeader", "捕获组索引", "Capture Group Index", "キャプチャグループ番号"),
+    ("PresetPatternHeader", "正则表达式", "Regular Expression", "正規表現"),
+    ("PresetPatternPlaceholder", "正则表达式（如：([ぁ-ん]+)）...", "Regular expression (e.g. ([ぁ-ん]+))...", "正規表現（例：([ぁ-ん]+)）..."),
+    ("PresetSaveButton", "保存为新预设", "Save as New Preset", "新規プリセットとして保存"),
+    ("PresetTestTitle", "单行即时提取验证", "Real-time Line Extraction Test", "単一行リアルタイム抽出検証"),
+    ("PresetTestPlaceholder", "输入单行测试文本...", "Enter single-line test text...", "テスト用テキストを入力..."),
+    ("PresetTestResultPrefix", "提取结果：", "Result: ", "抽出結果："),
+
+    # 归档模块 (WordListPage)
+    ("WordListPageTitle", "管理未归档", "Manage Unarchived", "未整理単語の管理"),
+    ("ExportCurrentSetWeb", "在浏览器中查看此集合", "View Collection in Browser", "ブラウザでこのコレクションを表示"),
+    ("WordListTreeTitle", "时间维度折叠树", "Time Hierarchy Tree", "時間階層ツリー"),
+    ("WordListTreeTip", "点击节点即可在右侧预览其单词；勾选复选框可组合打包", "Click node to preview words; check boxes to bundle together", "ノードをクリックして単語をプレビュー；チェックボックスで一括パッケージ"),
+    ("DimensionDay", "按日分类", "By Day", "日別"),
+    ("DimensionWeek", "按周分类", "By Week", "週別"),
+    ("DimensionMonth", "按月分类", "By Month", "月別"),
+    ("DimensionQuarter", "按季分类", "By Quarter", "四半期別"),
+    ("DimensionYear", "按年分类", "By Year", "年別"),
+    ("FlatLevelMode", "仅显示当前层级（单层扁平模式）", "Show current level only (Flat mode)", "現在の階層のみ表示（フラットモード）"),
+    ("TreeListNameInputPlaceholder", "输入打包后的新词单名称...", "Enter bundled word list name...", "パッケージ後の単語帳名を入力..."),
+    ("ButtonPackSelection", "将所选勾选项打包为新词单", "Package Selected into New List", "選択した項目を新しい単語帳にパッケージ"),
+    ("CustomListsTitle", "自定义专属词单", "Custom Word Lists", "カスタム専用単語帳"),
+    ("CustomListsSubTitle", "右键可重命名、合并、解散或导出", "Right-click to rename, merge, disband, or export", "右クリックで名前変更、結合、解散、またはエクスポート"),
+    ("ButtonCreateCustomList", "新建自选词单", "New Custom List", "新規カスタム単語帳"),
+    ("ButtonMoveToList", "移动到词单...", "Move to List...", "単語帳へ移動..."),
+    ("RemoveFromList", "移出词单", "Remove from List", "単語帳から除外"),
+    ("RemoveFromListTip", "将所选单词移出词单，恢复未归档", "Remove selected words from list back to unarchived", "選択した単語を単語帳から除外し、未整理に戻す"),
+    ("MenuRenameList", "重命名词单", "Rename List", "単語帳の名前を変更"),
+    ("MenuMergeList", "合并至其他词单...", "Merge into Another List...", "他の単語帳に結合..."),
+    ("MenuViewInBrowser", "在浏览器中查看", "View in Browser", "ブラウザで表示"),
+    ("MenuDisbandList", "解散词单（词汇恢复未归档）", "Disband List (Restore to Unarchived)", "単語帳を解散（未整理に戻す）"),
+    ("CollectionWordCountFormat", "当前集合包含 {0} 个单词", "Current collection contains {0} words", "現在のコレクションには {0} 語含まれています"),
+    ("SearchInCollectionPlaceholder", "在当前集合中查找单词...", "Search in current collection...", "このコレクション内を検索..."),
+    ("MenuCreateListFromSelected", "将已选单词新建为词单...", "Create New List from Selected...", "選択した単語で新規単語帳を作成..."),
+    ("NextReviewLabel", "下次复习", "Next Review", "次回復習"),
+
+    # 词库全景模块 (AllWordsPage)
+    ("AllWordsTitle", "词库全景", "Vocabulary Panorama", "単語庫パノラマ"),
+    ("AllWordsPageHeader", "历史导入单词与状态管理", "Vocabulary History & State Management", "履歴単語＆学習状態管理"),
+    ("TotalWordCount", "累计词汇总量", "Total Words", "累計単語総数"),
+    ("TimeSliceTitle", "时间节点切片", "Time Slice Hierarchy", "タイムスライス"),
+    ("TimeSliceTip", "点击时间节点可筛选该区间导入的词汇", "Click nodes to filter words imported during interval", "時間ノードをクリックして期間内の単語を絞り込み"),
+    ("TimeSliceSelectedLabel", "时间切片筛选状态", "Selected Time Slice", "選択されたタイムスライス"),
+    ("SliceNew", "未学", "New", "未学"),
+    ("SliceLearning", "学习", "Learning", "学習"),
+    ("SliceReviewing", "复习", "Review", "復習"),
+    ("SliceMastered", "掌握", "Mastered", "習得"),
+    ("ButtonPackSliceToList", "打包此切片为新词单", "Package Slice into New List", "このスライスを新しい単語帳にパッケージ"),
+    ("ButtonClearSlice", "清除时间切片，查看全部", "Clear Filter & View All", "フィルタを解除してすべて表示"),
+    ("FilterAll", "全部", "All", "すべて"),
+    ("FilterNewFormat", "未学习 ({0})", "New ({0})", "未学習 ({0})"),
+    ("FilterLearningFormat", "学习中 ({0})", "Learning ({0})", "学習中 ({0})"),
+    ("FilterReviewFormat", "复习中 ({0})", "Reviewing ({0})", "復習中 ({0})"),
+    ("FilterMasteredFormat", "已掌握 ({0})", "Mastered ({0})", "習得済み ({0})"),
+    ("SearchWordsPlaceholder", "输入单词查找...", "Search words...", "単語を入力して検索..."),
+    ("RightClickActionHint", "多选单词后右键已选词弹出操作菜单", "Right-click selected words for batch actions", "複数選択後に右クリックで一括操作メニューを表示"),
+    ("MenuCreateCustomListDots", "新建自选词单...", "New Custom List...", "新規カスタム単語帳..."),
+    ("MenuMarkNew", "标记为：未学习", "Mark as: New", "未学習としてマーク"),
+    ("MenuMarkMastered", "标记为：已掌握", "Mark as: Mastered", "習得済みとしてマーク"),
+    ("MenuReimportToday", "重新在今天导入", "Re-import Today", "今日再インポート"),
+    ("MenuDeleteSelected", "删除所选单词", "Delete Selected Words", "�    ("MasteredVaultLabel", "独立已掌握归档池", "Mastered Words Vault", "習得済みアーカイブプール"),
+    ("MasteredVaultTip", "已彻底稳固掌握，独立归档不占用复习调度", "Firmly consolidated words safely archived without review overhead", "完全に定着済み、復習スケジュールから除外保管"),
+    ("StateDistributionTitle", "FSRS 算法调度状态分布", "FSRS Scheduling State Distribution", "FSRS スケジューリング状態分布"),
+    ("FsrsActiveCountFormat", "FSRS 活跃总数: {0} 词", "FSRS Active Total: {0} words", "FSRS アクティブ総数: {0} 語"),
+    ("FsrsNewTitle", "未学习 (New)", "New (New)", "未学習 (New)"),
+    ("FsrsNewSubTip", "待激活新词 · 点击查看", "Pending activation · Click to view", "未開始の単語 · クリックして表示"),
+    ("FsrsLearningTitle", "初学中 (Learning)", "Learning (Learning)", "初学中 (Learning)"),
+    ("FsrsLearningSubTip", "短期高频建立记忆印痕", "Short-term imprint building", "短期集中で記憶痕跡を構築"),
+    ("FsrsReviewTitle", "复习中 (Review)", "Reviewing (Review)", "復習中 (Review)"),
+    ("FsrsReviewSubTip", "进入指数级间隔递增调度", "Exponential spaced repetition", "指数関数的間隔反復スケジューリング"),
+    ("FsrsRelearningTitle", "重新学习 (Relearning)", "Relearning (Relearning)", "再学習 (Relearning)"),
+    ("FsrsRelearningSubTip", "发生遗忘，立即触发记忆修补", "Lapse occurred, instant repair", "忘却発生、即時記憶修復"),
+    ("RetentionCurveTitle", "FSRS 动态记忆留存曲线预测", "Dynamic Retention Curve Forecast", "FSRS 動的記憶定着曲線予測"),
+    ("SearchRetentionPlaceholder", "输入单词检索记忆留存率...", "Search word to inspect retention...", "単語を検索して忘却曲線を確認..."),
+    ("CurrentRetrievalProbability", "当前理论可提取概率 (Retrievability):", "Current Retrievability:", "現在の理論想起確率 (Retrievability):"),
+    ("MemoryHalfLifeLabel", "记忆半衰期 (Stability):", "Memory Half-life (Stability):", "記憶半減期 (Stability):"),
+    ("OptimalReviewRecommendation", "建议下次回顾时间:", "Recommended Next Review:", "推奨次回復習時期:"),
+    ("RetentionSolid", "记忆牢固", "Solid Memory", "記憶定着"),
+    ("RetentionGood", "状态良好", "Good State", "良好な状態"),
+    ("RetentionCritical", "临界遗忘，建议复习", "Near Forgetting, Review Suggested", "忘却寸前、復習推奨"),
+    ("RetentionUrgent", "急需复习强化", "Urgent Review Needed", "至急復習が必要"),
+    ("RetentionPending", "待学习", "To Learn", "未学習"),
+    ("StabilityUnreviewed", "预计维持：尚未复习", "Stability: Not Reviewed", "予測維持：未復習"),
+    ("StabilityHoursFormat", "预计维持：约 {0:F0} 小时", "Stability: ~{0:F0} hours", "予測維持：約 {0:F0} 時間"),
+    ("StabilityDaysFormat", "预计维持：约 {0:F1} 天", "Stability: ~{0:F1} days", "予測維持：約 {0:F1} 日"),
+    ("DifficultyInitial", "难度：初始新词", "Difficulty: New Word", "難易度：新規単語"),
+    ("DifficultyEasyFormat", "难度：{0:F1} (较易)", "Difficulty: {0:F1} (Easy)", "難易度：{0:F1} (易しい)"),
+    ("DifficultyMediumFormat", "难度：{0:F1} (适中)", "Difficulty: {0:F1} (Medium)", "難易度：{0:F1} (普通)"),
+    ("DifficultyHardFormat", "难度：{0:F1} (较难)", "Difficulty: {0:F1} (Hard)", "難易度：{0:F1} (難しい)"),
+    ("WordsSuffixFormat", "{0} 词", "{0} words", "{0} 語"),
+    ("StateUnknown", "未知", "Unknown", "不明"),
+]��级：", "Status Level:", "状態レベル："),
+    ("FilterAllToday", "全部打卡", "All Reviews", "すべての記録"),
+    ("RatingRememberOption", "记得 (Good)", "Remembered (Good)", "覚えている (Good)"),
+    ("RatingForgetOption", "遗忘 (Again)", "Forgot (Again)", "忘れた (Again)"),
+    ("TodayCountLabel", "今日已学:", "Studied Today:", "本日学習済:"),
+    ("RememberCountLabel", "记得:", "Remembered:", "覚えている:"),
+    ("ForgetCountLabel", "遗忘:", "Forgot:", "忘れた:"),
+    ("ViewModeGridLabel", "网格显示", "Grid View", "グリッド表示"),
+    ("ViewModeListLabel", "列表显示", "List View", "リスト表示"),
+    ("GridViewTip", "网格视图（红绿卡片，点击直接切换状态）", "Grid View (Click card to toggle status)", "グリッド表示（カードをクリックして状態を切り替え）"),
+    ("ListViewTip", "列表视图（条目清晰，右侧提供状态切换按钮）", "List View (Clear list with toggle button)", "リスト表示（右側のボタンで状態を切り替え）"),
+    ("CardToggleTip", "左键单击直接在「记得」与「遗忘」之间切换", "Click to toggle between Remembered and Forgot", "クリックして「覚えている」と「忘れた」を切り替え"),
+    ("ToggleOppositeTip", "点击切换为相反状态", "Click to toggle opposite status", "クリックして反対の状態に切り替え"),
+    ("RevertRecordTip", "撤销此单词的今日记录", "Revert today's record for this word", "この単語の本日の記録を取り消す"),
+
+    # 最近履历模块 (RecentStudyPage)
+    ("RecentStudyHeader", "最近学习", "Recent Study", "最近の学習"),
+    ("TimeFilterLabel", "时间层级：", "Time Level:", "時間レベル："),
+    ("TimeSpan24h", "日 (最近24h)", "Day (Last 24h)", "日 (過去24時間)"),
+    ("TimeSpan7d", "周 (最近7天)", "Week (Last 7 Days)", "週 (過去7日間)"),
+    ("TimeSpan30d", "月 (最近30天)", "Month (Last 30 Days)", "月 (過去30日間)"),
+    ("TimeSpan90d", "季度 (最近90天)", "Quarter (Last 90 Days)", "四半期 (過去90日間)"),
+    ("StateFilterAll", "全部状态", "All States", "すべての状態"),
+    ("StateFilterNew", "未学习 (New)", "New (New)", "未学習 (New)"),
+    ("StateFilterLearning", "学习中 (Learning)", "Learning (Learning)", "学習中 (Learning)"),
+    ("StateFilterReview", "复习中 (Review)", "Reviewing (Review)", "復習中 (Review)"),
+    ("StateFilterMastered", "已掌握 (Mastered)", "Mastered (Mastered)", "習得済み (Mastered)"),
+    ("MatchedCountLabel", "共命中:", "Matched:", "該当件数:"),
+    ("SearchRecentPlaceholder", "搜索最近学习词汇...", "Search recent words...", "最近学習した単語を検索..."),
+
+    # 活动日历模块 (ActivityCalendarPage)
+    ("CalendarYearView", "年 (12个月全景平铺)", "Year (12-Month Panorama)", "年 (12ヶ月全景タイル)"),
+    ("CalendarMonthView", "月 (单月份放大明细)", "Month (Single Month Detail)", "月 (単月詳細拡大)"),
+    ("CalendarPrev", "上一周期", "Previous", "前へ"),
+    ("CalendarToday", "今天", "Today", "今日"),
+    ("CalendarNext", "下一周期", "Next", "次へ"),
+    ("TotalWordsRecorded", "累计收录词数:", "Total Vocabulary:", "累計収録語数:"),
+    ("TotalImportDays", "累计导入天数:", "Total Import Days:", "累計インポート日数:"),
+    ("TotalStudyDays", "累计复习打卡天数:", "Total Study Days:", "累計復習日数:"),
+    ("DaySunday", "日", "Sun", "日"),
+    ("DayMonday", "一", "Mon", "月"),
+    ("DayTuesday", "二", "Tue", "火"),
+    ("DayWednesday", "三", "Wed", "水"),
+    ("DayThursday", "四", "Thu", "木"),
+    ("DayFriday", "五", "Fri", "金"),
+    ("DaySaturday", "六", "Sat", "土"),
+
+    # 记忆分析大屏模块 (MemoryAnalyticsPage)
+    ("AnalyticsScreenTitle", "记忆分析与遗忘曲线", "Memory Analytics & Retention Curve", "記憶分析と忘却曲線"),
+    ("AnalyticsScopeLabel", "分析切片范围：", "Analytics Scope:", "分析対象範囲："),
+    ("AverageRetentionLabel", "FSRS 平均记忆留存率", "FSRS Average Retention", "FSRS 平均記憶定着率"),
+    ("AverageRetentionTip", "FSRS 复习队列词汇加权可提取概率（排除已掌握）", "FSRS retrievability forecast for review queue (excl. mastered)", "復習キュー単語の加重想起確率（習得済を除く）"),
+    ("AverageStabilityLabel", "FSRS 平均记忆稳定性", "FSRS Average Stability", "FSRS 平均記憶安定性"),
+    ("StabilityDaysFormat", "{0:F1} 天", "{0:F1} days", "{0:F1} 日"),
+    ("AverageStabilityTip", "当前活跃词汇平均记忆半衰周期（排除已掌握）", "Average half-life retention period of active words (excl. mastered)", "現在の対象単語の平均記憶半減期（習得済を除く）"),
+    ("MasteredVaultLabel", "独立已掌握归档池", "Mastered Words Vault", "習得済みアーカイブプール"),
+    ("MasteredVaultTip", "已彻底稳固掌握，独立归档不占用复习调度", "Firmly consolidated words safely archived without review overhead", "完全に定着済み、復習スケジュールから除外保管"),
+    ("StateDistributionTitle", "FSRS 算法调度状态分布", "FSRS Scheduling State Distribution", "FSRS スケジューリング状態分布"),
+    ("FsrsActiveCountFormat", "FSRS 活跃总数: {0} 词", "FSRS Active Total: {0} words", "FSRS アクティブ総数: {0} 語"),
+    ("FsrsNewTitle", "未学习 (New)", "New (New)", "未学習 (New)"),
+    ("FsrsNewSubTip", "待激活新词 · 点击查看", "Pending activation · Click to view", "未開始の単語 · クリックして表示"),
+    ("FsrsLearningTitle", "初学中 (Learning)", "Learning (Learning)", "初学中 (Learning)"),
+    ("FsrsLearningSubTip", "短期高频建立记忆印痕", "Short-term imprint building", "短期集中で記憶痕跡を構築"),
+    ("FsrsReviewTitle", "复习中 (Review)", "Reviewing (Review)", "復習中 (Review)"),
+    ("FsrsReviewSubTip", "进入指数级间隔递增调度", "Exponential spaced repetition", "指数関数的間隔反復スケジューリング"),
+    ("FsrsRelearningTitle", "重新学习 (Relearning)", "Relearning (Relearning)", "再学習 (Relearning)"),
+    ("FsrsRelearningSubTip", "发生遗忘，立即触发记忆修补", "Lapse occurred, instant repair", "忘却発生、即時記憶修復"),
+    ("RetentionCurveTitle", "FSRS 动态记忆留存曲线预测", "Dynamic Retention Curve Forecast", "FSRS 動的記憶定着曲線予測"),
+    ("SearchRetentionPlaceholder", "输入单词检索记忆留存率...", "Search word to inspect retention...", "単語を検索して忘却曲線を確認..."),
+    ("CurrentRetrievalProbability", "当前理论可提取概率 (Retrievability):", "Current Retrievability:", "現在の理論想起確率 (Retrievability):"),
+    ("MemoryHalfLifeLabel", "记忆半衰期 (Stability):", "Memory Half-life (Stability):", "記憶半減期 (Stability):"),
+    ("OptimalReviewRecommendation", "建议下次回顾时间:", "Recommended Next Review:", "推奨次回復習時期:"),
+]
+
+def make_resw(filename, lang_idx):
+    root = ET.Element('root')
+    
+    # 架构头
+    resheader1 = ET.SubElement(root, 'resheader', name='resmimetype')
+    ET.SubElement(resheader1, 'value').text = 'text/microsoft-resx'
+    resheader2 = ET.SubElement(root, 'resheader', name='version')
+    ET.SubElement(resheader2, 'value').text = '2.0'
+    resheader3 = ET.SubElement(root, 'resheader', name='reader')
+    ET.SubElement(resheader3, 'value').text = 'System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+    resheader4 = ET.SubElement(root, 'resheader', name='writer')
+    ET.SubElement(resheader4, 'value').text = 'System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
+
+    for item in entries:
+        key = item[0]
+        val = item[lang_idx]
+        data = ET.SubElement(root, 'data', name=key)
+        data.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+        ET.SubElement(data, 'value').text = val
+
+    rough_str = ET.tostring(root, encoding='utf-8')
+    parsed = minidom.parseString(rough_str)
+    pretty = parsed.toprettyxml(indent="  ", encoding='utf-8')
+    with open(filename, 'wb') as f:
+        f.write(pretty)
+    print(f'Wrote {len(entries)} keys to {filename}')
+
+if __name__ == '__main__':
+    make_resw(r'Strings\zh-CN\Resources.resw', 1)
+    make_resw(r'Strings\en-US\Resources.resw', 2)
+    make_resw(r'Strings\ja-JP\Resources.resw', 3)

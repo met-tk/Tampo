@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <AssemblyName>Setup</AssemblyName>
+    <RootNamespace>NihongoVocab.Installer</RootNamespace>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- 版本与发行商元数据 -->
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <ProductVersion>1.1.0</ProductVersion>
+    <Authors>taketo</Authors>
+    <Company>taketo</Company>
+    <Product>Tampo</Product>
+    <Copyright>© 2024 taketo</Copyright>
+    <Description>Tampo Setup Installer - Modern Japanese Vocabulary &amp; FSRS Memory Scheduler</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="payload.zip" Condition="Exists('payload.zip')" />
+    <Resource Include="AppIcon.ico" />
+  </ItemGroup>
+</Project>

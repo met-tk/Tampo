@@ -1,0 +1,179 @@
+<Page
+    x:Class="NihongoVocab.Views.RecentStudyPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:NihongoVocab.Models"
+    mc:Ignorable="d">
+
+    <Grid Padding="24,20,24,24" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部操作与筛选控制条 -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：标题、时间层级与状态层级下拉菜单 -->
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE81C;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                <TextBlock x:Name="PageTitleTextBlock" Text="最近学习" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
+
+                <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="2,0"/>
+
+                <!-- 时间层级下拉菜单（日、周、月、季度） -->
+                <TextBlock x:Name="TimeSpanLabel" Text="时间跨度:" VerticalAlignment="Center" FontSize="13" Opacity="0.8"/>
+                <ComboBox x:Name="TimeSpanComboBox" SelectedIndex="1" Width="130">
+                    <ComboBoxItem Content="周 (最近7天)" Tag="Week"/>
+                    <ComboBoxItem Content="日 (最近24h)" Tag="Day"/>
+                    <ComboBoxItem Content="月 (最近30天)" Tag="Month"/>
+                    <ComboBoxItem Content="季度 (最近90天)" Tag="Quarter"/>
+                </ComboBox>
+
+                <!-- 状态层级下拉菜单（全部、未学习、学习中、复习中、已掌握） -->
+                <TextBlock x:Name="StateFilterLabel" Text="状态筛选:" VerticalAlignment="Center" FontSize="13" Opacity="0.8" Margin="6,0,0,0"/>
+                <ComboBox x:Name="StateFilterComboBox" SelectedIndex="0" Width="140">
+                    <ComboBoxItem Content="全部状态" Tag="All"/>
+                    <ComboBoxItem Content="未学习 (New)" Tag="New"/>
+                    <ComboBoxItem Content="学习中 (Learning)" Tag="Learning"/>
+                    <ComboBoxItem Content="复习中 (Review)" Tag="Review"/>
+                    <ComboBoxItem Content="已掌握 (Mastered)" Tag="Mastered"/>
+                </ComboBox>
+
+                <!-- 统计徽章 -->
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,4" Margin="6,0,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock x:Name="TotalFoundLabel" Text="共计查得:" FontSize="12" Opacity="0.7"/>
+                        <TextBlock Text="{x:Bind ViewModel.TotalFoundCount, Mode=OneWay}" FontSize="12" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" 
+                           FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                           VerticalAlignment="Center" Margin="6,0,0,0"/>
+            </StackPanel>
+
+            <!-- 右侧：搜索与刷新 -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <AutoSuggestBox x:Name="RecentWordsSearchBox"
+                                QueryIcon="Find" Width="200"/>
+                <Button x:Name="RefreshButton" Style="{ThemeResource SubtleButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE72C;" FontSize="13"/>
+                        <TextBlock x:Name="RefreshButtonText" Text="刷新"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 多选提示工具栏 -->
+        <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                CornerRadius="6" Padding="12,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <CheckBox x:Name="SelectAllCheckBox" Content="全选查得词汇"/>
+                    <TextBlock x:Name="SelectedCountTextBlock" Text="已选 0 项" 
+                               FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE8B0;" FontSize="12" Opacity="0.6"/>
+                    <TextBlock x:Name="RightClickHintText" Text="右键任一项目或多选以唤出管理菜单" FontSize="12" Opacity="0.7"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 最近学习单词列表 -->
+        <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="12">
+            <ListView x:Name="RecentWordsListView"
+                      ItemsSource="{x:Bind ViewModel.DisplayWords}"
+                      SelectionMode="Multiple"
+                      PointerReleased="RecentWordsListView_PointerReleased"
+                      PointerCaptureLost="RecentWordsListView_PointerReleased">
+                <ListView.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem x:Name="MenuSetStateNewItem" Text="标记为未学">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8D2;"/>
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem x:Name="MenuSetStateMasteredItem" Text="标记为已掌握">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE73E;"/>
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator/>
+                        <MenuFlyoutItem x:Name="MenuReimportTodayItem" Text="加入今日学习">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xED28;"/>
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator/>
+                        <MenuFlyoutItem x:Name="MenuDeleteWordsItem" Text="从词库中移除">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE74D;" Foreground="#EF4444"/>
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </ListView.ContextFlyout>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="models:Word">
+                        <Grid Padding="12,8" Margin="0,2" CornerRadius="6"
+                              Background="{ThemeResource LayerFillColorDefaultBrush}"
+                              PointerPressed="WordItem_PointerPressed"
+                              PointerEntered="WordItem_PointerEntered"
+                              PointerReleased="WordItem_PointerReleased">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="160"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 单词本体 -->
+                            <TextBlock Text="{x:Bind Text}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+
+                            <!-- 学习状态 -->
+                            <Border Grid.Column="1" CornerRadius="4" Padding="6,2"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                <TextBlock Text="{x:Bind LearningStateText}" FontSize="11" FontWeight="Medium"/>
+                            </Border>
+
+                            <!-- 复习次数与上次时间 -->
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind ReviewCountText}" 
+                                           FontSize="11" Opacity="0.8"/>
+                                <TextBlock Text="{x:Bind LastReviewDate, Converter={StaticResource DateToStringConverter}}" 
+                                           FontSize="10" Opacity="0.5"/>
+                            </StackPanel>
+
+                            <!-- 下次复习间隔时间 -->
+                            <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <TextBlock Text="{x:Bind NextReviewIntervalText}" 
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Opacity="0.85"/>
+                                <TextBlock Text="{x:Bind NextReviewLabel}" FontSize="10" Opacity="0.5" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Border>
+    </Grid>
+</Page>

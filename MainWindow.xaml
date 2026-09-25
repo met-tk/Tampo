@@ -1,0 +1,124 @@
+<Window
+    x:Class="NihongoVocab.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Tampo">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <!-- 侧边栏弹性挤压 Inline 模式：展开菜单向右平推挤压右侧内容区，非浮层遮挡 -->
+        <NavigationView x:Name="NavView"
+                        IsBackButtonVisible="Collapsed"
+                        PaneDisplayMode="Left"
+                        IsSettingsVisible="True"
+                        SelectionChanged="NavView_SelectionChanged"
+                        Loaded="NavView_Loaded">
+
+            <!-- 顶部应用标题与官方书法 Logo 图标 -->
+            <NavigationView.PaneHeader>
+                <Grid Height="48" Margin="12,0,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Border Width="28" Height="28" CornerRadius="6" Background="#FFFFFF" BorderBrush="#D1D5DB" BorderThickness="1">
+                            <Image Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Image.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Assets/ta.svg" RasterizePixelWidth="64" RasterizePixelHeight="64"/>
+                                </Image.Source>
+                            </Image>
+                        </Border>
+                        <TextBlock x:Name="AppTitleTextBlock" Text="Tampo"
+                                   FontWeight="SemiBold" FontSize="15"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </NavigationView.PaneHeader>
+
+            <!-- 核心导航菜单（低调内敛，严格零 Emoji，纯单色矢量 Segoe Fluent Icons） -->
+            <NavigationView.MenuItems>
+                <!-- 模块: 导入 -->
+                <NavigationViewItem x:Name="NavItemImport" Tag="Import" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B7;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextImport" Text="导入"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+
+                <!-- 模块: 归档 -->
+                <NavigationViewItem x:Name="NavItemWordLists" Tag="WordLists" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8F1;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextWordLists" Text="归档"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+
+                <!-- 模块: 词库 -->
+                <NavigationViewItem x:Name="NavItemAllWords" Tag="AllWords" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE736;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextAllWords" Text="词库"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+
+                <!-- 模块: 学习 -->
+                <NavigationViewItem x:Name="NavItemStudy" Tag="Study" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7BE;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextStudy" Text="学习"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+
+                <!-- 模块: 今日 -->
+                <NavigationViewItem x:Name="NavItemTodayStudy" Tag="TodayStudy" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE823;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextTodayStudy" Text="今日"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+
+                <!-- 模块: 最近学习 -->
+                <NavigationViewItem x:Name="NavItemRecentStudy" Tag="RecentStudy" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE81C;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextRecentStudy" Text="最近学习"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+
+                <!-- 模块: 日历 -->
+                <NavigationViewItem x:Name="NavItemActivity" Tag="Activity" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xED28;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextActivity" Text="日历"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+
+                <!-- 模块: 记忆分析 -->
+                <NavigationViewItem x:Name="NavItemAnalytics" Tag="Analytics" SelectsOnInvoked="True">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D2;"/>
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Content>
+                        <TextBlock x:Name="NavTextAnalytics" Text="记忆分析"/>
+                    </NavigationViewItem.Content>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <!-- 页面内容承载容器 -->
+            <Frame x:Name="ContentFrame"/>
+        </NavigationView>
+    </Grid>
+</Window>

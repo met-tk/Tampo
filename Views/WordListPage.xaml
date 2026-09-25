@@ -1,0 +1,426 @@
+<Page
+    x:Class="NihongoVocab.Views.WordListPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:NihongoVocab.Models"
+    mc:Ignorable="d">
+
+    <Grid Padding="24,20,24,24" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部标题栏与全局操作 -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE8F1;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <Button x:Name="ExportWebButton" Style="{ThemeResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE774;" FontSize="13"/>
+                        <TextBlock Text="{x:Bind ViewModel.ExportWebButtonText, Mode=OneWay}"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 主内容区：两栏式 Master-Detail 布局带可拖拽分割条 -->
+        <Grid Grid.Row="1" x:Name="LayoutRootGrid">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="MasterColumn" Width="360" MinWidth="280" MaxWidth="800"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 1. 左侧 Master 区：上下分割布局（带可上下拖拽的 RowSplitter） -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition x:Name="TreeRow" Height="1.2*" MinHeight="160"/>
+                    <RowDefinition Height="8"/>
+                    <RowDefinition x:Name="ListRow" Height="1*" MinHeight="140"/>
+                </Grid.RowDefinitions>
+
+                <!-- 卡片 A：时间层级折叠树 -->
+                <Border Grid.Row="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="12">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 时间树顶部标题与说明 -->
+                        <StackPanel Spacing="2">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xED28;" FontSize="14" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.TreeTitle, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"/>
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind ViewModel.TreeTip, Mode=OneWay}" FontSize="11" Opacity="0.6"/>
+                        </StackPanel>
+
+                        <!-- 维度切换与展开折叠操作栏 -->
+                        <Grid Grid.Row="1" ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ComboBox x:Name="DimensionComboBox" 
+                                      HorizontalAlignment="Stretch"
+                                      SelectedIndex="2">
+                                <ComboBoxItem Content="年 (年度汇总)" Tag="Year"/>
+                                <ComboBoxItem Content="季度 (按季统计)" Tag="Quarter"/>
+                                <ComboBoxItem Content="月 (按月归档)" Tag="Month"/>
+                                <ComboBoxItem Content="周 (按周组织)" Tag="Week"/>
+                                <ComboBoxItem Content="日 (精确每日)" Tag="Day"/>
+                            </ComboBox>
+
+                            <Button x:Name="ExpandAllButton" Grid.Column="1" Style="{ThemeResource SubtleButtonStyle}"
+                                    ToolTipService.ToolTip="展开所有项">
+                                <FontIcon Glyph="&#xE70D;" FontSize="12"/>
+                            </Button>
+
+                            <Button x:Name="CollapseAllButton" Grid.Column="2" Style="{ThemeResource SubtleButtonStyle}"
+                                    ToolTipService.ToolTip="折叠所有项">
+                                <FontIcon Glyph="&#xE70E;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+
+                        <!-- 仅显示当前层级复选框 -->
+                        <CheckBox x:Name="FlatLevelModeCheckBox" Grid.Row="2" Content="{x:Bind ViewModel.FlatLevelModeText, Mode=OneWay}" FontSize="11" Margin="0,0,0,2"
+                                  IsChecked="{x:Bind ViewModel.IsFlatLevelMode, Mode=TwoWay}"/>
+
+                        <!-- 时间层级树视图（通过 TreeViewNode 原生驱动） -->
+                        <TreeView x:Name="DateHierarchyTreeView" Grid.Row="3"
+                                  SelectionMode="None">
+                            <TreeView.ItemTemplate>
+                                <DataTemplate x:DataType="TreeViewNode">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Padding="0,3">
+                                        <CheckBox IsChecked="{x:Bind ((models:DateHierarchyNode)Content).IsChecked, Mode=TwoWay}"
+                                                  IsThreeState="True"/>
+                                        <TextBlock Text="{x:Bind ((models:DateHierarchyNode)Content).Title}" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+
+                        <!-- 打包成词单操作区 -->
+                        <StackPanel Grid.Row="4" Spacing="6" Margin="0,4,0,0">
+                            <TextBox x:Name="TreeListNameInput" PlaceholderText="{x:Bind ViewModel.TreeListNameInputPlaceholder, Mode=OneWay}"
+                                     Text="{x:Bind ViewModel.NewListName, Mode=TwoWay}"/>
+                            <Button x:Name="CreateFromTreeButton" Style="{ThemeResource DefaultButtonStyle}"
+                                    HorizontalAlignment="Stretch">
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                    <FontIcon Glyph="&#xE710;" FontSize="12"/>
+                                    <TextBlock Text="{x:Bind ViewModel.ButtonPackSelection, Mode=OneWay}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 水平滑动分割条 RowSplitter -->
+                <Border x:Name="RowSplitter" Grid.Row="1" Background="Transparent">
+                    <Rectangle Height="2" Margin="0,3" HorizontalAlignment="Stretch"
+                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                </Border>
+
+                <!-- 卡片 B：现有自定义词单列表 -->
+                <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="12">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8EC;" FontSize="14" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.CustomListsTitle, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"/>
+                                <TextBlock Text="{x:Bind ViewModel.WordLists.Count, Mode=OneWay}" 
+                                           FontSize="11" Opacity="0.5" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind ViewModel.CustomListsSubTitle, Mode=OneWay}" FontSize="11" Opacity="0.6"/>
+                        </StackPanel>
+
+                        <!-- 词单卡片列表（独立滚动边界，彻底杜绝重叠） -->
+                        <ListView x:Name="WordListsListView" Grid.Row="1"
+                                  ItemsSource="{x:Bind ViewModel.WordLists}"
+                                  SelectionMode="Single"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  SelectedItem="{x:Bind ViewModel.SelectedWordList, Mode=TwoWay}">
+                            <ListView.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem x:Name="MenuRenameList" Text="重命名词单">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE8AC;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Name="MenuMergeList" Text="合并至其他词单...">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE7EE;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Name="MenuExportList" Text="在浏览器中查看">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE774;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutSeparator/>
+                                    <MenuFlyoutItem x:Name="MenuDissolveList" Text="解散词单（词汇恢复未归档）">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE74D;"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                </MenuFlyout>
+                            </ListView.ContextFlyout>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:WordList">
+                                    <Grid Padding="10,8" Margin="0,2" CornerRadius="6"
+                                          Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                          RightTapped="WordListItem_RightTapped">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"/>
+                                            <TextBlock Text="{x:Bind CreatedAt, Converter={StaticResource DateToStringConverter}}"
+                                                       FontSize="11" Opacity="0.5"/>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="1" Background="{ThemeResource AccentFillColorTertiaryBrush}"
+                                                CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind WordCount, Converter={StaticResource WordCountSuffixConverter}}"
+                                                       FontSize="11" FontWeight="Medium"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- 2. 中间：可拖拽调整比例的分割滑块 Splitter -->
+            <Border x:Name="ColumnSplitter" Grid.Column="1"
+                    Background="Transparent">
+                <Rectangle Width="2" HorizontalAlignment="Center"
+                           Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+            </Border>
+
+            <!-- 3. 右侧 Detail 区：词单或时间节点的单词集合明细展示 -->
+            <Border Grid.Column="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="18">
+                <Grid RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 右侧标头与集合信息 -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{x:Bind ViewModel.CurrentViewTitle, Mode=OneWay}" 
+                                       Style="{ThemeResource SubtitleTextBlockStyle}" FontSize="16"/>
+                            <TextBlock Text="{x:Bind ViewModel.ActiveWords.Count, Mode=OneWay, Converter={StaticResource StringFormatConverter}, ConverterParameter='{}当前集合包含 {0} 个单词'}"
+                                       FontSize="11" Opacity="0.6"/>
+                        </StackPanel>
+
+                        <!-- 搜索过滤框 -->
+                        <AutoSuggestBox x:Name="WordSearchBox" Grid.Column="1" PlaceholderText="{x:Bind ViewModel.SearchInCollectionPlaceholder, Mode=OneWay}"
+                                        QueryIcon="Find" MaxWidth="240" MinWidth="140"/>
+                    </Grid>
+
+                    <!-- 多选与批量操作工具栏 -->
+                    <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            CornerRadius="6" Padding="10,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <CheckBox x:Name="SelectAllCheckBox" Content="{x:Bind ViewModel.SelectAllText, Mode=OneWay}"/>
+                                <TextBlock x:Name="SelectedCountTextBlock" Text="已选 0 项" 
+                                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                <!-- 自选单词创建为独立新词单 -->
+                                <Button x:Name="BatchCreateNewListButton" Style="{ThemeResource AccentButtonStyle}"
+                                        ToolTipService.ToolTip="将右侧当前已选单词打包创建为全新的独立词单">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon Glyph="&#xE710;" FontSize="12"/>
+                                        <TextBlock Text="{x:Bind ViewModel.ButtonCreateCustomListText, Mode=OneWay}"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 批量移动到其他词单 -->
+                                <DropDownButton Content="{x:Bind ViewModel.ButtonMoveToListText, Mode=OneWay}">
+                                    <DropDownButton.Flyout>
+                                        <MenuFlyout x:Name="BatchMoveMenuFlyout"/>
+                                    </DropDownButton.Flyout>
+                                </DropDownButton>
+
+                                <!-- 管理当前专属词单（重命名、合并、解散、彻底删除） -->
+                                <DropDownButton x:Name="ManageCurrentListDropDownButton"
+                                                Style="{ThemeResource SubtleButtonStyle}"
+                                                Visibility="{x:Bind GetListSelectedVisibility(ViewModel.IsCustomListSelected), Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon Glyph="&#xE712;" FontSize="12"/>
+                                        <TextBlock x:Name="ManageCurrentListText" Text="管理词单"/>
+                                    </StackPanel>
+                                    <DropDownButton.Flyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem x:Name="TopMenuRenameList" Text="重命名词单" Click="MenuRenameList_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE8AC;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem x:Name="TopMenuMergeList" Text="合并至其他词单..." Click="MenuMergeList_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE7EE;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem x:Name="TopMenuExportList" Text="在浏览器中查看" Click="MenuExportList_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE774;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutSeparator/>
+                                            <MenuFlyoutItem x:Name="TopMenuDissolveList" Text="解散词单（词汇恢复未归档）" Click="MenuDissolveList_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE74D;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+
+                                        </MenuFlyout>
+                                    </DropDownButton.Flyout>
+                                </DropDownButton>
+
+                                <!-- 从当前词单移出（恢复未归档，仅在选中自定义词单时出现） -->
+                                <Button x:Name="RemoveFromListButton" Style="{ThemeResource SubtleButtonStyle}"
+                                        ToolTipService.ToolTip="{x:Bind ViewModel.RemoveFromListText, Mode=OneWay}"
+                                        Visibility="{x:Bind GetListSelectedVisibility(ViewModel.IsCustomListSelected), Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon Glyph="&#xE738;" FontSize="12"/>
+                                        <TextBlock Text="{x:Bind ViewModel.RemoveFromListText, Mode=OneWay}"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 词单管理：解散/删除（仅在选中自定义词单时展示） -->
+                                <DropDownButton x:Name="ManageListDropDownButton" Style="{ThemeResource SubtleButtonStyle}"
+                                                Visibility="{x:Bind GetListSelectedVisibility(ViewModel.IsCustomListSelected), Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon Glyph="&#xE712;" FontSize="12"/>
+                                        <TextBlock Text="词单管理"/>
+                                    </StackPanel>
+                                    <DropDownButton.Flyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem x:Name="MenuTopDissolveList" Text="解散词单（单词恢复未归档）">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE74D;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem x:Name="MenuTopRenameList" Text="重命名此词单">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE8AC;"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutSeparator/>
+                                            <MenuFlyoutItem x:Name="MenuTopDeleteListCompletely" Text="彻底删除词单及全部单词">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE74D;" Foreground="#EF4444"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </DropDownButton.Flyout>
+                                </DropDownButton>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 单词明细列表（支持多选、滑动多选与右键快捷操作） -->
+                    <ListView x:Name="ActiveWordsListView" Grid.Row="2"
+                              ItemsSource="{x:Bind FilteredWords}"
+                              SelectionMode="Multiple"
+                              PointerReleased="ActiveWordsListView_PointerReleased"
+                              PointerCaptureLost="ActiveWordsListView_PointerReleased">
+                        <ListView.ContextFlyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem x:Name="ContextMenuCreateNewList" Text="将已选单词新建为词单...">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE710;"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                            </MenuFlyout>
+                        </ListView.ContextFlyout>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Word">
+                                <Grid Padding="12,8" Margin="0,2" CornerRadius="6"
+                                      Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                      PointerPressed="WordItem_PointerPressed"
+                                      PointerEntered="WordItem_PointerEntered"
+                                      PointerReleased="WordItem_PointerReleased">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="150"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- 单词原型 -->
+                                    <TextBlock Text="{x:Bind Text}" FontWeight="Bold" FontSize="14"
+                                               VerticalAlignment="Center"/>
+
+                                    <!-- 状态单色标签 -->
+                                    <Border Grid.Column="1" CornerRadius="4" Padding="8,3"
+                                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                        <TextBlock Text="{x:Bind LearningStateText, Mode=OneWay}" FontSize="11" FontWeight="Medium"/>
+                                    </Border>
+
+                                    <!-- 下次复习间隔时间 -->
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <TextBlock Text="{x:Bind NextReviewIntervalText}" 
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   Opacity="0.85" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{x:Bind NextReviewLabel, Mode=OneWay}" FontSize="10" Opacity="0.5" HorizontalAlignment="Right"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Page>
