@@ -2,7 +2,7 @@
 
 <img src="Assets/AppIcon_Rounded_1000.png" width="128" height="128" alt="Tampo Logo" />
 
-# Tampo (丹保)
+# Tampo
 
 **现代化生词收集记忆 与 FSRS 智能学习解决方案**
 
