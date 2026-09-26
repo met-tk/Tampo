@@ -27,9 +27,9 @@
 
 ## 📖 项目简介
 
-**Tampo** 是一款专为日语学习者量身定制的现代化桌面端单词宝库与智能记忆工具。
+**Tampo** 是一款专为学习者量身定制的现代化桌面端单词宝库与智能记忆工具。
 
-不同于传统机械式的背单词软件，Tampo 将强大的**词库切片检索管理**与前沿的 **FSRS (Free Spaced Repetition Scheduler)** 智能复习调度算法完美融合，搭配 Windows 11 Fluent Design（Mica / 亚克力材料与平滑暗黑模式），为您带来沉浸、高效且优雅的日语词汇积累体验。
+不同于传统机械式的背单词软件，Tampo 将强大的**词库切片检索管理**与前沿的 **FSRS (Free Spaced Repetition Scheduler)** 智能复习调度算法完美融合，搭配 Windows 11 Fluent Design（Mica / 亚克力材料与平滑暗黑模式），为您带来沉浸、高效且优雅的词汇积累体验。
 
 ---
 
