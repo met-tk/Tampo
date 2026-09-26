@@ -6,7 +6,7 @@
 
 **现代化生词收集记忆 与 FSRS 智能学习解决方案**
 
-*A Modern Japanese Vocabulary & FSRS Spaced Repetition Learning Desktop App for Windows.*
+*A Modern Vocabulary & FSRS Spaced Repetition Learning Desktop App for Windows.*
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](https://github.com/met-tk/Tampo)
 [![Framework](https://img.shields.io/badge/UI-WinUI%203%20%2F%20Windows%20App%20SDK-512BD4?logo=dotnet)](https://github.com/microsoft/WindowsAppSDK)
