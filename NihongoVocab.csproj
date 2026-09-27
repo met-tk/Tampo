@@ -53,6 +53,10 @@
     <ApplicationDefinition Remove="Installer\**" />
     <Compile Remove="Setup\**" />
     <None Remove="Setup\**" />
+    <Compile Remove="Tampo.Mobile\**" />
+    <None Remove="Tampo.Mobile\**" />
+    <Page Remove="Tampo.Mobile\**" />
+    <ApplicationDefinition Remove="Tampo.Mobile\**" />
   </ItemGroup>
 
   <!--
