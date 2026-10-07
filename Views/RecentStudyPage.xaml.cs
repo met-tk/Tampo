@@ -281,10 +281,13 @@ namespace NihongoVocab.Views
                 PrimaryButtonText = loc.GetString("ButtonConfirmDelete", "确认删除"),
                 CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                 DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = Converters.ThemeHelper.GetActualTheme()
             };
 
+            MainWindow.RegisterActiveDialog(dialog);
             var result = await dialog.ShowAsync();
+            MainWindow.UnregisterActiveDialog(dialog);
             if (result == ContentDialogResult.Primary)
             {
                 await ViewModel.DeleteWordsAsync(selected);

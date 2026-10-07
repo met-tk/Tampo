@@ -33,5 +33,31 @@ namespace NihongoVocab.Services
                 LineHeight = lineHeight
             };
         }
+
+        /// <summary>
+        /// 统一为所有 ContentDialog 注入当前运行时的深浅主题，确保暗黑模式下彻底消除白底并正常反色
+        /// </summary>
+        public static ContentDialog ApplyTheme(ContentDialog dialog, XamlRoot? xamlRoot = null)
+        {
+            if (dialog == null) return dialog!;
+            try
+            {
+                if (xamlRoot != null)
+                {
+                    dialog.XamlRoot = xamlRoot;
+                }
+                var targetTheme = Converters.ThemeHelper.GetActualTheme();
+                dialog.RequestedTheme = targetTheme;
+                if (dialog.Content is FrameworkElement fe)
+                {
+                    fe.RequestedTheme = targetTheme;
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DialogHelper.ApplyTheme");
+            }
+            return dialog;
+        }
     }
 }

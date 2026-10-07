@@ -1429,7 +1429,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>Version: 1.2.1</value>
+    <value>Version: 1.2.2</value>
   </data>
   <data name="ViewModeGrid" xml:space="preserve">
     <value>网格</value>

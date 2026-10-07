@@ -20,6 +20,8 @@ namespace NihongoVocab.Views.Dialogs
 
         public FormatExportDialog(IEnumerable<Word> words)
         {
+            this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
+            this.Loaded += (s, e) => this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
             this.InitializeComponent();
             _presetManager = ExportPresetManager.Instance;
             _words = words?.ToList() ?? new List<Word>();

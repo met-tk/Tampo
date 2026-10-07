@@ -511,7 +511,8 @@ namespace NihongoVocab.Views
                     PrimaryButtonText = loc.GetString("ButtonConfirm", "确定"),
                     CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                     DefaultButton = ContentDialogButton.Primary,
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                 };
 
                 MainWindow.RegisterActiveDialog(dialog);
@@ -539,7 +540,8 @@ namespace NihongoVocab.Views
                         Title = loc.GetString("DialogTitleMergeTip", "合并提示"),
                         Content = DialogHelper.CreateTextBlockContent(loc.GetString("DialogMsgNoOtherListsToMerge", "当前没有其他词单可供合并。")),
                         CloseButtonText = loc.GetString("ButtonConfirm", "确定"),
-                        XamlRoot = this.XamlRoot
+                        XamlRoot = this.XamlRoot,
+                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                     };
                     MainWindow.RegisterActiveDialog(tip);
                     await tip.ShowAsync();
@@ -566,7 +568,8 @@ namespace NihongoVocab.Views
                     PrimaryButtonText = loc.GetString("ButtonMerge", "合并"),
                     CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                     DefaultButton = ContentDialogButton.Primary,
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                 };
 
                 MainWindow.RegisterActiveDialog(dialog);
@@ -602,7 +605,8 @@ namespace NihongoVocab.Views
                     PrimaryButtonText = loc.GetString("ButtonConfirmDissolve", "确认解散"),
                     CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                     DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                 };
 
                 MainWindow.RegisterActiveDialog(confirmDialog);
@@ -733,10 +737,13 @@ namespace NihongoVocab.Views
                 PrimaryButtonText = loc.GetString("ButtonConfirmDelete", "确认删除"),
                 CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                 DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.XamlRoot
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = Converters.ThemeHelper.GetActualTheme()
             };
 
+            MainWindow.RegisterActiveDialog(dialog);
             var result = await dialog.ShowAsync();
+            MainWindow.UnregisterActiveDialog(dialog);
             if (result == ContentDialogResult.Primary)
             {
                 await ViewModel.DeleteWordsAsync(selected);
@@ -757,7 +764,8 @@ namespace NihongoVocab.Views
                     Title = loc.GetString("DialogTitleEditWord", "编辑单词内容"),
                     Content = DialogHelper.CreateTextBlockContent(loc.GetString("DialogMsgEditWordSingleOnly", "编辑单词内容仅支持单选操作，请只选择一个单词后重试。")),
                     CloseButtonText = loc.GetString("ButtonConfirm", "确定"),
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                 };
                 MainWindow.RegisterActiveDialog(tipDialog);
                 await tipDialog.ShowAsync();
@@ -795,7 +803,8 @@ namespace NihongoVocab.Views
                 PrimaryButtonText = loc.GetString("ButtonConfirmEdit", "确认修改"),
                 CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                 DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = Converters.ThemeHelper.GetActualTheme()
             };
 
             MainWindow.RegisterActiveDialog(dialog);
@@ -834,10 +843,13 @@ namespace NihongoVocab.Views
                 PrimaryButtonText = loc.GetString("ButtonConfirmPack", "确认打包"),
                 CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                 DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = Converters.ThemeHelper.GetActualTheme()
             };
 
+            MainWindow.RegisterActiveDialog(dialog);
             var result = await dialog.ShowAsync();
+            MainWindow.UnregisterActiveDialog(dialog);
             if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(inputTextBox.Text))
             {
                 await ViewModel.PackCurrentSliceToListAsync(inputTextBox.Text.Trim());
@@ -871,10 +883,13 @@ namespace NihongoVocab.Views
                 PrimaryButtonText = loc.GetString("ButtonConfirmCreate", "确认创建"),
                 CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                 DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = Converters.ThemeHelper.GetActualTheme()
             };
 
+            MainWindow.RegisterActiveDialog(dialog);
             var result = await dialog.ShowAsync();
+            MainWindow.UnregisterActiveDialog(dialog);
             if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(inputTextBox.Text))
             {
                 await ViewModel.CreateWordListFromWordsAsync(inputTextBox.Text.Trim(), selected.Select(w => w.Id));

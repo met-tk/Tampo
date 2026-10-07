@@ -28,7 +28,7 @@ namespace NihongoVocab.Installer
     public partial class MainWindow : Window
     {
         // ─── 常量 ────────────────────────────────────────────────────────────────
-        private const string NewVersion = "1.2.1";
+        private const string NewVersion = "1.2.2";
         private const string RegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tampo";
 
         // ─── 字段 ────────────────────────────────────────────────────────────────

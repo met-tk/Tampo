@@ -116,7 +116,8 @@ namespace NihongoVocab.Views
                     Title = loc.GetString("NoCandidatesDialogTitle", "无候选词"),
                     Content = DialogHelper.CreateTextBlockContent(loc.GetString("NoCandidatesDialogContent", "当前右侧预览中没有清洗出的有效候选词，请先输入原始文本或调整清洗预设。")),
                     CloseButtonText = loc.GetString("ButtonConfirm", "确定"),
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                 };
                 MainWindow.RegisterActiveDialog(tipDialog);
                 await tipDialog.ShowAsync();
@@ -142,7 +143,8 @@ namespace NihongoVocab.Views
                         Title = loc.GetString("ImportDoneDialogTitle", "导入完成"),
                         Content = DialogHelper.CreateTextBlockContent(msg),
                         CloseButtonText = loc.GetString("ButtonConfirm", "确定"),
-                        XamlRoot = this.XamlRoot
+                        XamlRoot = this.XamlRoot,
+                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                     };
                     MainWindow.RegisterActiveDialog(successDialog);
                     await successDialog.ShowAsync();

@@ -14,6 +14,8 @@ namespace NihongoVocab.Views.Dialogs
         public ManagePresetsDialog(PresetManager presetManager)
         {
             _presetManager = presetManager;
+            this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
+            this.Loaded += (s, e) => this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
             this.Resources["ContentDialogMinWidth"] = 780.0;
             this.Resources["ContentDialogMaxWidth"] = 920.0;
             this.InitializeComponent();

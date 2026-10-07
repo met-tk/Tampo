@@ -85,7 +85,7 @@ namespace NihongoVocab.Views
             if (ClearDataButtonText != null) ClearDataButtonText.Text = loc.GetString("ButtonClearAllData", "清空并重置");
 
             if (SectionAboutTextBlock != null) SectionAboutTextBlock.Text = loc.GetString("AboutTitle", "关于 Tampo");
-            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.2.1 (Windows App SDK / WinUI 3)");
+            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.2.2 (Windows App SDK / WinUI 3)");
             if (AboutArchTextBlock != null) AboutArchTextBlock.Text = loc.GetString("ArchLabel", "架构: x64 Self-Contained 独立部署");
             if (AboutEngineTextBlock != null) AboutEngineTextBlock.Text = loc.GetString("EngineLabel", "算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)");
             if (AuthorLinkButton != null) AuthorLinkButton.Content = loc.GetString("AuthorLinkText", "找我玩");
@@ -193,10 +193,14 @@ namespace NihongoVocab.Views
                     PrimaryButtonText = loc.GetString("ButtonConfirmClear", "确认清空"),
                     CloseButtonText = loc.GetString("ButtonCancel", "取消"),
                     DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                 };
 
+                MainWindow.RegisterActiveDialog(confirmDialog);
                 var res = await confirmDialog.ShowAsync();
+                MainWindow.UnregisterActiveDialog(confirmDialog);
+
                 if (res == ContentDialogResult.Primary)
                 {
                     await ViewModel.ClearAllDataAsync();
@@ -206,9 +210,12 @@ namespace NihongoVocab.Views
                         Title = loc.GetString("ButtonConfirm", "确定"),
                         Content = DialogHelper.CreateTextBlockContent(loc.GetString("MsgClearDataSuccess", "所有单词、词单及复习数据已完全清空。")),
                         CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                        XamlRoot = this.XamlRoot
+                        XamlRoot = this.XamlRoot,
+                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
                     };
+                    MainWindow.RegisterActiveDialog(tip);
                     await tip.ShowAsync();
+                    MainWindow.UnregisterActiveDialog(tip);
                 }
             }
             catch (Exception ex)

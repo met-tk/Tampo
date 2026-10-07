@@ -275,6 +275,10 @@ namespace NihongoVocab
 
         public static void RegisterActiveDialog(ContentDialog dialog)
         {
+            if (dialog != null)
+            {
+                DialogHelper.ApplyTheme(dialog);
+            }
             _currentActiveDialog = dialog;
         }
 

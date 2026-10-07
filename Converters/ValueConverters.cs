@@ -133,6 +133,11 @@ namespace NihongoVocab.Converters
                 return false;
             }
         }
+
+        public static ElementTheme GetActualTheme()
+        {
+            return IsCurrentDarkTheme() ? ElementTheme.Dark : ElementTheme.Light;
+        }
     }
 
     public class CardStateToBorderBrushConverter : IValueConverter
