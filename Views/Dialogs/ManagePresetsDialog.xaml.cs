@@ -14,15 +14,11 @@ namespace NihongoVocab.Views.Dialogs
         public ManagePresetsDialog(PresetManager presetManager)
         {
             _presetManager = presetManager;
-            var actualTheme = Converters.ThemeHelper.GetActualTheme();
-            this.RequestedTheme = actualTheme;
-            this.Loaded += (s, e) => this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
-            bool isDark = actualTheme == ElementTheme.Dark;
-            this.Resources["ContentDialogSmokeFill"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                isDark ? Windows.UI.Color.FromArgb(166, 0, 0, 0) : Windows.UI.Color.FromArgb(89, 0, 0, 0));
+            this.InitializeComponent();
+
+            DialogHelper.ApplyTheme(this);
             this.Resources["ContentDialogMinWidth"] = 780.0;
             this.Resources["ContentDialogMaxWidth"] = 920.0;
-            this.InitializeComponent();
             var loc = LocalizationService.Instance;
             this.Title = loc.GetString("PresetDialogTitle", "正则清洗预设管理");
             this.PrimaryButtonText = loc.GetString("ButtonFinish", "完成");

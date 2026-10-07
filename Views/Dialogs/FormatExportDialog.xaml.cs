@@ -20,13 +20,11 @@ namespace NihongoVocab.Views.Dialogs
 
         public FormatExportDialog(IEnumerable<Word> words)
         {
-            var actualTheme = Converters.ThemeHelper.GetActualTheme();
-            this.RequestedTheme = actualTheme;
-            this.Loaded += (s, e) => this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
-            bool isDark = actualTheme == ElementTheme.Dark;
-            this.Resources["ContentDialogSmokeFill"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                isDark ? Windows.UI.Color.FromArgb(166, 0, 0, 0) : Windows.UI.Color.FromArgb(89, 0, 0, 0));
             this.InitializeComponent();
+
+            DialogHelper.ApplyTheme(this);
+            this.Resources["ContentDialogMinWidth"] = 780.0;
+            this.Resources["ContentDialogMaxWidth"] = 920.0;
             _presetManager = ExportPresetManager.Instance;
             _words = words?.ToList() ?? new List<Word>();
 

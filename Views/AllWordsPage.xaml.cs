@@ -679,25 +679,32 @@ namespace NihongoVocab.Views
 
         private async void MenuFormatExport_Click(object sender, RoutedEventArgs e)
         {
-            var selected = WordsListView.SelectedItems.OfType<Word>().ToList();
-            if (selected.Count == 0 && WordsListView.SelectedItem is Word sw)
+            try
             {
-                selected.Add(sw);
-            }
-            if (selected.Count == 0)
-            {
-                selected = ViewModel.DisplayWords.ToList();
-            }
-            if (selected.Count == 0) return;
+                var selected = WordsListView.SelectedItems.OfType<Word>().ToList();
+                if (selected.Count == 0 && WordsListView.SelectedItem is Word sw)
+                {
+                    selected.Add(sw);
+                }
+                if (selected.Count == 0)
+                {
+                    selected = ViewModel.DisplayWords.ToList();
+                }
+                if (selected.Count == 0) return;
 
-            var dialog = new Dialogs.FormatExportDialog(selected)
-            {
-                XamlRoot = this.XamlRoot
-            };
+                var dialog = new Dialogs.FormatExportDialog(selected)
+                {
+                    XamlRoot = this.XamlRoot
+                };
 
-            MainWindow.RegisterActiveDialog(dialog);
-            await dialog.ShowAsync();
-            MainWindow.UnregisterActiveDialog(dialog);
+                MainWindow.RegisterActiveDialog(dialog);
+                await dialog.ShowAsync();
+                MainWindow.UnregisterActiveDialog(dialog);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "AllWordsPage.MenuFormatExport_Click");
+            }
         }
 
         private async void MenuSetStateNew_Click(object sender, RoutedEventArgs e)

@@ -9,20 +9,37 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-            </ResourceDictionary.MergedDictionaries>
 
-            <!-- 覆盖 WinUI 3 弹窗默认白色半透明遮罩，彻底杜绝暗黑模式下的发白发灰滤镜 -->
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Default">
-                    <SolidColorBrush x:Key="ContentDialogSmokeFill" Color="#A6000000" />
+                <!-- 覆盖 WinUI 3 弹窗默认白色半透明遮罩，必须作为 MergedDictionary 置于 XamlControlsResources 之后以生效 -->
+                <ResourceDictionary>
+                    <ResourceDictionary.ThemeDictionaries>
+                        <ResourceDictionary x:Key="Default">
+                            <SolidColorBrush x:Key="ContentDialogSmokeFill" Color="#B3000000" />
+                            <SolidColorBrush x:Key="SmokeFillColorDefaultBrush" Color="#B3000000" />
+                            <Color x:Key="SmokeFillColorDefault">#B3000000</Color>
+                            <SolidColorBrush x:Key="SystemControlPageBackgroundBaseMediumBrush" Color="#B3000000" />
+                            <SolidColorBrush x:Key="ContentDialogDimmingThemeBrush" Color="#B3000000" />
+                            <SolidColorBrush x:Key="SystemControlPageBackgroundMediumAltMediumBrush" Color="#B3000000" />
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="Dark">
+                            <SolidColorBrush x:Key="ContentDialogSmokeFill" Color="#B3000000" />
+                            <SolidColorBrush x:Key="SmokeFillColorDefaultBrush" Color="#B3000000" />
+                            <Color x:Key="SmokeFillColorDefault">#B3000000</Color>
+                            <SolidColorBrush x:Key="SystemControlPageBackgroundBaseMediumBrush" Color="#B3000000" />
+                            <SolidColorBrush x:Key="ContentDialogDimmingThemeBrush" Color="#B3000000" />
+                            <SolidColorBrush x:Key="SystemControlPageBackgroundMediumAltMediumBrush" Color="#B3000000" />
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="Light">
+                            <SolidColorBrush x:Key="ContentDialogSmokeFill" Color="#59000000" />
+                            <SolidColorBrush x:Key="SmokeFillColorDefaultBrush" Color="#59000000" />
+                            <Color x:Key="SmokeFillColorDefault">#59000000</Color>
+                            <SolidColorBrush x:Key="SystemControlPageBackgroundBaseMediumBrush" Color="#59000000" />
+                            <SolidColorBrush x:Key="ContentDialogDimmingThemeBrush" Color="#59000000" />
+                            <SolidColorBrush x:Key="SystemControlPageBackgroundMediumAltMediumBrush" Color="#59000000" />
+                        </ResourceDictionary>
+                    </ResourceDictionary.ThemeDictionaries>
                 </ResourceDictionary>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="ContentDialogSmokeFill" Color="#59000000" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="ContentDialogSmokeFill" Color="#A6000000" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
+            </ResourceDictionary.MergedDictionaries>
 
             <!-- 解除 WinUI 3 官方默认 548px 限制，支持现代化宽屏 ContentDialog 完美居中 -->
             <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>

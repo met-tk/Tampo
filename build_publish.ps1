@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
 Write-Host "[0/5] Ensuring previous processes are closed..." -ForegroundColor Cyan
-Get-Process -Name "NihongoVocab","Setup","Tampo_Setup_v1.0.0","Tampo_Setup_v1.1.0","Tampo_Setup_v1.1.1","Tampo_Setup_v1.1.2","Tampo_Update_v1.1.2","Tampo_Setup_v1.1.3","Tampo_Update_v1.1.3","Tampo_Setup_v1.1.4","Tampo_Update_v1.1.4","Tampo_Setup_v1.1.5","Tampo_Update_v1.1.5","Tampo_Setup_v1.1.6","Tampo_Update_v1.1.6","Tampo_Setup_v1.1.7","Tampo_Update_v1.1.7","Tampo_Setup_v1.1.8","Tampo_Update_v1.1.8","Tampo_Setup_v1.1.9","Tampo_Update_v1.1.9","Tampo_Setup_v1.2.0","Tampo_Update_v1.2.0","Tampo_Setup_v1.2.1","Tampo_Update_v1.2.1","Tampo_Setup_v1.2.2","Tampo_Update_v1.2.2","Tampo_Setup_v1.2.3","Tampo_Update_v1.2.3" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process -Name "NihongoVocab","Setup","Tampo_Setup_v1.0.0","Tampo_Setup_v1.1.0","Tampo_Setup_v1.1.1","Tampo_Setup_v1.1.2","Tampo_Update_v1.1.2","Tampo_Setup_v1.1.3","Tampo_Update_v1.1.3","Tampo_Setup_v1.1.4","Tampo_Update_v1.1.4","Tampo_Setup_v1.1.5","Tampo_Update_v1.1.5","Tampo_Setup_v1.1.6","Tampo_Update_v1.1.6","Tampo_Setup_v1.1.7","Tampo_Update_v1.1.7","Tampo_Setup_v1.1.8","Tampo_Update_v1.1.8","Tampo_Setup_v1.1.9","Tampo_Update_v1.1.9","Tampo_Setup_v1.2.0","Tampo_Update_v1.2.0","Tampo_Setup_v1.2.1","Tampo_Update_v1.2.1","Tampo_Setup_v1.2.2","Tampo_Update_v1.2.2","Tampo_Setup_v1.2.3","Tampo_Update_v1.2.3","Tampo_Setup_v1.2.4","Tampo_Update_v1.2.4","Tampo_Setup_v1.2.5","Tampo_Update_v1.2.5" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 600
 
 Write-Host "[1/5] Cleaning old build caches and regenerating icons..." -ForegroundColor Cyan
@@ -45,8 +45,8 @@ Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
 
 # ---- Prepare Setup output directory ----------------------------------------
 $setupDir       = "$root\Setup"
-$setupExeFinal  = "$setupDir\Tampo_Setup_v1.2.3.exe"
-$updateExeFinal = "$setupDir\Tampo_Update_v1.2.3.exe"
+$setupExeFinal  = "$setupDir\Tampo_Setup_v1.2.5.exe"
+$updateExeFinal = "$setupDir\Tampo_Update_v1.2.5.exe"
 
 if (Test-Path $setupDir) {
     Remove-Item $setupDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -67,7 +67,7 @@ dotnet publish "$root\Installer\NihongoVocab.Installer.csproj" `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:AssemblyName=Tampo_Setup_v1.2.3 `
+    -p:AssemblyName=Tampo_Setup_v1.2.5 `
     -o $setupDir | Out-Null
 
 # ---- Clean intermediate artifacts ------------------------------------------

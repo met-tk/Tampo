@@ -85,7 +85,7 @@ namespace NihongoVocab.Views
             if (ClearDataButtonText != null) ClearDataButtonText.Text = loc.GetString("ButtonClearAllData", "清空并重置");
 
             if (SectionAboutTextBlock != null) SectionAboutTextBlock.Text = loc.GetString("AboutTitle", "关于 Tampo");
-            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.2.3 (Windows App SDK / WinUI 3)");
+            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.2.5 (Windows App SDK / WinUI 3)");
             if (AboutArchTextBlock != null) AboutArchTextBlock.Text = loc.GetString("ArchLabel", "架构: x64 Self-Contained 独立部署");
             if (AboutEngineTextBlock != null) AboutEngineTextBlock.Text = loc.GetString("EngineLabel", "算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)");
             if (AuthorLinkButton != null) AuthorLinkButton.Content = loc.GetString("AuthorLinkText", "找我玩");
