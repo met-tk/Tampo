@@ -13,10 +13,10 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <!-- 版本与发行商元数据 -->
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
-    <ProductVersion>1.1.0</ProductVersion>
+    <Version>1.2.1</Version>
+    <AssemblyVersion>1.2.1.0</AssemblyVersion>
+    <FileVersion>1.2.1.0</FileVersion>
+    <ProductVersion>1.2.1</ProductVersion>
     <Authors>taketo</Authors>
     <Company>taketo</Company>
     <Product>Tampo</Product>

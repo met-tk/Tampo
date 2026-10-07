@@ -86,6 +86,21 @@ namespace NihongoVocab.ViewModels
                 UpdateCurrentViewTitle();
                 OnPropertyChanged(string.Empty);
             };
+
+            DatabaseService.DataChanged += OnDatabaseDataChanged;
+        }
+
+        private void OnDatabaseDataChanged()
+        {
+            var dispatcher = App.UIThreadDispatcher ?? App.MainWindowInstance?.DispatcherQueue;
+            if (dispatcher != null)
+            {
+                dispatcher.TryEnqueue(async () => await LoadDataAsync());
+            }
+            else
+            {
+                _ = LoadDataAsync();
+            }
         }
 
         public void UpdateCurrentViewTitle()

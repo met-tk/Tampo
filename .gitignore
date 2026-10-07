@@ -65,4 +65,7 @@ __pycache__/
 scratch/
 1111.txt
 tools/gh_bin/
+tampo_android/build/
+tampo_android/.dart_tool/
+*.apk
 scratch_gh_code.txt

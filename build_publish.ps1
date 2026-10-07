@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
 Write-Host "[0/5] Ensuring previous processes are closed..." -ForegroundColor Cyan
-Get-Process -Name "NihongoVocab","Setup","Tampo_Setup_v1.0.0","Tampo_Setup_v1.1.0" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process -Name "NihongoVocab","Setup","Tampo_Setup_v1.0.0","Tampo_Setup_v1.1.0","Tampo_Setup_v1.1.1","Tampo_Setup_v1.1.2","Tampo_Update_v1.1.2","Tampo_Setup_v1.1.3","Tampo_Update_v1.1.3","Tampo_Setup_v1.1.4","Tampo_Update_v1.1.4","Tampo_Setup_v1.1.5","Tampo_Update_v1.1.5","Tampo_Setup_v1.1.6","Tampo_Update_v1.1.6","Tampo_Setup_v1.1.7","Tampo_Update_v1.1.7","Tampo_Setup_v1.1.8","Tampo_Update_v1.1.8","Tampo_Setup_v1.1.9","Tampo_Update_v1.1.9","Tampo_Setup_v1.2.0","Tampo_Update_v1.2.0","Tampo_Setup_v1.2.1","Tampo_Update_v1.2.1" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 600
 
 Write-Host "[1/5] Cleaning old build caches and regenerating icons..." -ForegroundColor Cyan
@@ -44,8 +44,9 @@ Get-ChildItem -Path $dst -File -Recurse |
 Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
 
 # ---- Prepare Setup output directory ----------------------------------------
-$setupDir      = "$root\Setup"
-$setupExeFinal = "$setupDir\Tampo_Setup_v1.1.0.exe"
+$setupDir       = "$root\Setup"
+$setupExeFinal  = "$setupDir\Tampo_Setup_v1.2.1.exe"
+$updateExeFinal = "$setupDir\Tampo_Update_v1.2.1.exe"
 
 if (Test-Path $setupDir) {
     Remove-Item $setupDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -66,7 +67,7 @@ dotnet publish "$root\Installer\NihongoVocab.Installer.csproj" `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:AssemblyName=Tampo_Setup_v1.1.0 `
+    -p:AssemblyName=Tampo_Setup_v1.2.1 `
     -o $setupDir | Out-Null
 
 # ---- Clean intermediate artifacts ------------------------------------------
@@ -74,8 +75,10 @@ if (Test-Path $payloadZip)           { Remove-Item $payloadZip           -Force 
 Get-ChildItem -Path $setupDir -File | Where-Object { $_.Extension -eq ".pdb" } | Remove-Item -Force -ErrorAction SilentlyContinue
 
 if (Test-Path $setupExeFinal) {
+    Copy-Item $setupExeFinal $updateExeFinal -Force
     Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
     Write-Host "Done! Setup installer generated at $setupExeFinal" -ForegroundColor Green
+    Write-Host "Done! Update executable generated at $updateExeFinal" -ForegroundColor Green
 } else {
     Write-Warning "Installer exe not found at expected path: $setupExeFinal"
     Write-Host "Files in Setup dir:" -ForegroundColor Yellow

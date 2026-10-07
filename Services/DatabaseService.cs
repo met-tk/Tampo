@@ -79,20 +79,41 @@ namespace NihongoVocab.Services
         private bool _isInitialized = false;
         private readonly SemaphoreSlim _dbLock = new(1, 1);
 
-        public DatabaseService()
+        private class TableColumnInfo
+        {
+            public string name { get; set; } = string.Empty;
+        }
+
+        public DatabaseService() : this(null)
+        {
+        }
+
+        public DatabaseService(string? customDbPath)
         {
             SQLitePCL.Batteries_V2.Init();
 
-            string appDataDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "NihongoVocab");
-
-            if (!Directory.Exists(appDataDir))
+            if (!string.IsNullOrEmpty(customDbPath))
             {
-                Directory.CreateDirectory(appDataDir);
+                _dbPath = customDbPath;
+                string? dir = Path.GetDirectoryName(customDbPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
             }
+            else
+            {
+                string appDataDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "NihongoVocab");
 
-            _dbPath = Path.Combine(appDataDir, "vocab.db");
+                if (!Directory.Exists(appDataDir))
+                {
+                    Directory.CreateDirectory(appDataDir);
+                }
+
+                _dbPath = Path.Combine(appDataDir, "vocab.db");
+            }
         }
 
         public async Task InitializeAsync()
@@ -110,6 +131,54 @@ namespace NihongoVocab.Services
                 await _database.CreateTableAsync<WordList>();
                 await _database.CreateTableAsync<ReviewLog>();
                 await _database.CreateTableAsync<UserPreference>();
+                await _database.CreateTableAsync<SyncTombstone>();
+
+                // 字段平滑回填迁移保障 (StateUpdatedAt, MetaUpdatedAt, UpdatedAt)
+                try
+                {
+                    var wordCols = (await _database.QueryAsync<TableColumnInfo>("PRAGMA table_info(Words)"))
+                        .Select(c => c.name.ToLowerInvariant()).ToHashSet();
+                    if (!wordCols.Contains("stateupdatedat"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE Words ADD COLUMN StateUpdatedAt TEXT");
+                        await _database.ExecuteAsync("UPDATE Words SET StateUpdatedAt = coalesce(LastReviewDate, CreatedAt, datetime('now', 'localtime')) WHERE StateUpdatedAt IS NULL");
+                    }
+                    if (!wordCols.Contains("metaupdatedat"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE Words ADD COLUMN MetaUpdatedAt TEXT");
+                        await _database.ExecuteAsync("UPDATE Words SET MetaUpdatedAt = coalesce(CreatedAt, datetime('now', 'localtime')) WHERE MetaUpdatedAt IS NULL");
+                    }
+
+                    var listCols = (await _database.QueryAsync<TableColumnInfo>("PRAGMA table_info(WordLists)"))
+                        .Select(c => c.name.ToLowerInvariant()).ToHashSet();
+                    if (!listCols.Contains("updatedat"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE WordLists ADD COLUMN UpdatedAt TEXT");
+                        await _database.ExecuteAsync("UPDATE WordLists SET UpdatedAt = coalesce(CreatedAt, datetime('now', 'localtime')) WHERE UpdatedAt IS NULL");
+                    }
+
+                    var logCols = (await _database.QueryAsync<TableColumnInfo>("PRAGMA table_info(ReviewLogs)"))
+                        .Select(c => c.name.ToLowerInvariant()).ToHashSet();
+                    if (!logCols.Contains("state"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE ReviewLogs ADD COLUMN State INTEGER NOT NULL DEFAULT 0");
+                    }
+                    if (!logCols.Contains("elapseddays"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE ReviewLogs ADD COLUMN ElapsedDays INTEGER NOT NULL DEFAULT 0");
+                    }
+                    if (!logCols.Contains("scheduleddays"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE ReviewLogs ADD COLUMN ScheduledDays INTEGER NOT NULL DEFAULT 0");
+                    }
+
+                    DateTime expireCutoff = DateTime.Now.AddDays(-90);
+                    await _database.Table<SyncTombstone>().DeleteAsync(t => t.DeletedAt < expireCutoff);
+                }
+                catch (Exception migEx)
+                {
+                    CrashLogger.LogException(migEx, "DatabaseService.InitializeAsync.Migration");
+                }
 
                 _isInitialized = true;
             }
@@ -188,6 +257,8 @@ namespace NihongoVocab.Services
                         foreach (var item in toInsert)
                         {
                             conn.Insert(item);
+                            string cleanKey = item.Text.Trim().ToLowerInvariant();
+                            conn.Table<SyncTombstone>().Delete(t => t.EntityType == "word" && t.EntityKey == cleanKey);
                         }
                     });
                     result.InsertedCount = toInsert.Count;
@@ -315,6 +386,7 @@ namespace NihongoVocab.Services
                     word.IsInList = false;
                     word.WordListId = null;
                     word.WordListName = null;
+                    word.MetaUpdatedAt = DateTime.Now;
                     await _database!.UpdateAsync(word);
                 }
             }
@@ -336,12 +408,20 @@ namespace NihongoVocab.Services
             await _dbLock.WaitAsync();
             try
             {
+                var targetList = await _database!.FindAsync<WordList>(listId);
+                if (targetList != null)
+                {
+                    // 记录词单墓碑，防止对端重新同步时词单无限复活
+                    await AddTombstoneInternalAsync("word_list", targetList.Name.Trim().ToLowerInvariant());
+                }
+
                 var words = await _database!.Table<Word>().Where(w => w.WordListId == listId).ToListAsync();
                 foreach (var w in words)
                 {
                     w.IsInList = false;
                     w.WordListId = null;
                     w.WordListName = null;
+                    w.MetaUpdatedAt = DateTime.Now;
                     await _database!.UpdateAsync(w);
                 }
                 await _database!.DeleteAsync<WordList>(listId);
@@ -365,11 +445,20 @@ namespace NihongoVocab.Services
             await _dbLock.WaitAsync();
             try
             {
+                var targetList = await _database!.FindAsync<WordList>(listId);
+                if (targetList != null)
+                {
+                    await AddTombstoneInternalAsync("word_list", targetList.Name.Trim().ToLowerInvariant());
+                }
+
                 var words = await _database!.Table<Word>().Where(w => w.WordListId == listId).ToListAsync();
                 foreach (var w in words)
                 {
                     await _database.Table<ReviewLog>().Where(r => r.WordId == w.Id).DeleteAsync();
                     await _database.DeleteAsync(w);
+
+                    // 彻底删除单词时同步写入单词墓碑
+                    await AddTombstoneInternalAsync("word", w.Text.Trim().ToLowerInvariant());
                 }
                 await _database!.DeleteAsync<WordList>(listId);
             }
@@ -395,13 +484,23 @@ namespace NihongoVocab.Services
                 var list = await _database!.FindAsync<WordList>(listId);
                 if (list != null)
                 {
-                    list.Name = newName.Trim();
+                    string oldName = list.Name.Trim();
+                    string cleanNew = newName.Trim();
+                    if (!oldName.Equals(cleanNew, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await AddTombstoneInternalAsync("word_list", oldName.ToLowerInvariant());
+                        await RemoveTombstoneInternalAsync("word_list", cleanNew.ToLowerInvariant());
+                    }
+
+                    list.Name = cleanNew;
+                    list.UpdatedAt = DateTime.Now;
                     await _database!.UpdateAsync(list);
 
                     var words = await _database!.Table<Word>().Where(w => w.WordListId == listId).ToListAsync();
                     foreach (var w in words)
                     {
-                        w.WordListName = list.Name;
+                        w.WordListName = cleanNew;
+                        w.MetaUpdatedAt = DateTime.Now;
                         await _database!.UpdateAsync(w);
                     }
                 }
@@ -429,11 +528,21 @@ namespace NihongoVocab.Services
                 var targetList = await _database!.FindAsync<WordList>(targetListId);
                 if (targetList == null) return;
 
+                var sourceList = await _database!.FindAsync<WordList>(sourceListId);
+                if (sourceList != null)
+                {
+                    await AddTombstoneInternalAsync("word_list", sourceList.Name.Trim().ToLowerInvariant());
+                }
+
+                targetList.UpdatedAt = DateTime.Now;
+                await _database!.UpdateAsync(targetList);
+
                 var sourceWords = await _database!.Table<Word>().Where(w => w.WordListId == sourceListId).ToListAsync();
                 foreach (var w in sourceWords)
                 {
                     w.WordListId = targetListId;
                     w.WordListName = targetList.Name;
+                    w.MetaUpdatedAt = DateTime.Now;
                     await _database!.UpdateAsync(w);
                 }
 
@@ -472,6 +581,7 @@ namespace NihongoVocab.Services
                     w.WordListId = targetListId;
                     w.IsInList = targetListId.HasValue;
                     w.WordListName = listName;
+                    w.MetaUpdatedAt = DateTime.Now;
                     await _database!.UpdateAsync(w);
                 }
             }
@@ -500,30 +610,33 @@ namespace NihongoVocab.Services
 
                 foreach (var w in words)
                 {
-                    w.State = (int)newState;
+                    // 软件支持的手动标记单词状态严格仅限于两种：【未学习 (New)】和【已掌握 (Mastered)】
                     if (newState == WordLearningState.Mastered)
                     {
-                        w.Stability = Math.Max(w.Stability, 25.0);
-                        w.LastReviewDate = now;
-                        w.NextReviewDate = now.AddDays(25);
+                        // 【已掌握】独立于 FSRS 算法之外：仅设置状态与免复习，不伪造或覆盖 Stability / LastReviewDate
+                        w.State = (int)WordLearningState.Mastered;
+                        w.NextReviewDate = null;
+                        w.StateUpdatedAt = now;
                     }
-                    else if (newState == WordLearningState.New)
+                    else
                     {
+                        // 手动重置为【未学习 (New)】：清空复习历史并写入日志墓碑，重置全部 FSRS 状态参数
+                        var oldLogs = await _database.Table<ReviewLog>().Where(l => l.WordId == w.Id).ToListAsync();
+                        foreach (var oldLog in oldLogs)
+                        {
+                            DateTime localRev = oldLog.ReviewDate.Kind == DateTimeKind.Utc ? oldLog.ReviewDate.ToLocalTime() : oldLog.ReviewDate;
+                            string tombKey = $"{w.Text.Trim().ToLowerInvariant()}_{localRev:yyyyMMddHHmmss}";
+                            await AddTombstoneInternalAsync("review_log", tombKey, now);
+                            await _database.DeleteAsync(oldLog);
+                        }
+                        w.State = (int)WordLearningState.New;
                         w.Stability = 0;
                         w.Difficulty = 0;
                         w.Reps = 0;
                         w.Lapses = 0;
+                        w.LastReviewDate = null;
                         w.NextReviewDate = null;
-                    }
-                    else if (newState == WordLearningState.Learning)
-                    {
-                        w.Stability = Math.Max(w.Stability, 1.0);
-                        w.NextReviewDate = now;
-                    }
-                    else if (newState == WordLearningState.Review)
-                    {
-                        w.Stability = Math.Max(w.Stability, 5.0);
-                        w.NextReviewDate = now;
+                        w.StateUpdatedAt = now;
                     }
                     await _database!.UpdateAsync(w);
                 }
@@ -539,6 +652,71 @@ namespace NihongoVocab.Services
             }
 
             DataChanged?.Invoke();
+        }
+
+        public async Task<int> AddWordAsync(Word word)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                if (word.StateUpdatedAt == default) word.StateUpdatedAt = DateTime.Now;
+                if (word.MetaUpdatedAt == default) word.MetaUpdatedAt = DateTime.Now;
+                int res = await _database!.InsertAsync(word);
+                return res;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.AddWordAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        public async Task<int> UpdateWordAsync(Word word)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                if (word.StateUpdatedAt == default) word.StateUpdatedAt = DateTime.Now;
+                if (word.MetaUpdatedAt == default) word.MetaUpdatedAt = DateTime.Now;
+                int res = await _database!.UpdateAsync(word);
+                return res;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.UpdateWordAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        public async Task<int> UpdateWordListAsync(WordList list)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                if (list.UpdatedAt == default) list.UpdatedAt = DateTime.Now;
+                int res = await _database!.UpdateAsync(list);
+                return res;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.UpdateWordListAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
         }
 
         public async Task<List<Word>> GetWordsByIdsAsync(IEnumerable<int> ids)
@@ -580,15 +758,18 @@ namespace NihongoVocab.Services
                 query = query.Where(w => w.State != (int)WordLearningState.Mastered);
 
                 var allCandidates = await query.ToListAsync();
-                DateTime now = DateTime.Now;
                 DateTime today = DateTime.Today;
+                DateTime endOfToday = today.AddDays(1).AddTicks(-1);
 
                 // 待学习/复习队列规则：
-                // 1. 从未学习过的新词（Reps == 0）
-                // 2. 到期需要复习的词（NextReviewDate <= now），并且严格排除今日已经复习过的词（LastReviewDate?.Date == today），彻底杜绝一天之内重复学习！
+                // 1. 从未学习过的新词（Reps == 0）且今日未复习
+                // 2. 到期需要复习的词（NextReviewDate 为空或 <= endOfToday），并且严格排除今日已经复习过的词（LastReviewDate?.Date == today），彻底杜绝一天之内重复学习！
                 var queue = allCandidates
-                    .Where(w => w.Reps == 0 || (w.NextReviewDate.HasValue && w.NextReviewDate.Value <= now && (!w.LastReviewDate.HasValue || w.LastReviewDate.Value.Date < today)))
-                    .OrderBy(w => w.NextReviewDate ?? DateTime.MinValue)
+                    .Where(w => (!w.LastReviewDate.HasValue || w.LastReviewDate.Value.Date < today) &&
+                                (w.Reps == 0 || !w.NextReviewDate.HasValue || w.NextReviewDate.Value <= endOfToday))
+                    .OrderBy(w => w.Reps == 0 ? 0 : 1)
+                    .ThenBy(w => w.NextReviewDate ?? DateTime.MinValue)
+                    .ThenBy(w => w.CreatedAt)
                     .ToList();
 
                 // 决不回退取全部词汇：学完就是学完，返回空集合以展示今日复习已全部完成
@@ -611,56 +792,158 @@ namespace NihongoVocab.Services
             await _dbLock.WaitAsync();
             try
             {
-                double oldS = word.Stability;
-                double oldD = word.Difficulty;
+                DateTime localNow = now.Kind == DateTimeKind.Utc ? now.ToLocalTime() : now;
+                DateTime dayStart = localNow.Date;
+                DateTime dayEnd = dayStart.AddDays(1).AddTicks(-1);
 
-                var (newS, newD, nextReview) = FsrsEngine.Review(word, rating, now);
+                var wordLogs = (await _database!.Table<ReviewLog>()
+                    .Where(l => l.WordId == word.Id)
+                    .ToListAsync())
+                    .OrderBy(l => l.ReviewDate)
+                    .ThenBy(l => l.Id)
+                    .ToList();
 
-                word.Stability = newS;
-                word.Difficulty = newD;
-                word.LastReviewDate = now;
-                word.NextReviewDate = nextReview;
-                bool isFirstTime = word.Reps == 0;
-                word.Reps += 1;
-
-                if (rating == 1)
+                var sameDayLog = wordLogs.LastOrDefault(l =>
                 {
-                    word.Lapses += 1;
-                    word.State = (int)WordLearningState.Learning;
-                }
-                else
+                    DateTime d = l.ReviewDate.Kind == DateTimeKind.Utc ? l.ReviewDate.ToLocalTime() : l.ReviewDate;
+                    return d >= dayStart && d <= dayEnd;
+                });
+
+                if (sameDayLog != null)
                 {
-                    // 科学 SRS 哲学：
-                    // 1. 新词首次学习记得，进入初期记忆建立期：Learning（学习中）
-                    // 2. 只有在经过巩固复习后（Reps >= 2 且 rating == 3），才正式晋升为 Review（复习中）长期记忆周期
-                    // 3. 已掌握（Mastered）严格由用户手动赋予，算法绝不自动归类
+                    // 同日幂等防重：同一自然日内对同一单词重复提交复习时，基于当日首次打卡前的状态原地重算并更新该日志，绝不重复追加日志或虚增 Reps
+                    var priorLogs = wordLogs.Where(l =>
+                    {
+                        DateTime d = l.ReviewDate.Kind == DateTimeKind.Utc ? l.ReviewDate.ToLocalTime() : l.ReviewDate;
+                        return d < dayStart && l.Id != sameDayLog.Id;
+                    }).ToList();
+
+                    int preReps = priorLogs.Count;
+                    int preLapses = priorLogs.Count(l => l.Rating == 1);
+                    var prevLog = priorLogs.LastOrDefault();
+
+                    double preS = preReps > 0
+                        ? (sameDayLog.StabilityBefore > 0 ? sameDayLog.StabilityBefore : (prevLog?.StabilityAfter ?? 0.0))
+                        : 0.0;
+                    double preD = preReps > 0
+                        ? (sameDayLog.DifficultyBefore > 0 ? sameDayLog.DifficultyBefore : (prevLog?.DifficultyAfter ?? 0.0))
+                        : 0.0;
+                    DateTime? preLastRev = prevLog?.ReviewDate;
+                    int preState = preReps == 0
+                        ? (int)WordLearningState.New
+                        : ((preReps < 2 || (prevLog != null && prevLog.Rating == 1))
+                            ? (int)WordLearningState.Learning
+                            : (int)WordLearningState.Review);
+
+                    var preWord = new Word
+                    {
+                        Id = word.Id,
+                        Text = word.Text,
+                        CreatedAt = word.CreatedAt,
+                        State = preState,
+                        Stability = preS,
+                        Difficulty = preD,
+                        Reps = preReps,
+                        Lapses = preLapses,
+                        LastReviewDate = preLastRev
+                    };
+
+                    int elapsedDays = preReps == 0
+                        ? 0
+                        : (int)Math.Round(FsrsEngine.GetCalendarElapsedDays(preLastRev ?? word.CreatedAt, localNow));
+                    var (newS, newD, nextReview) = FsrsEngine.Review(preWord, rating, localNow);
+                    int scheduledDays = Math.Max(1, (int)Math.Round((nextReview.Date - localNow.Date).TotalDays));
+
+                    word.Stability = newS;
+                    word.Difficulty = newD;
+                    word.LastReviewDate = localNow;
+                    word.Reps = preReps + 1;
+                    word.Lapses = preLapses + (rating == 1 ? 1 : 0);
+
                     if (word.State == (int)WordLearningState.Mastered)
                     {
-                        // 用户已经手动指定为已掌握，保持已掌握
-                    }
-                    else if (isFirstTime || word.Reps < 2)
-                    {
-                        word.State = (int)WordLearningState.Learning;
+                        word.NextReviewDate = null;
                     }
                     else
                     {
-                        word.State = (int)WordLearningState.Review;
+                        word.NextReviewDate = nextReview;
+                        word.State = (rating == 1 || word.Reps < 2)
+                            ? (int)WordLearningState.Learning
+                            : (int)WordLearningState.Review;
                     }
+
+                    word.StateUpdatedAt = localNow;
+                    await _database!.UpdateAsync(word);
+
+                    sameDayLog.Rating = rating;
+                    sameDayLog.StabilityBefore = preS;
+                    sameDayLog.StabilityAfter = newS;
+                    sameDayLog.DifficultyBefore = preD;
+                    sameDayLog.DifficultyAfter = newD;
+                    sameDayLog.State = preState;
+                    sameDayLog.ElapsedDays = elapsedDays;
+                    sameDayLog.ScheduledDays = scheduledDays;
+                    await _database!.UpdateAsync(sameDayLog);
                 }
-
-                await _database!.UpdateAsync(word);
-
-                var log = new ReviewLog
+                else
                 {
-                    WordId = word.Id,
-                    Rating = rating,
-                    ReviewDate = now,
-                    StabilityBefore = oldS,
-                    StabilityAfter = newS,
-                    DifficultyBefore = oldD,
-                    DifficultyAfter = newD
-                };
-                await _database!.InsertAsync(log);
+                    int prevState = word.State;
+                    double oldS = word.Stability;
+                    double oldD = word.Difficulty;
+                    int elapsedDays = word.Reps == 0
+                        ? 0
+                        : (int)Math.Round(FsrsEngine.GetCalendarElapsedDays(word.LastReviewDate ?? word.CreatedAt, localNow));
+
+                    var (newS, newD, nextReview) = FsrsEngine.Review(word, rating, localNow);
+                    int scheduledDays = Math.Max(1, (int)Math.Round((nextReview.Date - localNow.Date).TotalDays));
+
+                    word.Stability = newS;
+                    word.Difficulty = newD;
+                    word.LastReviewDate = localNow;
+                    bool isFirstTime = word.Reps == 0;
+                    word.Reps += 1;
+
+                    if (rating == 1)
+                    {
+                        word.Lapses += 1;
+                    }
+
+                    if (word.State == (int)WordLearningState.Mastered)
+                    {
+                        // 用户已手动指定为【已掌握】，保持独立分类且免除下次复习排期
+                        word.NextReviewDate = null;
+                    }
+                    else
+                    {
+                        word.NextReviewDate = nextReview;
+                        if (rating == 1 || isFirstTime || word.Reps < 2)
+                        {
+                            word.State = (int)WordLearningState.Learning;
+                        }
+                        else
+                        {
+                            word.State = (int)WordLearningState.Review;
+                        }
+                    }
+
+                    word.StateUpdatedAt = localNow;
+                    await _database!.UpdateAsync(word);
+
+                    var log = new ReviewLog
+                    {
+                        WordId = word.Id,
+                        Rating = rating,
+                        ReviewDate = localNow,
+                        StabilityBefore = oldS,
+                        StabilityAfter = newS,
+                        DifficultyBefore = oldD,
+                        DifficultyAfter = newD,
+                        State = prevState,
+                        ElapsedDays = elapsedDays,
+                        ScheduledDays = scheduledDays
+                    };
+                    await _database!.InsertAsync(log);
+                }
             }
             catch (Exception ex)
             {
@@ -679,6 +962,8 @@ namespace NihongoVocab.Services
 
         #region 词单管理
 
+        public Task<WordList> CreateWordListAsync(string name) => CreateWordListAsync(name, Enumerable.Empty<int>());
+
         public async Task<WordList> CreateWordListAsync(string name, IEnumerable<int> wordIds)
         {
             await EnsureInitializedAsync();
@@ -687,6 +972,9 @@ namespace NihongoVocab.Services
             await _dbLock.WaitAsync();
             try
             {
+                // 新建词单时撤销历史删除墓碑，防止被对端旧墓碑删除
+                await RemoveTombstoneInternalAsync("word_list", name.Trim().ToLowerInvariant());
+
                 // 防重兜底保险：如果5秒内已有同名新词单被创建，直接复用，防止任何重入并发导致生成多个词单
                 var recentThreshold = DateTime.Now.AddSeconds(-5);
                 var existing = await _database!.Table<WordList>()
@@ -703,6 +991,7 @@ namespace NihongoVocab.Services
                 {
                     Name = name,
                     CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now,
                     WordCount = idList.Count
                 };
 
@@ -719,6 +1008,8 @@ namespace NihongoVocab.Services
                             {
                                 w.IsInList = true;
                                 w.WordListId = list.Id;
+                                w.WordListName = list.Name;
+                                w.MetaUpdatedAt = DateTime.Now;
                                 conn.Update(w);
                             }
                         }
@@ -748,13 +1039,17 @@ namespace NihongoVocab.Services
             {
                 var lists = await _database!.Table<WordList>().OrderByDescending(l => l.CreatedAt).ToListAsync();
                 var allWords = await _database!.Table<Word>().ToListAsync();
-                DateTime now = DateTime.Now;
+                DateTime today = DateTime.Today;
+                DateTime endOfToday = today.AddDays(1).AddTicks(-1);
 
                 foreach (var l in lists)
                 {
                     var wordsInThis = allWords.Where(w => w.WordListId == l.Id).ToList();
                     l.WordCount = wordsInThis.Count;
-                    l.UnreviewedCount = wordsInThis.Count(w => w.Reps == 0 || (w.NextReviewDate.HasValue && w.NextReviewDate.Value <= now));
+                    l.UnreviewedCount = wordsInThis.Count(w =>
+                        w.State != (int)WordLearningState.Mastered &&
+                        (!w.LastReviewDate.HasValue || w.LastReviewDate.Value.Date < today) &&
+                        (w.Reps == 0 || !w.NextReviewDate.HasValue || w.NextReviewDate.Value <= endOfToday));
                 }
 
                 return lists;
@@ -928,6 +1223,27 @@ namespace NihongoVocab.Services
             }
         }
 
+        public async Task<Word?> GetWordByIdAsync(int id)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await _database!.Table<Word>().FirstOrDefaultAsync(w => w.Id == id);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetWordByIdAsync");
+                return null;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        public Task<List<ReviewLog>> GetReviewLogsByWordIdAsync(int wordId) => GetWordReviewLogsAsync(wordId);
+
         public async Task<List<ReviewLog>> GetWordReviewLogsAsync(int wordId)
         {
             await EnsureInitializedAsync();
@@ -943,6 +1259,63 @@ namespace NihongoVocab.Services
             {
                 CrashLogger.LogException(ex, "DatabaseService.GetWordReviewLogsAsync");
                 return new List<ReviewLog>();
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        public async Task<List<ReviewLog>> GetAllReviewLogsAsync()
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await _database!.Table<ReviewLog>().OrderBy(r => r.ReviewDate).ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetAllReviewLogsAsync");
+                return new List<ReviewLog>();
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        public async Task<int> AddReviewLogAsync(ReviewLog log)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await _database!.InsertAsync(log);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.AddReviewLogAsync");
+                return 0;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        public async Task<int> UpdateReviewLogAsync(ReviewLog log)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await _database!.UpdateAsync(log);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.UpdateReviewLogAsync");
+                return 0;
             }
             finally
             {
@@ -1144,31 +1517,142 @@ namespace NihongoVocab.Services
                 int oldRating = log.Rating;
                 if (oldRating == newRating) return;
 
-                log.Rating = newRating;
-                await _database!.UpdateAsync(log);
-
                 var word = await _database!.FindAsync<Word>(log.WordId);
                 if (word != null)
                 {
-                    DateTime now = DateTime.Now;
-                    if (newRating == 3) // 改为记得
+                    var allWordLogs = (await _database!.Table<ReviewLog>()
+                        .Where(l => l.WordId == word.Id)
+                        .ToListAsync())
+                        .OrderBy(l => l.ReviewDate)
+                        .ThenBy(l => l.Id)
+                        .ToList();
+
+                    var priorLogs = allWordLogs
+                        .Where(l => l.Id != logId && (l.ReviewDate < log.ReviewDate || (l.ReviewDate == log.ReviewDate && l.Id < logId)))
+                        .ToList();
+                    var subsequentLogs = allWordLogs
+                        .Where(l => l.Id != logId && (l.ReviewDate > log.ReviewDate || (l.ReviewDate == log.ReviewDate && l.Id > logId)))
+                        .ToList();
+
+                    var previousLog = priorLogs.LastOrDefault();
+                    int preReps = priorLogs.Count;
+                    int preLapses = priorLogs.Count(l => l.Rating == 1);
+
+                    double preStability = 0.0;
+                    double preDifficulty = 0.0;
+                    DateTime? preLastReviewDate = null;
+
+                    if (preReps > 0)
                     {
-                        if (word.State != (int)WordLearningState.Mastered)
-                        {
-                            word.State = (word.Reps < 2) ? (int)WordLearningState.Learning : (int)WordLearningState.Review;
-                        }
-                        word.Lapses = Math.Max(0, word.Lapses - 1);
-                        word.Stability = Math.Max(word.Stability, 3.0);
-                        word.NextReviewDate = now.AddDays(Math.Max(1, (int)word.Stability));
+                        preStability = log.StabilityBefore > 0
+                            ? log.StabilityBefore
+                            : (previousLog != null && previousLog.StabilityAfter > 0 ? previousLog.StabilityAfter : word.Stability);
+                        preDifficulty = log.DifficultyBefore > 0
+                            ? log.DifficultyBefore
+                            : (previousLog != null && previousLog.DifficultyAfter > 0 ? previousLog.DifficultyAfter : word.Difficulty);
+                        preLastReviewDate = previousLog != null
+                            ? previousLog.ReviewDate
+                            : log.ReviewDate.AddDays(-Math.Max(1.0, preStability));
                     }
-                    else if (newRating == 1) // 改为遗忘
+
+                    int preState = preReps == 0
+                        ? (int)WordLearningState.New
+                        : ((preReps < 2 || (previousLog != null && previousLog.Rating == 1))
+                            ? (int)WordLearningState.Learning
+                            : (int)WordLearningState.Review);
+
+                    var simWord = new Word
                     {
-                        word.State = (int)WordLearningState.Learning;
-                        word.Lapses += 1;
-                        word.Stability = 0.5;
-                        word.NextReviewDate = now;
+                        Id = word.Id,
+                        Text = word.Text,
+                        CreatedAt = word.CreatedAt,
+                        State = preState,
+                        Stability = preStability,
+                        Difficulty = preDifficulty,
+                        Reps = preReps,
+                        Lapses = preLapses,
+                        LastReviewDate = preLastReviewDate
+                    };
+
+                    int elapsedDays = preReps == 0
+                        ? 0
+                        : (int)Math.Round(FsrsEngine.GetCalendarElapsedDays(preLastReviewDate ?? word.CreatedAt, log.ReviewDate));
+                    var (newS, newD, nextReview) = FsrsEngine.Review(simWord, newRating, log.ReviewDate);
+                    int scheduledDays = Math.Max(1, (int)Math.Round((nextReview.Date - log.ReviewDate.Date).TotalDays));
+
+                    log.Rating = newRating;
+                    log.StabilityBefore = preStability;
+                    log.DifficultyBefore = preDifficulty;
+                    log.StabilityAfter = newS;
+                    log.DifficultyAfter = newD;
+                    log.State = preState;
+                    log.ElapsedDays = elapsedDays;
+                    log.ScheduledDays = scheduledDays;
+                    await _database!.UpdateAsync(log);
+
+                    simWord.Stability = newS;
+                    simWord.Difficulty = newD;
+                    simWord.LastReviewDate = log.ReviewDate;
+                    simWord.NextReviewDate = nextReview;
+                    simWord.Reps = preReps + 1;
+                    simWord.Lapses = preLapses + (newRating == 1 ? 1 : 0);
+                    simWord.State = (newRating == 1 || simWord.Reps < 2)
+                        ? (int)WordLearningState.Learning
+                        : (int)WordLearningState.Review;
+
+                    foreach (var subLog in subsequentLogs)
+                    {
+                        int subPreState = simWord.State;
+                        double subPreS = simWord.Stability;
+                        double subPreD = simWord.Difficulty;
+                        int subElapsed = (int)Math.Round(FsrsEngine.GetCalendarElapsedDays(simWord.LastReviewDate ?? word.CreatedAt, subLog.ReviewDate));
+                        var (subS, subD, subNext) = FsrsEngine.Review(simWord, subLog.Rating, subLog.ReviewDate);
+                        int subSched = Math.Max(1, (int)Math.Round((subNext.Date - subLog.ReviewDate.Date).TotalDays));
+
+                        subLog.StabilityBefore = subPreS;
+                        subLog.DifficultyBefore = subPreD;
+                        subLog.StabilityAfter = subS;
+                        subLog.DifficultyAfter = subD;
+                        subLog.State = subPreState;
+                        subLog.ElapsedDays = subElapsed;
+                        subLog.ScheduledDays = subSched;
+                        await _database!.UpdateAsync(subLog);
+
+                        simWord.Stability = subS;
+                        simWord.Difficulty = subD;
+                        simWord.LastReviewDate = subLog.ReviewDate;
+                        simWord.NextReviewDate = subNext;
+                        simWord.Reps += 1;
+                        if (subLog.Rating == 1) simWord.Lapses += 1;
+                        simWord.State = (subLog.Rating == 1 || simWord.Reps < 2)
+                            ? (int)WordLearningState.Learning
+                            : (int)WordLearningState.Review;
                     }
+
+                    word.Stability = simWord.Stability;
+                    word.Difficulty = simWord.Difficulty;
+                    word.LastReviewDate = simWord.LastReviewDate;
+                    word.Reps = simWord.Reps;
+                    word.Lapses = simWord.Lapses;
+
+                    if (word.State == (int)WordLearningState.Mastered)
+                    {
+                        // 【已掌握】为独立分类，改判复习仅更新底层 FSRS 科学参数，业务状态恒为 Mastered 且免排期
+                        word.NextReviewDate = null;
+                    }
+                    else
+                    {
+                        word.State = simWord.State;
+                        word.NextReviewDate = simWord.NextReviewDate;
+                    }
+
+                    word.StateUpdatedAt = DateTime.Now;
                     await _database!.UpdateAsync(word);
+                }
+                else
+                {
+                    log.Rating = newRating;
+                    await _database!.UpdateAsync(log);
                 }
             }
             catch (Exception ex)
@@ -1184,7 +1668,7 @@ namespace NihongoVocab.Services
             DataChanged?.Invoke();
         }
 
-        public async Task RevertTodayReviewAsync(int logId)
+        public async Task RevertTodayReviewAsync(int logId, bool isSyncRevert = false)
         {
             await EnsureInitializedAsync();
             await _dbLock.WaitAsync();
@@ -1194,21 +1678,118 @@ namespace NihongoVocab.Services
                 if (log == null) return;
 
                 var word = await _database!.FindAsync<Word>(log.WordId);
+                await _database!.DeleteAsync<ReviewLog>(logId);
+
                 if (word != null)
                 {
-                    word.Reps = Math.Max(0, word.Reps - 1);
-                    if (word.Reps == 0)
+                    var remainingLogs = (await _database!.Table<ReviewLog>()
+                        .Where(l => l.WordId == word.Id)
+                        .ToListAsync())
+                        .OrderBy(l => l.ReviewDate)
+                        .ThenBy(l => l.Id)
+                        .ToList();
+
+                    if (remainingLogs.Count == 0)
                     {
-                        word.State = (int)WordLearningState.New;
+                        word.Reps = 0;
+                        word.Lapses = 0;
                         word.Stability = 0.0;
                         word.Difficulty = 0.0;
                         word.LastReviewDate = null;
                         word.NextReviewDate = null;
+                        if (word.State != (int)WordLearningState.Mastered)
+                        {
+                            word.State = (int)WordLearningState.New;
+                        }
                     }
+                    else
+                    {
+                        // 从剩余日志重演或恢复到最后一条日志的准确状态
+                        var simWord = new Word
+                        {
+                            Id = word.Id,
+                            Text = word.Text,
+                            CreatedAt = word.CreatedAt,
+                            State = (int)WordLearningState.New,
+                            Stability = 0.0,
+                            Difficulty = 0.0,
+                            Reps = 0,
+                            Lapses = 0,
+                            LastReviewDate = null
+                        };
+
+                        foreach (var rLog in remainingLogs)
+                        {
+                            int rPreState = simWord.State;
+                            double rPreS = simWord.Stability;
+                            double rPreD = simWord.Difficulty;
+                            int rElapsed = simWord.Reps == 0
+                                ? 0
+                                : (int)Math.Round(FsrsEngine.GetCalendarElapsedDays(simWord.LastReviewDate ?? word.CreatedAt, rLog.ReviewDate));
+                            var (rNewS, rNewD, rNext) = FsrsEngine.Review(simWord, rLog.Rating, rLog.ReviewDate);
+                            int rSched = Math.Max(1, (int)Math.Round((rNext.Date - rLog.ReviewDate.Date).TotalDays));
+
+                            if (Math.Abs(rLog.StabilityBefore - rPreS) > 0.001 || Math.Abs(rLog.StabilityAfter - rNewS) > 0.001)
+                            {
+                                rLog.StabilityBefore = rPreS;
+                                rLog.DifficultyBefore = rPreD;
+                                rLog.StabilityAfter = rNewS;
+                                rLog.DifficultyAfter = rNewD;
+                                rLog.State = rPreState;
+                                rLog.ElapsedDays = rElapsed;
+                                rLog.ScheduledDays = rSched;
+                                await _database!.UpdateAsync(rLog);
+                            }
+
+                            simWord.Stability = rNewS;
+                            simWord.Difficulty = rNewD;
+                            simWord.LastReviewDate = rLog.ReviewDate;
+                            simWord.NextReviewDate = rNext;
+                            simWord.Reps += 1;
+                            if (rLog.Rating == 1) simWord.Lapses += 1;
+                            simWord.State = (rLog.Rating == 1 || simWord.Reps < 2)
+                                ? (int)WordLearningState.Learning
+                                : (int)WordLearningState.Review;
+                        }
+
+                        word.Reps = simWord.Reps;
+                        word.Lapses = simWord.Lapses;
+                        word.Stability = simWord.Stability;
+                        word.Difficulty = simWord.Difficulty;
+                        word.LastReviewDate = simWord.LastReviewDate;
+
+                        if (word.State == (int)WordLearningState.Mastered)
+                        {
+                            // 【已掌握】为独立分类，撤销复习后业务状态恒为 Mastered 且免排期
+                            word.NextReviewDate = null;
+                        }
+                        else if (!isSyncRevert)
+                        {
+                            // 用户主动撤销今日复习：该词立即回到今日待复习队列，并恢复 FSRS 学习/复习状态
+                            word.NextReviewDate = DateTime.Now;
+                            word.State = simWord.State;
+                        }
+                        else
+                        {
+                            word.NextReviewDate = simWord.NextReviewDate;
+                            word.State = simWord.State;
+                        }
+                    }
+
+                    if (!isSyncRevert)
+                    {
+                        word.StateUpdatedAt = DateTime.Now;
+                        DateTime localRev = log.ReviewDate.Kind == DateTimeKind.Utc ? log.ReviewDate.ToLocalTime() : log.ReviewDate;
+                        string tombKey = $"{word.Text.Trim().ToLowerInvariant()}_{localRev:yyyyMMddHHmmss}";
+                        await AddTombstoneInternalAsync("review_log", tombKey, DateTime.Now);
+                    }
+                    else if (word.StateUpdatedAt <= log.ReviewDate.AddSeconds(5))
+                    {
+                        word.StateUpdatedAt = word.LastReviewDate ?? word.CreatedAt;
+                    }
+
                     await _database!.UpdateAsync(word);
                 }
-
-                await _database!.DeleteAsync<ReviewLog>(logId);
             }
             catch (Exception ex)
             {
@@ -1223,6 +1804,25 @@ namespace NihongoVocab.Services
             DataChanged?.Invoke();
         }
 
+        public async Task CleanupExpiredTombstonesAsync(int retentionDays = 90)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                DateTime cutoff = DateTime.Now.AddDays(-Math.Max(1, retentionDays));
+                await _database!.Table<SyncTombstone>().DeleteAsync(t => t.DeletedAt < cutoff);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.CleanupExpiredTombstonesAsync");
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
         public async Task DeleteWordsAsync(IEnumerable<int> wordIds)
         {
             await EnsureInitializedAsync();
@@ -1232,12 +1832,28 @@ namespace NihongoVocab.Services
                 var idList = wordIds.Distinct().ToList();
                 if (idList.Count == 0) return;
 
+                var wordsToDelete = await _database!.Table<Word>()
+                    .Where(w => idList.Contains(w.Id))
+                    .ToListAsync();
+
+                DateTime now = DateTime.Now;
                 await _database!.RunInTransactionAsync(conn =>
                 {
-                    foreach (var id in idList)
+                    foreach (var w in wordsToDelete)
                     {
-                        conn.Table<ReviewLog>().Delete(l => l.WordId == id);
-                        conn.Delete<Word>(id);
+                        conn.Table<ReviewLog>().Delete(l => l.WordId == w.Id);
+                        conn.Delete<Word>(w.Id);
+
+                        string cleanKey = w.Text.Trim().ToLowerInvariant();
+                        conn.Table<SyncTombstone>().Delete(t => t.EntityType == "word" && t.EntityKey == cleanKey);
+
+                        // 记录单词永久删除墓碑
+                        conn.Insert(new SyncTombstone
+                        {
+                            EntityType = "word",
+                            EntityKey = cleanKey,
+                            DeletedAt = now
+                        });
                     }
                 });
             }
@@ -1254,6 +1870,97 @@ namespace NihongoVocab.Services
             DataChanged?.Invoke();
         }
 
+        public async Task<List<SyncTombstone>> GetAllTombstonesAsync()
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await _database!.Table<SyncTombstone>().ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetAllTombstonesAsync");
+                return new List<SyncTombstone>();
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        private async Task AddTombstoneInternalAsync(string entityType, string entityKey, DateTime? deletedAt = null)
+        {
+            string cleanKey = entityKey.Trim().ToLowerInvariant();
+            DateTime effectiveDeletedAt = deletedAt != null && deletedAt.Value != default ? deletedAt.Value : DateTime.Now;
+            var existing = await _database!.Table<SyncTombstone>()
+                .Where(t => t.EntityType == entityType && t.EntityKey == cleanKey)
+                .FirstOrDefaultAsync();
+
+            if (existing == null)
+            {
+                await _database!.InsertAsync(new SyncTombstone
+                {
+                    EntityType = entityType,
+                    EntityKey = cleanKey,
+                    DeletedAt = effectiveDeletedAt
+                });
+            }
+            else if (effectiveDeletedAt > existing.DeletedAt)
+            {
+                existing.DeletedAt = effectiveDeletedAt;
+                await _database!.UpdateAsync(existing);
+            }
+        }
+
+        private async Task RemoveTombstoneInternalAsync(string entityType, string entityKey)
+        {
+            string cleanKey = entityKey.Trim().ToLowerInvariant();
+            var targets = await _database!.Table<SyncTombstone>()
+                .Where(t => t.EntityType == entityType && t.EntityKey == cleanKey)
+                .ToListAsync();
+            foreach (var t in targets)
+            {
+                await _database!.DeleteAsync(t);
+            }
+        }
+
+        public async Task AddTombstoneAsync(string entityType, string entityKey, DateTime? deletedAt = null)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                await AddTombstoneInternalAsync(entityType, entityKey, deletedAt);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.AddTombstoneAsync");
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        public async Task RemoveTombstoneAsync(string entityType, string entityKey)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                await RemoveTombstoneInternalAsync(entityType, entityKey);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.RemoveTombstoneAsync");
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
         public async Task ReimportWordsTodayAsync(IEnumerable<int> wordIds)
         {
             await EnsureInitializedAsync();
@@ -1265,18 +1972,33 @@ namespace NihongoVocab.Services
                 DateTime now = DateTime.Now;
 
                 // 科学且彻底的“重新在今天导入”：
-                // 1. 删除旧单词对象与历史复习日志，防止历史干扰与幽灵重复；
+                // 1. 删除旧单词对象与历史复习日志（并记录日志撤销墓碑），防止历史干扰与同步幽灵复活；
                 // 2. 将其以当前时间戳作为全新的未学习单词对象重新入库。
                 await _database!.RunInTransactionAsync(conn =>
                 {
                     foreach (var w in words)
                     {
                         string text = w.Text;
+                        string cleanWordKey = text.Trim().ToLowerInvariant();
                         int? listId = w.WordListId;
                         bool inList = w.IsInList;
 
-                        // 删除旧记录与日志
+                        var oldLogs = conn.Table<ReviewLog>().Where(l => l.WordId == w.Id).ToList();
+                        foreach (var oldLog in oldLogs)
+                        {
+                            string logTombKey = $"{cleanWordKey}_{oldLog.ReviewDate:yyyyMMddHHmmss}";
+                            conn.Table<SyncTombstone>().Delete(t => t.EntityType == "review_log" && t.EntityKey == logTombKey);
+                            conn.Insert(new SyncTombstone
+                            {
+                                EntityType = "review_log",
+                                EntityKey = logTombKey,
+                                DeletedAt = now
+                            });
+                        }
+
+                        // 删除旧记录与日志，同时清除可能存在的 word 墓碑
                         conn.Table<ReviewLog>().Delete(l => l.WordId == w.Id);
+                        conn.Table<SyncTombstone>().Delete(t => t.EntityType == "word" && t.EntityKey == cleanWordKey);
                         conn.Delete<Word>(w.Id);
 
                         // 重新在今天导入全新单词对象
@@ -1284,6 +2006,8 @@ namespace NihongoVocab.Services
                         {
                             Text = text,
                             CreatedAt = now,
+                            StateUpdatedAt = now,
+                            MetaUpdatedAt = now,
                             WordListId = listId,
                             IsInList = inList,
                             State = (int)WordLearningState.New,
@@ -1368,6 +2092,7 @@ namespace NihongoVocab.Services
                 await _database!.DeleteAllAsync<Word>();
                 await _database!.DeleteAllAsync<WordList>();
                 await _database!.DeleteAllAsync<ReviewLog>();
+                await _database!.DeleteAllAsync<SyncTombstone>();
             }
             catch (Exception ex)
             {

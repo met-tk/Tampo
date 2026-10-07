@@ -2,7 +2,10 @@ using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using NihongoVocab.Converters;
+using NihongoVocab.Models;
 using NihongoVocab.Services;
 using NihongoVocab.ViewModels;
 
@@ -30,7 +33,15 @@ namespace NihongoVocab.Views
             BackToYearViewButton.Click += BackToYearView_Click;
 
             LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
-            this.Loaded += (s, e) => UpdateLocalizedStrings();
+            this.Loaded += (s, e) =>
+            {
+                UpdateLocalizedStrings();
+                ViewModel.RefreshThemeBrushes();
+            };
+            this.ActualThemeChanged += (s, e) =>
+            {
+                ViewModel.RefreshThemeBrushes();
+            };
             UpdateLocalizedStrings();
         }
 
@@ -237,16 +248,31 @@ namespace NihongoVocab.Views
                     var loc = LocalizationService.Instance;
                     var detail = await ViewModel.GetDayDetailAsync(dayItem.Date);
 
-                    var rootPanel = new Grid { MinWidth = 460, MaxWidth = 520, RowSpacing = 16 };
+                    bool isDark = Converters.ThemeHelper.IsCurrentDarkTheme();
+                    var currentTheme = (App.MainWindowInstance?.Content as FrameworkElement)?.ActualTheme ?? (isDark ? ElementTheme.Dark : ElementTheme.Light);
+
+                    var rootPanel = new Grid { MinWidth = 460, MaxWidth = 520, RowSpacing = 16, RequestedTheme = currentTheme };
                     rootPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     rootPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     rootPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
+                    var cardBg = isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 43, 43, 43))
+                                        : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+                    var cardSecondaryBg = isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 50))
+                                                 : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+                    var layerBg = isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 38, 38, 38))
+                                         : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 248, 248, 248));
+                    var strokeBrush = isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(32, 255, 255, 255))
+                                             : new SolidColorBrush(Windows.UI.Color.FromArgb(22, 0, 0, 0));
+
+                    // 预先声明弹窗变量，以便在列表项点击回调中安全引用以实现暂隐与恢复
+                    ContentDialog dialog = null!;
+
                     // 1. 顶部日期与汇总胶囊卡片
                     var headerCard = new Border
                     {
-                        Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
-                        BorderBrush = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                        Background = cardBg,
+                        BorderBrush = strokeBrush,
                         BorderThickness = new Thickness(1),
                         CornerRadius = new CornerRadius(8),
                         Padding = new Thickness(16, 12, 16, 12)
@@ -264,9 +290,9 @@ namespace NihongoVocab.Views
                     });
                     dateStack.Children.Add(new TextBlock
                     {
-                        Text = loc.GetString("TipMiddleClickCopy", "提示：鼠标中键点击任意单词可直接复制"),
+                        Text = loc.GetString("TipWordClickDetailAndMiddleCopy", "提示：点击单词可查看记忆曲线与复习详情，中键复制"),
                         FontSize = 11,
-                        Opacity = 0.5
+                        Opacity = 0.6
                     });
                     Grid.SetColumn(dateStack, 0);
                     headerGrid.Children.Add(dateStack);
@@ -275,7 +301,9 @@ namespace NihongoVocab.Views
                     // 复习统计
                     var reviewBadge = new Border
                     {
-                        Background = Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                        Background = cardSecondaryBg,
+                        BorderBrush = strokeBrush,
+                        BorderThickness = new Thickness(1),
                         CornerRadius = new CornerRadius(4),
                         Padding = new Thickness(8, 4, 8, 4)
                     };
@@ -290,7 +318,9 @@ namespace NihongoVocab.Views
                     // 入库统计
                     var importBadge = new Border
                     {
-                        Background = Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                        Background = cardSecondaryBg,
+                        BorderBrush = strokeBrush,
+                        BorderThickness = new Thickness(1),
                         CornerRadius = new CornerRadius(4),
                         Padding = new Thickness(8, 4, 8, 4)
                     };
@@ -309,7 +339,7 @@ namespace NihongoVocab.Views
                     rootPanel.Children.Add(headerCard);
 
                     // 2. 双 Pivot 选项卡（复习打卡列表 / 当日收录新词）
-                    var pivot = new Pivot { Margin = new Thickness(0, -8, 0, 0) };
+                    var pivot = new Pivot { Margin = new Thickness(0, -8, 0, 0), RequestedTheme = currentTheme };
 
                     // 页面 A: 复习打卡
                     var reviewPivotItem = new PivotItem
@@ -327,7 +357,9 @@ namespace NihongoVocab.Views
                                 Padding = new Thickness(10, 8, 10, 8),
                                 Margin = new Thickness(0, 1, 0, 1),
                                 CornerRadius = new CornerRadius(4),
-                                Background = Application.Current.Resources["LayerFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush
+                                Background = layerBg,
+                                BorderBrush = strokeBrush,
+                                BorderThickness = new Thickness(1)
                             };
                             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -342,7 +374,9 @@ namespace NihongoVocab.Views
                                 Padding = new Thickness(6, 2, 6, 2),
                                 Margin = new Thickness(8, 0, 8, 0),
                                 VerticalAlignment = VerticalAlignment.Center,
-                                Background = Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"] as Microsoft.UI.Xaml.Media.Brush
+                                Background = cardSecondaryBg,
+                                BorderBrush = strokeBrush,
+                                BorderThickness = new Thickness(1)
                             };
                             rb.Child = new TextBlock { Text = rev.RatingText, FontSize = 11 };
                             Grid.SetColumn(rb, 1); g.Children.Add(rb);
@@ -350,10 +384,28 @@ namespace NihongoVocab.Views
                             var tm = new TextBlock { Text = rev.ReviewTimeText, FontSize = 11, Opacity = 0.5, VerticalAlignment = VerticalAlignment.Center };
                             Grid.SetColumn(tm, 2); g.Children.Add(tm);
 
-                            // 中键点击复制
-                            g.PointerPressed += (s, args) =>
+                            // 左键点击查看记忆曲线与复习详情，中键点击复制
+                            g.PointerPressed += async (s, args) =>
                             {
-                                if (args.GetCurrentPoint(s as UIElement).Properties.IsMiddleButtonPressed)
+                                var pt = args.GetCurrentPoint(s as UIElement);
+                                if (pt.Properties.IsLeftButtonPressed)
+                                {
+                                    args.Handled = true;
+                                    try
+                                    {
+                                        var db = App.GetService<DatabaseService>();
+                                        var targetWord = await db.GetWordByIdAsync(rev.WordId);
+                                        if (targetWord != null)
+                                        {
+                                            await WordDetailDialogHelper.ShowWordDetailDialogAsync(this.XamlRoot, targetWord, dialog);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        CrashLogger.LogException(ex, "ActivityCalendarPage.ReviewItem_Clicked");
+                                    }
+                                }
+                                else if (pt.Properties.IsMiddleButtonPressed)
                                 {
                                     args.Handled = true;
                                     ClipboardHelper.CopyText(rev.WordText);
@@ -393,7 +445,9 @@ namespace NihongoVocab.Views
                                 Padding = new Thickness(10, 8, 10, 8),
                                 Margin = new Thickness(0, 1, 0, 1),
                                 CornerRadius = new CornerRadius(4),
-                                Background = Application.Current.Resources["LayerFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush
+                                Background = layerBg,
+                                BorderBrush = strokeBrush,
+                                BorderThickness = new Thickness(1)
                             };
                             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -406,15 +460,30 @@ namespace NihongoVocab.Views
                                 CornerRadius = new CornerRadius(4),
                                 Padding = new Thickness(6, 2, 6, 2),
                                 VerticalAlignment = VerticalAlignment.Center,
-                                Background = Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"] as Microsoft.UI.Xaml.Media.Brush
+                                Background = cardSecondaryBg,
+                                BorderBrush = strokeBrush,
+                                BorderThickness = new Thickness(1)
                             };
                             lb.Child = new TextBlock { Text = w.LearningStateText, FontSize = 11 };
                             Grid.SetColumn(lb, 1); g.Children.Add(lb);
 
-                            // 中键点击复制
-                            g.PointerPressed += (s, args) =>
+                            // 左键点击查看记忆曲线与复习详情，中键点击复制
+                            g.PointerPressed += async (s, args) =>
                             {
-                                if (args.GetCurrentPoint(s as UIElement).Properties.IsMiddleButtonPressed)
+                                var pt = args.GetCurrentPoint(s as UIElement);
+                                if (pt.Properties.IsLeftButtonPressed)
+                                {
+                                    args.Handled = true;
+                                    try
+                                    {
+                                        await WordDetailDialogHelper.ShowWordDetailDialogAsync(this.XamlRoot, w, dialog);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        CrashLogger.LogException(ex, "ActivityCalendarPage.ImportItem_Clicked");
+                                    }
+                                }
+                                else if (pt.Properties.IsMiddleButtonPressed)
                                 {
                                     args.Handled = true;
                                     ClipboardHelper.CopyText(w.Text);
@@ -441,12 +510,13 @@ namespace NihongoVocab.Views
                     Grid.SetRow(pivot, 1);
                     rootPanel.Children.Add(pivot);
 
-                    var dialog = new ContentDialog
+                    dialog = new ContentDialog
                     {
                         Title = loc.GetString("DialogTitleDayDetail", "打卡详情"),
                         Content = rootPanel,
                         CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                        XamlRoot = this.XamlRoot
+                        XamlRoot = this.XamlRoot,
+                        RequestedTheme = currentTheme
                     };
 
                     MainWindow.RegisterActiveDialog(dialog);

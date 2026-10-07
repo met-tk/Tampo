@@ -242,7 +242,7 @@
                                                 <Border Width="8" Height="8" CornerRadius="4"
                                                         Background="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"/>
                                                 <TextBlock Text="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToTagConverter}}"
-                                                           FontSize="12" FontWeight="Medium"
+                                                           FontSize="12" FontWeight="SemiBold"
                                                            Foreground="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"/>
                                             </StackPanel>
                                         </Border>

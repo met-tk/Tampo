@@ -144,6 +144,21 @@ namespace NihongoVocab.ViewModels
                 FilterWords();
                 OnPropertyChanged(string.Empty);
             };
+
+            DatabaseService.DataChanged += OnDatabaseDataChanged;
+        }
+
+        private void OnDatabaseDataChanged()
+        {
+            var dispatcher = App.UIThreadDispatcher ?? App.MainWindowInstance?.DispatcherQueue;
+            if (dispatcher != null)
+            {
+                dispatcher.TryEnqueue(async () => await LoadDataAsync());
+            }
+            else
+            {
+                _ = LoadDataAsync();
+            }
         }
 
         public async Task LoadDataAsync()
@@ -556,6 +571,35 @@ namespace NihongoVocab.ViewModels
             await _databaseService.UpdateWordsStateAsync(list.Select(w => w.Id), newState);
             StatusMessage = string.Format(loc.GetString("MsgBatchUpdateStateSuccessFormat", "已将 {0} 个单词状态变更为 {1}"), list.Count, newState);
             await LoadDataAsync();
+        }
+
+        public async Task UpdateWordTextAsync(Word word, string newText)
+        {
+            if (string.IsNullOrWhiteSpace(newText)) return;
+            var trimmed = newText.Trim();
+            if (trimmed == word.Text) return;
+
+            var loc = LocalizationService.Instance;
+            var allWords = await _databaseService.GetAllWordsAsync();
+            if (allWords.Any(w => w.Id != word.Id && string.Equals(w.Text?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
+            {
+                StatusMessage = string.Format(loc.GetString("MsgAddSingleWordDuplicateFormat", "单词「{0}」已在词库中，无需重复添加"), trimmed);
+                return;
+            }
+
+            string oldText = word.Text.Trim();
+            word.Text = trimmed;
+            word.MetaUpdatedAt = DateTime.Now;
+            await _databaseService.UpdateWordAsync(word);
+
+            // 多端同步闭环联动：
+            // 1. 将修改前的旧词写入删除墓碑，防止后续手机端同步时旧词死灰复燃，并通知手机端自动清理旧词
+            await _databaseService.AddTombstoneAsync("word", oldText);
+            // 2. 撤销新词若可能存在的历史墓碑，保证新词处于健康可同步状态
+            await _databaseService.RemoveTombstoneAsync("word", trimmed);
+
+            StatusMessage = string.Format(loc.GetString("MsgWordTextUpdatedFormat", "单词内容已更新为「{0}」"), trimmed);
+            DatabaseService.NotifyDataChanged();
         }
 
         public async Task DeleteWordsAsync(IEnumerable<Word> words)

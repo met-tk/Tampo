@@ -54,9 +54,17 @@ namespace NihongoVocab
             if (!isNewInstance)
             {
                 // 已有实例在运行，尝试将现有窗口恢复并激活置顶
-                CrashLogger.LogInfo("Tampo duplicate instance detected, activating existing window and exiting.");
-                ActivateExistingWindow();
-                return;
+                CrashLogger.LogInfo("Tampo duplicate instance detected, checking existing window.");
+                bool activated = ActivateExistingWindow();
+                if (activated)
+                {
+                    CrashLogger.LogInfo("Existing window successfully activated, exiting current launcher.");
+                    return;
+                }
+
+                // 若未发现有效窗口，说明旧进程属于残留/僵尸进程，自动清理后启动全新窗口
+                CrashLogger.LogInfo("Existing process has no visible window. Terminating stale process to launch freshly.");
+                KillStaleInstances();
             }
 
             try
@@ -89,7 +97,25 @@ namespace NihongoVocab
             }
         }
 
-        private static void ActivateExistingWindow()
+        private static void KillStaleInstances()
+        {
+            try
+            {
+                var currentProc = Process.GetCurrentProcess();
+                var processes = Process.GetProcessesByName(currentProc.ProcessName);
+                foreach (var proc in processes)
+                {
+                    if (proc.Id != currentProc.Id)
+                    {
+                        proc.Kill();
+                        proc.WaitForExit(1000);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private static bool ActivateExistingWindow()
         {
             try
             {
@@ -103,14 +129,13 @@ namespace NihongoVocab
                     IntPtr targetHwnd = proc.MainWindowHandle;
                     if (targetHwnd == IntPtr.Zero)
                     {
-                        // 部分情况下 MainWindowHandle 尚未被系统捕获，遍历属于该进程的顶层窗口
                         EnumWindows((hWnd, lParam) =>
                         {
                             GetWindowThreadProcessId(hWnd, out uint pid);
                             if (pid == proc.Id)
                             {
                                 targetHwnd = hWnd;
-                                return false; // 找到后停止枚举
+                                return false;
                             }
                             return true;
                         }, IntPtr.Zero);
@@ -125,7 +150,7 @@ namespace NihongoVocab
                         ShowWindow(targetHwnd, SW_SHOW);
                         SetForegroundWindow(targetHwnd);
                         SwitchToThisWindow(targetHwnd, true);
-                        break;
+                        return true;
                     }
                 }
             }
@@ -133,6 +158,8 @@ namespace NihongoVocab
             {
                 CrashLogger.LogException(ex, "Program.ActivateExistingWindow");
             }
+
+            return false;
         }
     }
 }

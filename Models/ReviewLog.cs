@@ -23,5 +23,37 @@ namespace NihongoVocab.Models
         public double DifficultyBefore { get; set; }
 
         public double DifficultyAfter { get; set; }
+
+        public int State { get; set; }
+
+        public int ElapsedDays { get; set; }
+
+        public int ScheduledDays { get; set; }
+
+        [Ignore]
+        public double Stability
+        {
+            get => StabilityAfter;
+            set
+            {
+                if (StabilityAfter <= 0 && value > 0)
+                {
+                    StabilityAfter = value;
+                }
+            }
+        }
+
+        [Ignore]
+        public double Difficulty
+        {
+            get => DifficultyAfter;
+            set
+            {
+                if (DifficultyAfter <= 0 && value > 0)
+                {
+                    DifficultyAfter = value;
+                }
+            }
+        }
     }
 }

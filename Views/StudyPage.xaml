@@ -81,9 +81,9 @@
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate x:DataType="models:StudyCardItem">
                             <!-- 单词卡片（带平滑双击状态机高亮交互与右键菜单拦截） -->
-                            <Border Background="{x:Bind State, Mode=OneWay, Converter={StaticResource CardStateToBackgroundBrushConverter}}"
-                                    BorderBrush="{x:Bind State, Mode=OneWay, Converter={StaticResource CardStateToBorderBrushConverter}}"
-                                    BorderThickness="2" CornerRadius="8" Padding="12"
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1" CornerRadius="8" Padding="12"
                                     Tag="{x:Bind}">
                                 <!-- 内部所有子元素统一设置 IsHitTestVisible="False"，杜绝指针被拦截 -->
                                 <Grid IsHitTestVisible="False">
@@ -93,8 +93,18 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
+                                    <!-- 待确认记得的半透明高亮绿色底板与边框覆盖 -->
+                                    <Border Grid.RowSpan="3" Margin="-12" CornerRadius="8" BorderThickness="2"
+                                            Background="#3022C55E" BorderBrush="#22C55E"
+                                            Visibility="{x:Bind IsPendingRemember, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                    <!-- 待确认遗忘的半透明高亮红色底板与边框覆盖 -->
+                                    <Border Grid.RowSpan="3" Margin="-12" CornerRadius="8" BorderThickness="2"
+                                            Background="#30EF4444" BorderBrush="#EF4444"
+                                            Visibility="{x:Bind IsPendingForget, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
                                     <!-- 顶部单色状态过渡提示标签 -->
-                                    <Grid>
+                                    <Grid Grid.Row="0">
                                         <!-- 待确认记得状态提示 -->
                                         <StackPanel Orientation="Horizontal" Spacing="4"
                                                     Visibility="{x:Bind IsPendingRemember, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -113,6 +123,7 @@
                                     <!-- 纯单词主体（Zero-Definition: 绝对不展示任何释义与例句） -->
                                     <TextBlock Grid.Row="1" Text="{x:Bind Word.Text}"
                                                FontSize="20" FontWeight="SemiBold"
+                                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"/>
 

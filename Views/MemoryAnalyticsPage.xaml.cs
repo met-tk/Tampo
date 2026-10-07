@@ -122,14 +122,34 @@ namespace NihongoVocab.Views
             }
         }
 
+        private static bool IsDarkTheme() => Converters.ThemeHelper.IsCurrentDarkTheme();
+
+        private static Brush GetThemeCardBrush(bool isDark) =>
+            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 43, 43, 43))
+                   : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+
+        private static Brush GetThemeCardSecondaryBrush(bool isDark) =>
+            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 50))
+                   : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+
+        private static Brush GetThemeLayerBrush(bool isDark) =>
+            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 38, 38, 38))
+                   : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+
+        private static Brush GetThemeStrokeBrush(bool isDark) =>
+            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(32, 255, 255, 255))
+                   : new SolidColorBrush(Windows.UI.Color.FromArgb(22, 0, 0, 0));
+
         private async Task ShowStateWordsDialogAsync(int state, string stateName)
         {
             try
             {
                 var loc = LocalizationService.Instance;
+                bool isDark = IsDarkTheme();
+                var currentTheme = (App.MainWindowInstance?.Content as FrameworkElement)?.ActualTheme ?? this.ActualTheme;
                 var allWords = await ViewModel.GetWordsByStateAsync(state);
 
-                var root = new Grid { MinWidth = 480, MaxWidth = 540, RowSpacing = 12 };
+                var root = new Grid { MinWidth = 480, MaxWidth = 540, RowSpacing = 12, RequestedTheme = currentTheme };
                 root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
@@ -145,6 +165,8 @@ namespace NihongoVocab.Views
 
                 var scrollViewer = new ScrollViewer { MaxHeight = 420, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
                 var itemsControl = new ItemsControl();
+
+                ContentDialog dialog = null!;
 
                 void RefreshList(string filter)
                 {
@@ -170,7 +192,9 @@ namespace NihongoVocab.Views
                     {
                         var border = new Border
                         {
-                            Background = Application.Current.Resources["LayerFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                            Background = GetThemeLayerBrush(isDark),
+                            BorderBrush = GetThemeStrokeBrush(isDark),
+                            BorderThickness = new Thickness(1),
                             CornerRadius = new CornerRadius(6),
                             Padding = new Thickness(12, 8, 12, 8),
                             Margin = new Thickness(0, 2, 0, 2),
@@ -225,7 +249,7 @@ namespace NihongoVocab.Views
                                 if (ptProps.IsLeftButtonPressed)
                                 {
                                     e.Handled = true;
-                                    await ShowWordDetailDialogAsync(targetWord);
+                                    await WordDetailDialogHelper.ShowWordDetailDialogAsync(this.XamlRoot, targetWord, dialog);
                                 }
                             }
                         };
@@ -241,12 +265,13 @@ namespace NihongoVocab.Views
                 Grid.SetRow(scrollViewer, 1);
                 root.Children.Add(scrollViewer);
 
-                var dialog = new ContentDialog
+                dialog = new ContentDialog
                 {
                     Title = string.Format(loc.GetString("DialogTitleStateWordsCountFormat", "{0} · 包含 {1} 词"), stateName, allWords.Count),
                     Content = root,
                     CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = currentTheme
                 };
 
                 MainWindow.RegisterActiveDialog(dialog);
@@ -264,14 +289,16 @@ namespace NihongoVocab.Views
             try
             {
                 var logs = await ViewModel.GetWordReviewLogsAsync(word.Id);
+                bool isDark = IsDarkTheme();
+                var currentTheme = (App.MainWindowInstance?.Content as FrameworkElement)?.ActualTheme ?? this.ActualTheme;
 
-                var root = new StackPanel { MinWidth = 540, MaxWidth = 580, Spacing = 16 };
+                var root = new StackPanel { MinWidth = 540, MaxWidth = 580, Spacing = 16, RequestedTheme = currentTheme };
 
                 // 1. 顶部单词信息与状态徽章
                 var headerCard = new Border
                 {
-                    Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
-                    BorderBrush = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                    Background = GetThemeCardBrush(isDark),
+                    BorderBrush = GetThemeStrokeBrush(isDark),
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(8),
                     Padding = new Thickness(16, 14, 16, 14)
@@ -305,7 +332,9 @@ namespace NihongoVocab.Views
 
                 var stateBadge = new Border
                 {
-                    Background = Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                    Background = GetThemeCardSecondaryBrush(isDark),
+                    BorderBrush = GetThemeStrokeBrush(isDark),
+                    BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(4),
                     Padding = new Thickness(8, 4, 8, 4)
                 };
@@ -327,22 +356,22 @@ namespace NihongoVocab.Views
                 metricsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
                 // 稳定性 / 半衰期
-                var stabBox = CreateMetricBox(loc.GetString("MetricStabilityLabel", "记忆稳定性 (半衰期)"), word.Stability <= 0 ? loc.GetString("MetricNotEvaluated", "未评测") : string.Format(loc.GetString("StabilityDaysFormat", "{0:F1} 天"), word.Stability));
+                var stabBox = CreateMetricBox(loc.GetString("MetricStabilityLabel", "记忆稳定性 (半衰期)"), word.Stability <= 0 ? loc.GetString("MetricNotEvaluated", "未评测") : string.Format(loc.GetString("StabilityDaysFormat", "{0:F1} 天"), word.Stability), isDark);
                 Grid.SetRow(stabBox, 0); Grid.SetColumn(stabBox, 0);
                 metricsGrid.Children.Add(stabBox);
 
                 // 难度评级
-                var diffBox = CreateMetricBox(loc.GetString("MetricDifficultyLabel", "单词记忆难度"), word.Difficulty <= 0 ? loc.GetString("MetricNotEvaluated", "未评测") : $"{word.Difficulty:F1} / 10");
+                var diffBox = CreateMetricBox(loc.GetString("MetricDifficultyLabel", "单词记忆难度"), word.Difficulty <= 0 ? loc.GetString("MetricNotEvaluated", "未评测") : $"{word.Difficulty:F1} / 10", isDark);
                 Grid.SetRow(diffBox, 0); Grid.SetColumn(diffBox, 1);
                 metricsGrid.Children.Add(diffBox);
 
                 // 复习次数与遗忘
-                var repBox = CreateMetricBox(loc.GetString("MetricReviewStatsLabel", "复习统计"), string.Format(loc.GetString("ReviewStatsFormat", "已复习 {0} 次 / 遗忘 {1} 次"), word.Reps, word.Lapses));
+                var repBox = CreateMetricBox(loc.GetString("MetricReviewStatsLabel", "复习统计"), string.Format(loc.GetString("ReviewStatsFormat", "已复习 {0} 次 / 遗忘 {1} 次"), word.Reps, word.Lapses), isDark);
                 Grid.SetRow(repBox, 1); Grid.SetColumn(repBox, 0);
                 metricsGrid.Children.Add(repBox);
 
                 // 下次复习
-                var nextBox = CreateMetricBox(loc.GetString("NextReviewLabel", "下次复习"), word.NextReviewIntervalText);
+                var nextBox = CreateMetricBox(loc.GetString("NextReviewLabel", "下次复习"), word.NextReviewIntervalText, isDark);
                 Grid.SetRow(nextBox, 1); Grid.SetColumn(nextBox, 1);
                 metricsGrid.Children.Add(nextBox);
 
@@ -351,7 +380,7 @@ namespace NihongoVocab.Views
                 root.Children.Add(headerCard);
 
                 // 2. 单词记忆曲线（纵坐标记忆程度，横坐标学习进度，参考 anki_fsrs_visualizer）
-                var retentionCurveCard = CreateRetentionCurveCard(word, logs, loc);
+                var retentionCurveCard = CreateRetentionCurveCard(word, logs, loc, isDark);
                 root.Children.Add(retentionCurveCard);
 
                 // 3. 学习与打卡履历记录
@@ -372,7 +401,9 @@ namespace NihongoVocab.Views
                     {
                         var logItem = new Grid
                         {
-                            Background = Application.Current.Resources["LayerFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                            Background = GetThemeLayerBrush(isDark),
+                            BorderBrush = GetThemeStrokeBrush(isDark),
+                            BorderThickness = new Thickness(1),
                             CornerRadius = new CornerRadius(4),
                             Padding = new Thickness(10, 6, 10, 6)
                         };
@@ -424,7 +455,8 @@ namespace NihongoVocab.Views
                     Title = loc.GetString("DialogTitleWordDetail", "单词记忆与复习详情"),
                     Content = root,
                     CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = currentTheme
                 };
                 dialog.Resources["ContentDialogMinWidth"] = 580.0;
                 dialog.Resources["ContentDialogMaxWidth"] = 640.0;
@@ -439,12 +471,12 @@ namespace NihongoVocab.Views
             }
         }
 
-        private FrameworkElement CreateRetentionCurveCard(Word word, List<ReviewLog> logs, LocalizationService loc)
+        private FrameworkElement CreateRetentionCurveCard(Word word, List<ReviewLog> logs, LocalizationService loc, bool isDark)
         {
             var card = new Border
             {
-                Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
-                BorderBrush = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush,
+                Background = GetThemeCardBrush(isDark),
+                BorderBrush = GetThemeStrokeBrush(isDark),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(16, 14, 16, 14)
@@ -475,17 +507,26 @@ namespace NihongoVocab.Views
 
             // 当前留存率估算
             DateTime now = DateTime.Now;
+            bool isMastered = word.State == (int)WordLearningState.Mastered;
+            bool isUnlearned = !isMastered && word.Reps <= 0 && word.Stability <= 0 && (logs == null || logs.Count == 0);
             double curStability = word.Stability > 0 ? word.Stability : 1.0;
             DateTime lastRevDate = word.LastReviewDate ?? (logs != null && logs.Count > 0 ? logs.Max(l => l.ReviewDate) : word.CreatedAt);
-            double currentR = word.Stability <= 0 && (logs == null || logs.Count == 0)
+            double currentR = isMastered
                 ? 1.0
-                : FsrsEngine.CalculateRetrievability(curStability, lastRevDate, now);
+                : (isUnlearned
+                    ? 0.0
+                    : FsrsEngine.CalculateRetrievability(curStability, lastRevDate, now));
             currentR = Math.Clamp(currentR, 0.0, 1.0);
 
             // 胶囊背景与文字颜色
             Windows.UI.Color badgeBgColor;
             Windows.UI.Color badgeFgColor;
-            if (currentR >= 0.90)
+            if (isUnlearned)
+            {
+                badgeBgColor = Windows.UI.Color.FromArgb(38, 156, 163, 175); // 中性灰半透
+                badgeFgColor = Windows.UI.Color.FromArgb(255, 156, 163, 175);
+            }
+            else if (currentR >= 0.90)
             {
                 badgeBgColor = Windows.UI.Color.FromArgb(38, 16, 185, 129); // 绿色半透
                 badgeFgColor = Windows.UI.Color.FromArgb(255, 16, 185, 129);
@@ -529,15 +570,18 @@ namespace NihongoVocab.Views
                 Margin = new Thickness(0, 0, 0, 2)
             };
 
+            var historyLineBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 56, 189, 248));   // 亮青天蓝 (Sky-400)
+            var forecastLineBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 129, 140, 248)); // 亮靛紫蓝 (Indigo-400)
+
             // 图例：历史复习轨迹 (实线)
             var historyLegend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
             historyLegend.Children.Add(new Line
             {
                 X1 = 0, Y1 = 6, X2 = 16, Y2 = 6,
-                Stroke = Application.Current.Resources["AccentFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 59, 130, 246)),
-                StrokeThickness = 2.5
+                Stroke = historyLineBrush,
+                StrokeThickness = 2.6
             });
-            historyLegend.Children.Add(new TextBlock { Text = loc.GetString("LegendHistory", "历史复习轨迹"), FontSize = 10, Opacity = 0.75 });
+            historyLegend.Children.Add(new TextBlock { Text = loc.GetString("LegendHistory", "历史复习轨迹"), FontSize = 10, Opacity = 0.85 });
             legendPanel.Children.Add(historyLegend);
 
             // 图例：未来衰减预测 (虚线)
@@ -545,13 +589,13 @@ namespace NihongoVocab.Views
             var forecastLine = new Line
             {
                 X1 = 0, Y1 = 6, X2 = 16, Y2 = 6,
-                Stroke = Application.Current.Resources["AccentFillColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 59, 130, 246)),
-                StrokeThickness = 2.0,
+                Stroke = forecastLineBrush,
+                StrokeThickness = 2.2,
                 StrokeDashArray = new DoubleCollection { 3, 2 },
-                Opacity = 0.8
+                Opacity = 0.95
             };
             forecastLegend.Children.Add(forecastLine);
-            forecastLegend.Children.Add(new TextBlock { Text = loc.GetString("LegendForecast", "未来记忆衰减预测"), FontSize = 10, Opacity = 0.75 });
+            forecastLegend.Children.Add(new TextBlock { Text = loc.GetString("LegendForecast", "未来记忆衰减预测"), FontSize = 10, Opacity = 0.85 });
             legendPanel.Children.Add(forecastLegend);
 
             // 图例：目标阈值 90% (金色虚线)
@@ -603,9 +647,9 @@ namespace NihongoVocab.Views
                 {
                     Text = $"{r * 100:F0}%",
                     FontSize = 9,
-                    Opacity = r == 0.90 ? 0.9 : 0.45,
+                    Opacity = r == 0.90 ? 0.95 : 0.65,
                     FontWeight = r == 0.90 ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
-                    Foreground = r == 0.90 ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 234, 179, 8)) : null,
+                    Foreground = r == 0.90 ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 234, 179, 8)) : (isDark ? new SolidColorBrush(Microsoft.UI.Colors.White) : new SolidColorBrush(Microsoft.UI.Colors.Black)),
                     Width = 32,
                     TextAlignment = TextAlignment.Right
                 };
@@ -644,11 +688,12 @@ namespace NihongoVocab.Views
                 }
                 else
                 {
-                    hLine.Stroke = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Microsoft.UI.Xaml.Media.Brush
-                                   ?? new SolidColorBrush(Windows.UI.Color.FromArgb(40, 128, 128, 128));
+                    hLine.Stroke = isDark
+                        ? new SolidColorBrush(Windows.UI.Color.FromArgb(35, 255, 255, 255))
+                        : new SolidColorBrush(Windows.UI.Color.FromArgb(30, 0, 0, 0));
                     hLine.StrokeThickness = 1.0;
                     hLine.StrokeDashArray = new DoubleCollection { 2, 3 };
-                    hLine.Opacity = 0.35;
+                    hLine.Opacity = 0.4;
                 }
                 canvas.Children.Add(hLine);
             }
@@ -665,8 +710,9 @@ namespace NihongoVocab.Views
             }
             else
             {
-                tStart = word.CreatedAt <= now && (now - word.CreatedAt).TotalDays < 180
-                    ? word.CreatedAt
+                DateTime anchor = isUnlearned ? word.CreatedAt : lastRevDate;
+                tStart = anchor <= now && (now - anchor).TotalDays < 180
+                    ? anchor
                     : now.AddDays(-1);
             }
 
@@ -707,14 +753,27 @@ namespace NihongoVocab.Views
 
             if (orderedLogs.Count == 0)
             {
-                // 无复习打卡日志：初次学习模拟线（从 tStart 的 100% 衰减到 now 的 currentR）
-                int segs = 12;
-                for (int s = 0; s <= segs; s++)
+                if (isMastered)
                 {
-                    double frac = (double)s / segs;
-                    DateTime t = tStart + TimeSpan.FromSeconds((now - tStart).TotalSeconds * frac);
-                    double r = FsrsEngine.CalculateRetrievability(curStability, tStart, t);
-                    historyPoints.Add(new Point(MapX(t), MapY(r)));
+                    historyPoints.Add(new Point(MapX(tStart), MapY(1.0)));
+                    historyPoints.Add(new Point(MapX(now), MapY(1.0)));
+                }
+                else if (isUnlearned)
+                {
+                    historyPoints.Add(new Point(MapX(tStart), MapY(0.0)));
+                    historyPoints.Add(new Point(MapX(now), MapY(0.0)));
+                }
+                else
+                {
+                    // 无复习打卡日志但已有稳定性：从 lastRevDate 连续衰减到 now 的 currentR
+                    int segs = 12;
+                    for (int s = 0; s <= segs; s++)
+                    {
+                        double frac = (double)s / segs;
+                        DateTime t = tStart + TimeSpan.FromSeconds((now - tStart).TotalSeconds * frac);
+                        double r = FsrsEngine.CalculateRetrievability(curStability, lastRevDate, t);
+                        historyPoints.Add(new Point(MapX(t), MapY(r)));
+                    }
                 }
             }
             else
@@ -723,14 +782,22 @@ namespace NihongoVocab.Views
                 var firstLog = orderedLogs[0];
                 if ((firstLog.ReviewDate - tStart).TotalMinutes > 5)
                 {
-                    double preStab = firstLog.StabilityBefore > 0 ? firstLog.StabilityBefore : 1.0;
-                    int preSteps = 6;
-                    for (int s = 0; s < preSteps; s++)
+                    if (firstLog.StabilityBefore > 0)
                     {
-                        double frac = (double)s / preSteps;
-                        DateTime t = tStart + TimeSpan.FromSeconds((firstLog.ReviewDate - tStart).TotalSeconds * frac);
-                        double r = FsrsEngine.CalculateRetrievability(preStab, tStart, t);
-                        historyPoints.Add(new Point(MapX(t), MapY(r)));
+                        double preStab = firstLog.StabilityBefore;
+                        int preSteps = 6;
+                        for (int s = 0; s < preSteps; s++)
+                        {
+                            double frac = (double)s / preSteps;
+                            DateTime t = tStart + TimeSpan.FromSeconds((firstLog.ReviewDate - tStart).TotalSeconds * frac);
+                            double r = FsrsEngine.CalculateRetrievability(preStab, tStart, t);
+                            historyPoints.Add(new Point(MapX(t), MapY(r)));
+                        }
+                    }
+                    else
+                    {
+                        historyPoints.Add(new Point(MapX(tStart), MapY(0.0)));
+                        historyPoints.Add(new Point(MapX(firstLog.ReviewDate), MapY(0.0)));
                     }
                 }
 
@@ -753,7 +820,9 @@ namespace NihongoVocab.Views
                         {
                             double frac = (double)s / steps;
                             DateTime t = curLog.ReviewDate + TimeSpan.FromSeconds((nextTime - curLog.ReviewDate).TotalSeconds * frac);
-                            double r = FsrsEngine.CalculateRetrievability(stab, curLog.ReviewDate, t);
+                            double r = (isMastered && i == orderedLogs.Count - 1)
+                                ? 1.0
+                                : FsrsEngine.CalculateRetrievability(stab, curLog.ReviewDate, t);
                             historyPoints.Add(new Point(MapX(t), MapY(r)));
                         }
                     }
@@ -778,8 +847,8 @@ namespace NihongoVocab.Views
                     StartPoint = new Point(0, 0),
                     EndPoint = new Point(0, 1)
                 };
-                gradBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(50, 59, 130, 246), Offset = 0.0 });
-                gradBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0, 59, 130, 246), Offset = 1.0 });
+                gradBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(70, 56, 189, 248), Offset = 0.0 });
+                gradBrush.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(0, 56, 189, 248), Offset = 1.0 });
                 shadowPolygon.Fill = gradBrush;
                 canvas.Children.Add(shadowPolygon);
 
@@ -787,8 +856,8 @@ namespace NihongoVocab.Views
                 var historyLine = new Polyline
                 {
                     Points = historyPoints,
-                    Stroke = accentBrush,
-                    StrokeThickness = 2.4,
+                    Stroke = historyLineBrush,
+                    StrokeThickness = 2.6,
                     StrokeLineJoin = PenLineJoin.Round
                 };
                 canvas.Children.Add(historyLine);
@@ -799,22 +868,33 @@ namespace NihongoVocab.Views
             double xNow = MapX(now);
             forecastPoints.Add(new Point(xNow, MapY(currentR)));
 
-            int fSteps = 24;
-            for (int s = 1; s <= fSteps; s++)
+            if (isMastered)
             {
-                double frac = (double)s / fSteps;
-                DateTime t = now + TimeSpan.FromSeconds((tEnd - now).TotalSeconds * frac);
-                double r = FsrsEngine.CalculateRetrievability(curStability, lastRevDate, t);
-                forecastPoints.Add(new Point(MapX(t), MapY(r)));
+                forecastPoints.Add(new Point(MapX(tEnd), MapY(1.0)));
+            }
+            else if (isUnlearned)
+            {
+                forecastPoints.Add(new Point(MapX(tEnd), MapY(0.0)));
+            }
+            else
+            {
+                int fSteps = 24;
+                for (int s = 1; s <= fSteps; s++)
+                {
+                    double frac = (double)s / fSteps;
+                    DateTime t = now + TimeSpan.FromSeconds((tEnd - now).TotalSeconds * frac);
+                    double r = FsrsEngine.CalculateRetrievability(curStability, lastRevDate, t);
+                    forecastPoints.Add(new Point(MapX(t), MapY(r)));
+                }
             }
 
             var forecastPolyline = new Polyline
             {
                 Points = forecastPoints,
-                Stroke = accentBrush,
-                StrokeThickness = 2.0,
+                Stroke = forecastLineBrush,
+                StrokeThickness = 2.2,
                 StrokeDashArray = new DoubleCollection { 4, 3 },
-                Opacity = 0.8
+                Opacity = 0.95
             };
             canvas.Children.Add(forecastPolyline);
 
@@ -882,7 +962,7 @@ namespace NihongoVocab.Views
 
             // 8. 下次复习推荐点标记 (Next Review Marker)
             double xNext = MapX(tNext);
-            if (xNext > xNow && xNext <= marginLeft + plotWidth)
+            if (!isMastered && !isUnlearned && xNext > xNow && xNext <= marginLeft + plotWidth)
             {
                 var nextLine = new Line
                 {
@@ -906,7 +986,8 @@ namespace NihongoVocab.Views
             {
                 Text = $"{tStart:MM-dd} {loc.GetString("StartMarkerLabel", "首次导入")}",
                 FontSize = 9,
-                Opacity = 0.55
+                Opacity = 0.7,
+                Foreground = isDark ? new SolidColorBrush(Microsoft.UI.Colors.White) : new SolidColorBrush(Microsoft.UI.Colors.Black)
             };
             Canvas.SetLeft(startLabel, marginLeft);
             Canvas.SetTop(startLabel, yAxisLabel);
@@ -926,25 +1007,41 @@ namespace NihongoVocab.Views
             canvas.Children.Add(todayLabel);
 
             // 下次复习标签
+            string nextMarkerText = isMastered
+                ? loc.GetString("IntervalMastered", "已掌握 (免复习)")
+                : (isUnlearned
+                    ? loc.GetString("IntervalUnscheduled", "未安排 (待学习)")
+                    : string.Format(loc.GetString("NextReviewMarkerFormat", "下次复习 ({0})"), $"{tNext:MM-dd}"));
+
             var nextLabel = new TextBlock
             {
-                Text = string.Format(loc.GetString("NextReviewMarkerFormat", "下次复习 ({0})"), $"{tNext:MM-dd}"),
+                Text = nextMarkerText,
                 FontSize = 9,
-                Opacity = 0.65,
+                Opacity = 0.85,
                 Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 234, 179, 8))
             };
-            Canvas.SetLeft(nextLabel, Math.Max(marginLeft + plotWidth - 85, xNow + 25));
+            Canvas.SetLeft(nextLabel, Math.Max(marginLeft + plotWidth - 95, xNow + 25));
             Canvas.SetTop(nextLabel, yAxisLabel);
             canvas.Children.Add(nextLabel);
 
             mainStack.Children.Add(canvas);
 
-            // 如果暂无打卡日志，显示一条轻量提示
-            if (orderedLogs.Count == 0)
+            // 状态辅助提示
+            if (isMastered)
             {
                 mainStack.Children.Add(new TextBlock
                 {
-                    Text = loc.GetString("NewWordNoReviewCurveTip", "该词尚未开始打卡复习，当前展示初次学习后的理论记忆衰减模拟曲线"),
+                    Text = loc.GetString("MasteredWordCurveTip", "该词已手动标记为【已掌握】，独立于 FSRS 遗忘调度流之外（免复习）"),
+                    FontSize = 10,
+                    Opacity = 0.55,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+            }
+            else if (orderedLogs.Count == 0)
+            {
+                mainStack.Children.Add(new TextBlock
+                {
+                    Text = loc.GetString("NewWordNoReviewCurveTip", "该词尚未开始学习（当前记忆留存率 0%），完成首次复习打卡后将生成按日衰减曲线"),
                     FontSize = 10,
                     Opacity = 0.5,
                     HorizontalAlignment = HorizontalAlignment.Center
@@ -955,12 +1052,21 @@ namespace NihongoVocab.Views
             return card;
         }
 
-        private FrameworkElement CreateMetricBox(string label, string value)
+        private FrameworkElement CreateMetricBox(string label, string value, bool isDark)
         {
+            var card = new Border
+            {
+                Background = GetThemeCardSecondaryBrush(isDark),
+                BorderBrush = GetThemeStrokeBrush(isDark),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 8, 10, 8)
+            };
             var p = new StackPanel { Spacing = 2 };
-            p.Children.Add(new TextBlock { Text = label, FontSize = 10, Opacity = 0.5 });
+            p.Children.Add(new TextBlock { Text = label, FontSize = 10, Opacity = 0.6 });
             p.Children.Add(new TextBlock { Text = value, FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-            return p;
+            card.Child = p;
+            return card;
         }
 
         private void CopyWordToClipboard(string text)

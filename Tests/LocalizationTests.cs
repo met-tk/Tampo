@@ -57,5 +57,26 @@ namespace NihongoVocab.Tests
             Assert.Equal(expected, actual);
             loc.CurrentLanguage = "zh-CN";
         }
+
+        [Theory]
+        [InlineData("zh-CN", "编辑单词内容", "单词内容已更新为「猫」")]
+        [InlineData("ja-JP", "単語の内容を編集", "単語の内容を「猫」に更新しました")]
+        [InlineData("en-US", "Edit Word Text", "Word text updated to \"猫\"")]
+        public void EditWordText_Localization_Switching(string lang, string expectedMenu, string expectedUpdatedMsg)
+        {
+            var loc = LocalizationService.Instance;
+            loc.CurrentLanguage = lang;
+            try
+            {
+                var menuText = loc.GetString("MenuEditWordText");
+                var updatedMsg = string.Format(loc.GetString("MsgWordTextUpdatedFormat"), "猫");
+                Assert.Equal(expectedMenu, menuText);
+                Assert.Equal(expectedUpdatedMsg, updatedMsg);
+            }
+            finally
+            {
+                loc.CurrentLanguage = "zh-CN";
+            }
+        }
     }
 }

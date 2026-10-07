@@ -107,6 +107,7 @@ namespace NihongoVocab.Views
             WordsListView.PointerReleased += WordsListView_PointerReleased;
 
             // --- 右键菜单 ---
+            MenuEditWordText.Click += MenuEditWordText_Click;
             MenuBatchCreateNewList.Click += BatchCreateNewList_Click;
             MenuCopyLines.Click += MenuCopyLines_Click;
             MenuFormatExport.Click += MenuFormatExport_Click;
@@ -163,6 +164,7 @@ namespace NihongoVocab.Views
                 }
             }
 
+            if (MenuEditWordText != null) MenuEditWordText.Text = loc.GetString("MenuEditWordText", "编辑单词内容");
             if (MenuBatchCreateNewList != null) MenuBatchCreateNewList.Text = loc.GetString("ButtonCreateCustomList", "新建自选词单...");
             if (MenuCopyLines != null) MenuCopyLines.Text = loc.GetString("MenuCopyLines", "一键复制 (换行)");
             if (MenuFormatExport != null) MenuFormatExport.Text = loc.GetString("MenuFormatExport", "格式化导出...");
@@ -738,6 +740,71 @@ namespace NihongoVocab.Views
             if (result == ContentDialogResult.Primary)
             {
                 await ViewModel.DeleteWordsAsync(selected);
+            }
+        }
+
+        private async void MenuEditWordText_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = WordsListView.SelectedItems.OfType<Word>().ToList();
+            if (selected.Count == 0) return;
+
+            var loc = LocalizationService.Instance;
+
+            if (selected.Count > 1)
+            {
+                var tipDialog = new ContentDialog
+                {
+                    Title = loc.GetString("DialogTitleEditWord", "编辑单词内容"),
+                    Content = DialogHelper.CreateTextBlockContent(loc.GetString("DialogMsgEditWordSingleOnly", "编辑单词内容仅支持单选操作，请只选择一个单词后重试。")),
+                    CloseButtonText = loc.GetString("ButtonConfirm", "确定"),
+                    XamlRoot = this.XamlRoot
+                };
+                MainWindow.RegisterActiveDialog(tipDialog);
+                await tipDialog.ShowAsync();
+                MainWindow.UnregisterActiveDialog(tipDialog);
+                return;
+            }
+
+            var word = selected[0];
+            var inputBox = new TextBox
+            {
+                Text = word.Text,
+                PlaceholderText = loc.GetString("PlaceholderEditWordText", "输入修改后的单词内容..."),
+                AcceptsReturn = false
+            };
+            inputBox.SelectAll();
+
+            var dialog = new ContentDialog
+            {
+                Title = loc.GetString("DialogTitleEditWord", "编辑单词内容"),
+                Content = new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = string.Format(loc.GetString("DialogMsgEditWordFormat", "当前单词：{0}\n修改内容不影响学习状态与复习记录。"), word.Text),
+                            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                            Opacity = 0.8,
+                            FontSize = 12
+                        },
+                        inputBox
+                    }
+                },
+                PrimaryButtonText = loc.GetString("ButtonConfirmEdit", "确认修改"),
+                CloseButtonText = loc.GetString("ButtonCancel", "取消"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            MainWindow.RegisterActiveDialog(dialog);
+            var result = await dialog.ShowAsync();
+            MainWindow.UnregisterActiveDialog(dialog);
+
+            if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(inputBox.Text))
+            {
+                await ViewModel.UpdateWordTextAsync(word, inputBox.Text);
             }
         }
 

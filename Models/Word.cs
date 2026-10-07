@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using NihongoVocab.Services;
 using SQLite;
 
@@ -25,8 +26,9 @@ namespace NihongoVocab.Models
     {
         public Word()
         {
-            LocalizationService.Instance.LanguageChanged += (s, e) => OnPropertyChanged(string.Empty);
         }
+
+        public void NotifyLanguageChanged() => OnPropertyChanged(string.Empty);
 
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
@@ -34,10 +36,12 @@ namespace NihongoVocab.Models
         [Indexed, NotNull]
         public string Text { get; set; } = string.Empty;
 
-        [Ignore]
+        [Ignore, JsonIgnore]
         public string Kanji => Text;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime StateUpdatedAt { get; set; } = DateTime.Now;
+        public DateTime MetaUpdatedAt { get; set; } = DateTime.Now;
 
         [Indexed]
         public int? WordListId { get; set; }
@@ -61,10 +65,10 @@ namespace NihongoVocab.Models
         [Ignore]
         public string? WordListName { get; set; }
 
-        [Ignore]
+        [Ignore, JsonIgnore]
         public WordLearningState LearningState => (WordLearningState)State;
 
-        [Ignore]
+        [Ignore, JsonIgnore]
         public FsrsScheduleState FsrsState
         {
             get
@@ -78,9 +82,9 @@ namespace NihongoVocab.Models
                     return FsrsScheduleState.Review;
                 }
                 // 处于短周期阶梯（State == Learning）中：
-                // 如果经历过遗忘（Lapses > 0），则严格判定为 FSRS 调度算法定义的“重新学习 (Relearning)”状态
-                // 若从未遗忘（Lapses == 0），则为首轮初次学习阶梯中的“初学中 (Learning)”状态
-                if (Lapses > 0)
+                // 仅当曾经毕业进入过正式复习期（Reps >= 2 且经历过 Lapses）跌落时，才严格判定为 FSRS 算法定义的“重新学习 (Relearning)”状态；
+                // 首轮初学阶段（Reps <= 1）的初次遗忘，仍严格归入“初学中 (Learning)”状态
+                if (Lapses > 0 && Reps >= 2)
                 {
                     return FsrsScheduleState.Relearning;
                 }
@@ -88,10 +92,28 @@ namespace NihongoVocab.Models
             }
         }
 
-        [Ignore]
-        public double CurrentRetrievability => Stability <= 0.0 ? 0.0 : Services.FsrsEngine.CalculateRetrievability(Stability, LastReviewDate ?? CreatedAt, DateTime.Now);
+        [Ignore, JsonIgnore]
+        public bool IsDue
+        {
+            get
+            {
+                if (State == (int)WordLearningState.Mastered) return false;
+                DateTime today = DateTime.Today;
+                DateTime endOfToday = today.AddDays(1).AddTicks(-1);
+                if (LastReviewDate.HasValue && LastReviewDate.Value.Date >= today) return false;
+                if (State == (int)WordLearningState.New || Reps <= 0 || !NextReviewDate.HasValue) return true;
+                return NextReviewDate.Value <= endOfToday;
+            }
+        }
 
-        [Ignore]
+        [Ignore, JsonIgnore]
+        public double CurrentRetrievability => State == (int)WordLearningState.Mastered
+            ? 1.0
+            : ((State == (int)WordLearningState.New || Reps <= 0 || Stability <= 0.0)
+                ? 0.0
+                : Services.FsrsEngine.CalculateRetrievability(Stability, LastReviewDate ?? CreatedAt, DateTime.Now));
+
+        [Ignore, JsonIgnore]
         public string LearningStateText
         {
             get
@@ -108,10 +130,10 @@ namespace NihongoVocab.Models
             }
         }
 
-        [Ignore]
+        [Ignore, JsonIgnore]
         public string CurveItemToolTip => Services.LocalizationService.Instance.GetString("TooltipWordCurveItem", "左键点击查看个体学习记录与记忆曲线，中键点击复制");
 
-        [Ignore]
+        [Ignore, JsonIgnore]
         public string NextReviewIntervalText
         {
             get
@@ -122,49 +144,40 @@ namespace NihongoVocab.Models
                     return loc.GetString("IntervalMastered", "已掌握 (免复习)");
                 }
 
-                if (State == (int)WordLearningState.New || !NextReviewDate.HasValue)
+                if (State == (int)WordLearningState.New || Reps <= 0 || !NextReviewDate.HasValue)
                 {
                     return loc.GetString("IntervalUnscheduled", "未安排 (待学习)");
                 }
 
-                var diff = NextReviewDate.Value - DateTime.Now;
-                if (diff.TotalSeconds <= 0)
+                DateTime nextDay = (NextReviewDate.Value.Kind == DateTimeKind.Utc
+                    ? NextReviewDate.Value.ToLocalTime()
+                    : NextReviewDate.Value).Date;
+                int dayDiff = (nextDay - DateTime.Today).Days;
+
+                if (dayDiff <= 0)
                 {
-                    return loc.GetString("IntervalDue", "已到期 (随时可复习)");
+                    return loc.GetString("IntervalDue", "已到期 (今日待复习)");
                 }
 
-                if (diff.TotalMinutes < 60)
+                if (dayDiff < 30)
                 {
-                    int mins = Math.Max(1, (int)diff.TotalMinutes);
-                    return string.Format(loc.GetString("IntervalMinutes", "{0} 分钟后"), mins);
+                    return string.Format(loc.GetString("IntervalDays", "{0} 天后"), dayDiff);
                 }
 
-                if (diff.TotalHours < 24)
+                if (dayDiff < 365)
                 {
-                    int hours = (int)diff.TotalHours;
-                    return string.Format(loc.GetString("IntervalHours", "{0} 小时后"), hours);
-                }
-
-                if (diff.TotalDays < 30)
-                {
-                    int days = (int)Math.Ceiling(diff.TotalDays);
-                    return string.Format(loc.GetString("IntervalDays", "{0} 天后"), days);
-                }
-
-                if (diff.TotalDays < 365)
-                {
-                    int months = (int)(diff.TotalDays / 30.0);
+                    int months = Math.Max(1, dayDiff / 30);
                     return string.Format(loc.GetString("IntervalMonths", "{0} 个月后"), months);
                 }
 
-                return string.Format(loc.GetString("IntervalYears", "{0:F1} 年后"), diff.TotalDays / 365.0);
+                return string.Format(loc.GetString("IntervalYears", "{0:F1} 年后"), dayDiff / 365.0);
             }
         }
 
-        [Ignore]
+        [Ignore, JsonIgnore]
         public string ReviewCountText => string.Format(LocalizationService.Instance.GetString("ReviewCountFormat", "已复习 {0} 次"), Reps);
 
-        [Ignore]
+        [Ignore, JsonIgnore]
         public string NextReviewLabel => LocalizationService.Instance.GetString("NextReviewLabel", "下次复习");
     }
 }

@@ -14,6 +14,7 @@
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
+    <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
   </ItemGroup>
@@ -24,6 +25,9 @@
 
   <ItemGroup>
     <Compile Include="..\Models\Word.cs" Link="Word.cs" />
+    <Compile Include="..\Models\WordList.cs" Link="WordList.cs" />
+    <Compile Include="..\Models\ReviewLog.cs" Link="ReviewLog.cs" />
+    <Compile Include="..\Models\SyncTombstone.cs" Link="SyncTombstone.cs" />
     <Compile Include="..\Models\CleansingPreset.cs" Link="CleansingPreset.cs" />
     <Compile Include="..\Services\FsrsEngine.cs" Link="FsrsEngine.cs" />
     <Compile Include="..\Services\PresetManager.cs" Link="PresetManager.cs" />
@@ -32,6 +36,8 @@
     <Compile Include="..\Services\WebExportService.cs" Link="WebExportService.cs" />
     <Compile Include="..\Models\ExportPreset.cs" Link="ExportPreset.cs" />
     <Compile Include="..\Services\ExportPresetManager.cs" Link="ExportPresetManager.cs" />
+    <Compile Include="..\Services\DatabaseService.cs" Link="DatabaseService.cs" />
+    <Compile Include="..\Services\LanSyncService.cs" Link="LanSyncService.cs" />
   </ItemGroup>
 
 </Project>

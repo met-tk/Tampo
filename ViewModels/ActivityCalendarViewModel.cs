@@ -12,8 +12,16 @@ using Windows.UI;
 
 namespace NihongoVocab.ViewModels
 {
-    public class MonthCalendarDayItem
+    public class MonthCalendarDayItem : System.ComponentModel.INotifyPropertyChanged
     {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public void NotifyThemeChanged()
+        {
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(DayBackground)));
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(DayForeground)));
+        }
+
         public DateTime Date { get; set; }
         public int DayNumber => Date.Day;
         public bool IsCurrentMonth { get; set; }
@@ -65,25 +73,39 @@ namespace NihongoVocab.ViewModels
             }
         }
 
-        private static readonly Brush TodayBg = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30));
-        private static readonly Brush BothActiveBg = new SolidColorBrush(Color.FromArgb(200, 160, 160, 160));
-        private static readonly Brush StudyActiveBg = new SolidColorBrush(Color.FromArgb(160, 180, 180, 180));
-        private static readonly Brush ImportActiveBg = new SolidColorBrush(Color.FromArgb(120, 205, 205, 205));
-        private static readonly Brush TransparentBg = new SolidColorBrush(Colors.Transparent);
+        // 亮色模式画刷
+        private static readonly Brush LightTodayBg = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30));
+        private static readonly Brush LightBothActiveBg = new SolidColorBrush(Color.FromArgb(200, 160, 160, 160));
+        private static readonly Brush LightStudyActiveBg = new SolidColorBrush(Color.FromArgb(160, 180, 180, 180));
+        private static readonly Brush LightImportActiveBg = new SolidColorBrush(Color.FromArgb(120, 205, 205, 205));
 
-        private static readonly Brush WhiteFg = new SolidColorBrush(Colors.White);
-        private static readonly Brush NotCurrentMonthFg = new SolidColorBrush(Color.FromArgb(90, 128, 128, 128));
-        private static readonly Brush ActiveFg = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20));
-        private static readonly Brush NormalDayFg = new SolidColorBrush(Color.FromArgb(220, 30, 30, 30));
+        private static readonly Brush LightWhiteFg = new SolidColorBrush(Colors.White);
+        private static readonly Brush LightNotCurrentMonthFg = new SolidColorBrush(Color.FromArgb(90, 128, 128, 128));
+        private static readonly Brush LightActiveFg = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20));
+        private static readonly Brush LightNormalDayFg = new SolidColorBrush(Color.FromArgb(220, 30, 30, 30));
+
+        // 暗色模式画刷（解决黑底黑字不可见问题）
+        private static readonly Brush DarkTodayBg = new SolidColorBrush(Color.FromArgb(255, 59, 130, 246)); // 高亮蓝底
+        private static readonly Brush DarkBothActiveBg = new SolidColorBrush(Color.FromArgb(160, 120, 120, 120));
+        private static readonly Brush DarkStudyActiveBg = new SolidColorBrush(Color.FromArgb(120, 100, 100, 100));
+        private static readonly Brush DarkImportActiveBg = new SolidColorBrush(Color.FromArgb(90, 90, 90, 90));
+
+        private static readonly Brush DarkWhiteFg = new SolidColorBrush(Colors.White);
+        private static readonly Brush DarkNotCurrentMonthFg = new SolidColorBrush(Color.FromArgb(55, 255, 255, 255));
+        private static readonly Brush DarkActiveFg = new SolidColorBrush(Colors.White);
+        private static readonly Brush DarkNormalDayFg = new SolidColorBrush(Color.FromArgb(235, 240, 240, 240)); // 清晰亮白灰
+
+        private static readonly Brush TransparentBg = new SolidColorBrush(Colors.Transparent);
 
         public Brush DayBackground
         {
             get
             {
-                if (IsToday) return TodayBg;
-                if (StudyCount > 0 && ImportCount > 0) return BothActiveBg;
-                if (StudyCount > 0) return StudyActiveBg;
-                if (ImportCount > 0) return ImportActiveBg;
+                bool isDark = NihongoVocab.Converters.ThemeHelper.IsCurrentDarkTheme();
+                if (IsToday) return isDark ? DarkTodayBg : LightTodayBg;
+                if (StudyCount > 0 && ImportCount > 0) return isDark ? DarkBothActiveBg : LightBothActiveBg;
+                if (StudyCount > 0) return isDark ? DarkStudyActiveBg : LightStudyActiveBg;
+                if (ImportCount > 0) return isDark ? DarkImportActiveBg : LightImportActiveBg;
                 return TransparentBg;
             }
         }
@@ -92,10 +114,11 @@ namespace NihongoVocab.ViewModels
         {
             get
             {
-                if (IsToday) return WhiteFg;
-                if (!IsCurrentMonth) return NotCurrentMonthFg;
-                if (HasActivity) return ActiveFg;
-                return NormalDayFg;
+                bool isDark = NihongoVocab.Converters.ThemeHelper.IsCurrentDarkTheme();
+                if (IsToday) return isDark ? DarkWhiteFg : LightWhiteFg;
+                if (!IsCurrentMonth) return isDark ? DarkNotCurrentMonthFg : LightNotCurrentMonthFg;
+                if (HasActivity) return isDark ? DarkActiveFg : LightActiveFg;
+                return isDark ? DarkNormalDayFg : LightNormalDayFg;
             }
         }
 
@@ -225,6 +248,21 @@ namespace NihongoVocab.ViewModels
                 _lastBuiltYear = -1; // 强制刷新月份网格标题（如 1月、1月/Jan 等）
                 BuildGrids();
             };
+
+            DatabaseService.DataChanged += OnDatabaseDataChanged;
+        }
+
+        private void OnDatabaseDataChanged()
+        {
+            var dispatcher = App.UIThreadDispatcher ?? App.MainWindowInstance?.DispatcherQueue;
+            if (dispatcher != null)
+            {
+                dispatcher.TryEnqueue(async () => await LoadDataAsync());
+            }
+            else
+            {
+                _ = LoadDataAsync();
+            }
         }
 
         public async Task LoadDataAsync()
@@ -435,6 +473,31 @@ namespace NihongoVocab.ViewModels
             {
                 CrashLogger.LogException(ex, "ActivityCalendarViewModel.GetDayDetailAsync");
                 return new DayActivityDetail { Date = date };
+            }
+        }
+
+        public void RefreshThemeBrushes()
+        {
+            try
+            {
+                foreach (var ym in YearMonths)
+                {
+                    if (ym.Days != null)
+                    {
+                        foreach (var day in ym.Days)
+                        {
+                            day.NotifyThemeChanged();
+                        }
+                    }
+                }
+                foreach (var day in CurrentMonthDays)
+                {
+                    day.NotifyThemeChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "ActivityCalendarViewModel.RefreshThemeBrushes");
             }
         }
     }

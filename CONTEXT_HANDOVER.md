@@ -20,8 +20,9 @@
 | **UI 框架** | Windows App SDK / WinUI 3 | `1.6.250205002` (非打包/Unpackaged 模式运行) |
 | **架构模式** | MVVM | `CommunityToolkit.Mvvm` 8.4.0 (弱引用消息、ObservableProperty) |
 | **存储层** | SQLite (单文件数据库) | `Microsoft.Data.Sqlite` 9.0.2，WAL 模式并发，纯原生 SQL 驱动 |
-| **安装器** | 自研独立 WPF 单执行文件 | `Installer\NihongoVocab.Installer.csproj`，内嵌 Zip Payload，零全局运行时依赖 |
-| **单元测试** | xUnit + FluentAssertions | `Tests\NihongoVocab.Tests.csproj` (35 项核心业务与 FSRS 算法测试全绿) |
+| **自研安装包** | 自研独立单文件安装器/更新器 | `Installer\NihongoVocab.Installer.csproj`，内嵌 Zip Payload，零全局运行时依赖，生成 `Tampo_Setup_v1.1.5.exe` 与 `Tampo_Update_v1.1.5.exe` |
+| **单元测试** | xUnit + FluentAssertions | `Tests\NihongoVocab.Tests.csproj` (48 项核心业务、FSRS 算法与双向同步测试全绿) |
+| **局域网同步** | UDP 广播 + TCP 增量双向同步 | 双端正交分离合并协议 (`StateUpdatedAt` 与 `MetaUpdatedAt`) + 实体墓碑机制 (`word`, `word_list`, `review_log`) |
 
 ---
 
@@ -144,7 +145,7 @@
 ```powershell
 dotnet test Tests/NihongoVocab.Tests.csproj
 ```
-*预期结果*：35 个测试全部通过（通过率 100%），验证 FSRS 调度计算与词单切片模型逻辑。
+*预期结果*：51 个测试全部通过（通过率 100%），覆盖 FSRS 调度计算、难度均值回归收敛、当日打卡撤销回退排期、学习队列自然日边界、词单切片模型、局域网增量合并与双端属性正交合并测试。
 
 ### 5.2 启动本地调试开发
 在 Visual Studio 2022 或使用命令行启动主程序（Unpackaged 模式）：
@@ -161,12 +162,15 @@ powershell -ExecutionPolicy Bypass -File ".\build_publish.ps1"
 1. 清理旧构建缓存与占用进程；
 2. 执行 `dotnet publish` 输出独立非打包 WinUI 3 应用至 `publish\`；
 3. 同步并补全 XBF、PRI 索引文件与 Assets 静态资源；
-4. 将 Payload 打包并编译生成单文件安装器 `Setup\Tampo_Setup_v1.1.0.exe`。
+4. 将 Payload 打包并编译生成单文件安装器 `Setup\Tampo_Setup_v1.1.5.exe` 与更新器 `Setup\Tampo_Update_v1.1.5.exe`。
 
 ### 5.4 接手者功能验证清单 (Smoke Test)
-1. **安装器体验**：运行 `Setup\Tampo_Setup_v1.1.0.exe`，检查界面标题是否为 `v1.1.0`，检查是否智能识别安装路径并在路径末尾安全补全 `\Tampo`。
+1. **安装器体验**：运行 `Setup\Tampo_Setup_v1.1.5.exe`，检查界面标题是否为 `v1.1.5`，检查是否智能识别安装路径并在路径末尾安全补全 `\Tampo`。
 2. **多开拦截**：连续两次双击启动 Tampo，检查是否仅出现一个窗口且第二次启动时原窗口被自动置顶激活。
 3. **学习模块**：进入学习页面，确认学习范围下拉列表第一项为【全部到期词汇】。
 4. **词库模块**：
    - 检查顶部筛选栏右侧是否包含【未归档】与【已归档】选项，且窗口拉窄至 960px 以下时自适应排版。
    - 检查左侧切片区是否支持切换至“专属词单”，且在专属词单项上右键可弹出重命名/合并/解散菜单。
+5. **局域网双向同步**：
+   - 检查在 PC 与 Android 之间进行同步时，删除的词单绝不复活；
+   - 检查一端修改词单归属，另一端进行复习打卡时，两边数据正交无损合并，复习进度与词单归属均被正确保留。

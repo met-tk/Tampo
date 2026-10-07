@@ -17,9 +17,9 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.2.1</Version>
+    <AssemblyVersion>1.2.1.0</AssemblyVersion>
+    <FileVersion>1.2.1.0</FileVersion>
     <Authors>taketo</Authors>
     <Company>taketo</Company>
     <Product>Tampo</Product>
@@ -53,10 +53,8 @@
     <ApplicationDefinition Remove="Installer\**" />
     <Compile Remove="Setup\**" />
     <None Remove="Setup\**" />
-    <Compile Remove="Tampo.Mobile\**" />
-    <None Remove="Tampo.Mobile\**" />
-    <Page Remove="Tampo.Mobile\**" />
-    <ApplicationDefinition Remove="Tampo.Mobile\**" />
+    <Compile Remove="tampo_android\**" />
+    <None Remove="tampo_android\**" />
   </ItemGroup>
 
   <!--

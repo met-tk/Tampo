@@ -111,20 +111,45 @@ namespace NihongoVocab.Converters
         public object ConvertBack(object value, Type targetType, object parameter, string language) => 0;
     }
 
+    public static class ThemeHelper
+    {
+        public static bool IsCurrentDarkTheme()
+        {
+            try
+            {
+                if (App.MainWindowInstance?.Content is FrameworkElement fe)
+                {
+                    if (fe.RequestedTheme == ElementTheme.Dark) return true;
+                    if (fe.RequestedTheme == ElementTheme.Light) return false;
+                    return fe.ActualTheme == ElementTheme.Dark;
+                }
+                string savedTheme = UserPreferenceService.Instance.Get("App_Theme", "Default");
+                if (savedTheme == "Dark") return true;
+                if (savedTheme == "Light") return false;
+                return Application.Current.RequestedTheme == ApplicationTheme.Dark;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
     public class CardStateToBorderBrushConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
         {
+            bool isDark = ThemeHelper.IsCurrentDarkTheme();
             if (value is CardInteractionState state)
             {
                 return state switch
                 {
-                    CardInteractionState.PendingRemember => new SolidColorBrush(Color.FromArgb(255, 22, 163, 74)), // 深绿强调
-                    CardInteractionState.PendingForget => new SolidColorBrush(Color.FromArgb(255, 220, 38, 38)),   // 深红强调
-                    _ => (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"]
+                    CardInteractionState.PendingRemember => new SolidColorBrush(Color.FromArgb(255, 34, 197, 94)), // 墨绿高亮边框
+                    CardInteractionState.PendingForget => new SolidColorBrush(Color.FromArgb(255, 239, 68, 68)),   // 砖红高亮边框
+                    _ => isDark ? new SolidColorBrush(Color.FromArgb(35, 255, 255, 255)) : new SolidColorBrush(Color.FromArgb(20, 0, 0, 0))
                 };
             }
-            return (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"];
+            return isDark ? new SolidColorBrush(Color.FromArgb(35, 255, 255, 255)) : new SolidColorBrush(Color.FromArgb(20, 0, 0, 0));
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => CardInteractionState.Normal;
@@ -134,16 +159,17 @@ namespace NihongoVocab.Converters
     {
         public object Convert(object value, Type targetType, object parameter, string language)
         {
+            bool isDark = ThemeHelper.IsCurrentDarkTheme();
             if (value is CardInteractionState state)
             {
                 return state switch
                 {
-                    CardInteractionState.PendingRemember => new SolidColorBrush(Color.FromArgb(40, 34, 197, 94)), // 墨绿淡底
-                    CardInteractionState.PendingForget => new SolidColorBrush(Color.FromArgb(40, 239, 68, 68)),   // 砖红淡底
-                    _ => (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"]
+                    CardInteractionState.PendingRemember => new SolidColorBrush(isDark ? Color.FromArgb(60, 34, 197, 94) : Color.FromArgb(40, 34, 197, 94)), // 墨绿淡底
+                    CardInteractionState.PendingForget => new SolidColorBrush(isDark ? Color.FromArgb(60, 239, 68, 68) : Color.FromArgb(40, 239, 68, 68)),   // 砖红淡底
+                    _ => isDark ? new SolidColorBrush(Color.FromArgb(255, 43, 43, 43)) : new SolidColorBrush(Colors.White)
                 };
             }
-            return (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"];
+            return isDark ? new SolidColorBrush(Color.FromArgb(255, 43, 43, 43)) : new SolidColorBrush(Colors.White);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => CardInteractionState.Normal;
@@ -202,6 +228,7 @@ namespace NihongoVocab.Converters
             var loc = LocalizationService.Instance;
             if (value is double ret)
             {
+                if (ret <= 0.0) return $"0% - {loc.GetString("RetentionPending", "待学习")}";
                 double pct = ret * 100.0;
                 if (pct >= 90) return $"{pct:F0}% - {loc.GetString("RetentionSolid", "记忆牢固")}";
                 if (pct >= 75) return $"{pct:F0}% - {loc.GetString("RetentionGood", "状态良好")}";
@@ -218,12 +245,23 @@ namespace NihongoVocab.Converters
     {
         public object Convert(object value, Type targetType, object parameter, string language)
         {
+            bool isDark = ThemeHelper.IsCurrentDarkTheme();
             if (value is double ret)
             {
+                if (ret <= 0.0) return new SolidColorBrush(isDark ? Color.FromArgb(255, 156, 163, 175) : Color.FromArgb(255, 107, 114, 128)); // 中性灰
                 double pct = ret * 100.0;
-                if (pct >= 85) return new SolidColorBrush(Color.FromArgb(255, 34, 197, 94)); // 绿
-                if (pct >= 65) return new SolidColorBrush(Color.FromArgb(255, 234, 179, 8)); // 黄
-                return new SolidColorBrush(Color.FromArgb(255, 239, 68, 68)); // 红
+                if (pct >= 85)
+                {
+                    // 绿色系：深色模式使用高亮亮绿，浅色模式使用深翠绿
+                    return new SolidColorBrush(isDark ? Color.FromArgb(255, 74, 222, 128) : Color.FromArgb(255, 21, 128, 61));
+                }
+                if (pct >= 65)
+                {
+                    // 黄/琥珀系：深色模式使用亮金黄，浅色模式使用深琥珀金棕 (告别白底黄字发虚)
+                    return new SolidColorBrush(isDark ? Color.FromArgb(255, 251, 191, 36) : Color.FromArgb(255, 180, 83, 9));
+                }
+                // 红色系：深色模式使用亮红，浅色模式使用深红
+                return new SolidColorBrush(isDark ? Color.FromArgb(255, 248, 113, 113) : Color.FromArgb(255, 220, 38, 38));
             }
             return new SolidColorBrush(Colors.Gray);
         }

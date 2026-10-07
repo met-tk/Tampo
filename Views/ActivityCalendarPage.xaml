@@ -130,13 +130,13 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="YearScrollViewer">
                 <ItemsRepeater x:Name="YearRepeater" ItemsSource="{x:Bind ViewModel.YearMonths}">
                     <ItemsRepeater.Layout>
-                        <UniformGridLayout MinItemWidth="230" MinItemHeight="210" MinRowSpacing="18" MinColumnSpacing="18"/>
+                        <UniformGridLayout MinItemWidth="230" MinItemHeight="265" MinRowSpacing="18" MinColumnSpacing="18"/>
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate x:DataType="viewmodels:YearMonthItem">
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                    CornerRadius="8" Padding="12">
+                                    CornerRadius="8" Padding="12,10,12,12">
                                 <StackPanel Spacing="6">
                                     <!-- 月份标题：点击钻取至该月 -->
                                     <Button Tag="{x:Bind}" Padding="6,3" HorizontalAlignment="Left" 

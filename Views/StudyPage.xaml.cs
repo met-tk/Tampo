@@ -53,12 +53,18 @@ namespace NihongoVocab.Views
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            DatabaseService.DataChanged -= OnDatabaseDataChanged;
-            DatabaseService.DataChanged += OnDatabaseDataChanged;
 
             try
             {
-                await ViewModel.LoadSessionAsync(ViewModel.SelectedList?.Id);
+                if (ViewModel.Cards.Count > 0 || ViewModel.CompletedCount > 0 || ViewModel.LapsedCount > 0)
+                {
+                    await ViewModel.LoadTodayReviewsAsync();
+                    await ViewModel.SyncSessionQueueAsync();
+                }
+                else
+                {
+                    await ViewModel.LoadSessionAsync(ViewModel.SelectedList?.Id);
+                }
             }
             catch (Exception ex)
             {
@@ -69,39 +75,17 @@ namespace NihongoVocab.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
-            DatabaseService.DataChanged -= OnDatabaseDataChanged;
-        }
-
-        private void OnDatabaseDataChanged()
-        {
-            try
-            {
-                DispatcherQueue.TryEnqueue(async () =>
-                {
-                    // 若用户当前正在网格翻卡中，不打断学习交互；若当前处于空闲/完成态或会话外，则实时同步最新待学词量
-                    if (ViewModel.Cards.Count == 0 || ViewModel.IsSessionFinished)
-                    {
-                        await ViewModel.LoadSessionAsync(ViewModel.SelectedList?.Id);
-                    }
-                    else
-                    {
-                        // 正在学习中时，同步刷新当日打卡列表
-                        await ViewModel.LoadTodayReviewsAsync();
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "StudyPage.OnDatabaseDataChanged");
-            }
         }
 
         private async void StudyPage_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                _isPageLoaded = true;
-                await ViewModel.LoadSessionAsync(ViewModel.SelectedList?.Id);
+                if (!_isPageLoaded)
+                {
+                    _isPageLoaded = true;
+                    await ViewModel.LoadSessionAsync(ViewModel.SelectedList?.Id);
+                }
             }
             catch (Exception ex)
             {

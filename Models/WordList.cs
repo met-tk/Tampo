@@ -14,6 +14,8 @@ namespace NihongoVocab.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
         [Ignore]
         public int WordCount { get; set; }
 

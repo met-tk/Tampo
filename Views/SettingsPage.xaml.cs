@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using Windows.ApplicationModel.DataTransfer;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -20,7 +22,18 @@ namespace NihongoVocab.Views
             this.DataContext = ViewModel;
 
             LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
-            this.Loaded += (s, e) => UpdateLocalizedStrings();
+            this.Loaded += (s, e) =>
+            {
+                UpdateLocalizedStrings();
+                UpdateLanSyncUI();
+                LanSyncService.Instance.LogReceived += OnLanSyncLogReceived;
+                LanSyncService.Instance.StatusChanged += OnLanSyncStatusChanged;
+            };
+            this.Unloaded += (s, e) =>
+            {
+                LanSyncService.Instance.LogReceived -= OnLanSyncLogReceived;
+                LanSyncService.Instance.StatusChanged -= OnLanSyncStatusChanged;
+            };
             UpdateLocalizedStrings();
         }
 
@@ -72,7 +85,7 @@ namespace NihongoVocab.Views
             if (ClearDataButtonText != null) ClearDataButtonText.Text = loc.GetString("ButtonClearAllData", "清空并重置");
 
             if (SectionAboutTextBlock != null) SectionAboutTextBlock.Text = loc.GetString("AboutTitle", "关于 Tampo");
-            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.1.0 (Windows App SDK / WinUI 3)");
+            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.2.1 (Windows App SDK / WinUI 3)");
             if (AboutArchTextBlock != null) AboutArchTextBlock.Text = loc.GetString("ArchLabel", "架构: x64 Self-Contained 独立部署");
             if (AboutEngineTextBlock != null) AboutEngineTextBlock.Text = loc.GetString("EngineLabel", "算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)");
             if (AuthorLinkButton != null) AuthorLinkButton.Content = loc.GetString("AuthorLinkText", "找我玩");
@@ -90,7 +103,17 @@ namespace NihongoVocab.Views
             if (ResetStudyMarkSoundText != null) ResetStudyMarkSoundText.Text = loc.GetString("ButtonResetDefault", "恢复默认");
             if (ResetCopySoundText != null) ResetCopySoundText.Text = loc.GetString("ButtonResetDefault", "恢复默认");
 
+            // 局域网同步本地化
+            if (LanSyncSectionTextBlock != null) LanSyncSectionTextBlock.Text = loc.GetString("LanSyncSectionTitle", "局域网多端数据同步");
+            if (LanSyncDescTextBlock != null) LanSyncDescTextBlock.Text = loc.GetString("LanSyncSectionDesc", "在同一 WiFi / 局域网下，与手机端 Tampo 进行词库、学习进度与单词状态的双向无损同步");
+            if (LanSyncAddressLabelTextBlock != null) LanSyncAddressLabelTextBlock.Text = loc.GetString("LanSyncAddressLabel", "本机服务地址:");
+            if (CopyLanSyncAddressText != null) CopyLanSyncAddressText.Text = loc.GetString("ButtonCopy", "复制");
+            if (LanSyncPinLabelTextBlock != null) LanSyncPinLabelTextBlock.Text = loc.GetString("LanSyncPinLabel", "安全配对 PIN 码:");
+            if (RefreshPinText != null) RefreshPinText.Text = loc.GetString("LanSyncResetPinButton", "重置 PIN");
+            if (LanSyncStatusLabelTextBlock != null) LanSyncStatusLabelTextBlock.Text = loc.GetString("LanSyncStatusLabel", "同步状态日志:");
+
             UpdateSoundUI();
+            UpdateLanSyncUI();
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -347,6 +370,111 @@ namespace NihongoVocab.Views
                 }
             }
         }
+        #endregion
+
+        #region 局域网同步服务交互
+
+        private void UpdateLanSyncUI()
+        {
+            var sync = LanSyncService.Instance;
+            if (LanSyncToggleSwitch != null && LanSyncToggleSwitch.IsOn != sync.IsRunning)
+            {
+                LanSyncToggleSwitch.IsOn = sync.IsRunning;
+            }
+
+            if (LanSyncPinTextBlock != null)
+            {
+                LanSyncPinTextBlock.Text = sync.CurrentPin;
+            }
+
+            if (LanSyncAddressTextBlock != null)
+            {
+                if (sync.IsRunning)
+                {
+                    var endpoints = sync.GetNetworkEndpoints();
+                    if (endpoints.Count > 0)
+                    {
+                        LanSyncAddressTextBlock.Text = string.Join("   |   ", endpoints.Select(e => $"{e.DisplayUrl} ({e.InterfaceTypeDescription})"));
+                    }
+                    else
+                    {
+                        LanSyncAddressTextBlock.Text = $"http://127.0.0.1:{sync.Port}";
+                    }
+                }
+                else
+                {
+                    LanSyncAddressTextBlock.Text = LocalizationService.Instance.GetString("LanSyncServerStopped", "服务已停止");
+                }
+            }
+        }
+
+        private void OnLanSyncStatusChanged(bool isRunning)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                UpdateLanSyncUI();
+            });
+        }
+
+        private void OnLanSyncLogReceived(string log)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (LanSyncLogTextBlock != null)
+                {
+                    string time = DateTime.Now.ToString("HH:mm:ss");
+                    string newText = $"[{time}] {log}\n{LanSyncLogTextBlock.Text}";
+                    if (newText.Length > 2000)
+                    {
+                        newText = newText.Substring(0, 2000);
+                    }
+                    LanSyncLogTextBlock.Text = newText;
+                }
+            });
+        }
+
+        private async void LanSyncToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch ts)
+            {
+                if (ts.IsOn && !LanSyncService.Instance.IsRunning)
+                {
+                    await LanSyncService.Instance.StartAsync();
+                }
+                else if (!ts.IsOn && LanSyncService.Instance.IsRunning)
+                {
+                    LanSyncService.Instance.Stop();
+                }
+                UpdateLanSyncUI();
+            }
+        }
+
+        private void CopyLanSyncAddress_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string text = LanSyncAddressTextBlock?.Text ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(text) && text != LocalizationService.Instance.GetString("LanSyncServerStopped", "服务已停止"))
+                {
+                    var endpoints = LanSyncService.Instance.GetNetworkEndpoints();
+                    string copyText = endpoints.Count > 0 ? endpoints[0].DisplayUrl : text;
+                    var pkg = new DataPackage();
+                    pkg.SetText(copyText);
+                    Clipboard.SetContent(pkg);
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "SettingsPage.CopyLanSyncAddress_Click");
+            }
+        }
+
+        private void RefreshPin_Click(object sender, RoutedEventArgs e)
+        {
+            LanSyncService.Instance.RefreshPin();
+            UpdateLanSyncUI();
+        }
+
         #endregion
     }
 }

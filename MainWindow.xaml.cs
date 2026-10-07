@@ -30,10 +30,21 @@ namespace NihongoVocab
 
             // 恢复上次保存的明暗主题
             string savedTheme = UserPreferenceService.Instance.Get("App_Theme", "Default");
-            if (Enum.TryParse<ElementTheme>(savedTheme, out var parsedTheme) && this.Content is FrameworkElement rootElem)
+            ElementTheme currentTheme = ElementTheme.Default;
+            if (Enum.TryParse<ElementTheme>(savedTheme, out var parsedTheme))
             {
-                rootElem.RequestedTheme = parsedTheme;
+                currentTheme = parsedTheme;
             }
+
+            if (this.Content is FrameworkElement rootElem)
+            {
+                rootElem.RequestedTheme = currentTheme;
+                rootElem.ActualThemeChanged += (s, e) =>
+                {
+                    UpdateTitleBarTheme(rootElem.RequestedTheme);
+                };
+            }
+            UpdateTitleBarTheme(currentTheme);
 
             this.Closed += (s, e) =>
             {
@@ -41,6 +52,81 @@ namespace NihongoVocab
             };
 
             CrashLogger.LogInfo("MainWindow ctor end");
+        }
+
+        /// <summary>
+        /// 联动 WinUI 3 窗口标题栏颜色，跟随暗色/浅色模式切换
+        /// </summary>
+        public void UpdateTitleBarTheme(ElementTheme theme)
+        {
+            try
+            {
+                if (Microsoft.UI.Windowing.AppWindowTitleBar.IsCustomizationSupported())
+                {
+                    var titleBar = this.AppWindow.TitleBar;
+                    if (titleBar == null) return;
+
+                    bool isDark = false;
+                    if (theme == ElementTheme.Dark)
+                    {
+                        isDark = true;
+                    }
+                    else if (theme == ElementTheme.Light)
+                    {
+                        isDark = false;
+                    }
+                    else
+                    {
+                        if (this.Content is FrameworkElement rootElem)
+                        {
+                            isDark = rootElem.ActualTheme == ElementTheme.Dark;
+                        }
+                        else
+                        {
+                            isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
+                        }
+                    }
+
+                    if (isDark)
+                    {
+                        var darkBg = Windows.UI.Color.FromArgb(255, 32, 32, 32);
+                        titleBar.BackgroundColor = darkBg;
+                        titleBar.ForegroundColor = Microsoft.UI.Colors.White;
+                        titleBar.InactiveBackgroundColor = darkBg;
+                        titleBar.InactiveForegroundColor = Windows.UI.Color.FromArgb(255, 160, 160, 160);
+
+                        titleBar.ButtonBackgroundColor = darkBg;
+                        titleBar.ButtonForegroundColor = Microsoft.UI.Colors.White;
+                        titleBar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(255, 54, 54, 54);
+                        titleBar.ButtonHoverForegroundColor = Microsoft.UI.Colors.White;
+                        titleBar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(255, 75, 75, 75);
+                        titleBar.ButtonPressedForegroundColor = Microsoft.UI.Colors.White;
+                        titleBar.ButtonInactiveBackgroundColor = darkBg;
+                        titleBar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(255, 140, 140, 140);
+                    }
+                    else
+                    {
+                        var lightBg = Windows.UI.Color.FromArgb(255, 243, 243, 243);
+                        titleBar.BackgroundColor = lightBg;
+                        titleBar.ForegroundColor = Microsoft.UI.Colors.Black;
+                        titleBar.InactiveBackgroundColor = lightBg;
+                        titleBar.InactiveForegroundColor = Windows.UI.Color.FromArgb(255, 128, 128, 128);
+
+                        titleBar.ButtonBackgroundColor = lightBg;
+                        titleBar.ButtonForegroundColor = Microsoft.UI.Colors.Black;
+                        titleBar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(255, 230, 230, 230);
+                        titleBar.ButtonHoverForegroundColor = Microsoft.UI.Colors.Black;
+                        titleBar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(255, 210, 210, 210);
+                        titleBar.ButtonPressedForegroundColor = Microsoft.UI.Colors.Black;
+                        titleBar.ButtonInactiveBackgroundColor = lightBg;
+                        titleBar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(255, 160, 160, 160);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "MainWindow.UpdateTitleBarTheme");
+            }
         }
 
         private void RestoreWindowGeometry()

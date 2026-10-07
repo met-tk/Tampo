@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ namespace NihongoVocab.ViewModels
     public partial class StudyViewModel : ObservableObject
     {
         private readonly DatabaseService _databaseService;
+        private readonly HashSet<int> _sessionReviewedIds = new();
 
         [ObservableProperty]
         private int _totalCardsCount = 0;
@@ -73,12 +75,49 @@ namespace NihongoVocab.ViewModels
                     // 1. 同步刷新当日已打卡记录列表
                     await LoadTodayReviewsAsync();
 
-                    // 2. 如果当前会话处于空闲、全部完成状态，或者卡片已被清空，自动重新检索待学卡片
-                    if (Cards.Count == 0 || IsSessionFinished)
-                    {
-                        await LoadSessionAsync(SelectedList?.Id, forceReload: true);
-                    }
+                    // 2. 实时智能同步待学队列（无缝追加新导入词汇，同步更新卡片数与完成状态）
+                    await SyncSessionQueueAsync();
                 });
+            }
+        }
+
+        public async Task SyncSessionQueueAsync()
+        {
+            if (_isLoadingSession) return;
+            try
+            {
+                int? targetId = (SelectedList?.Id != -1) ? SelectedList?.Id : null;
+                var latestWords = await _databaseService.GetStudyQueueAsync(targetId);
+                var latestDict = latestWords.ToDictionary(w => w.Id);
+
+                // 1. 移除非过渡态且已不在待学队列中的卡片（或本轮会话已完成的卡片，防止跨午夜 00:00 时回流）
+                for (int i = Cards.Count - 1; i >= 0; i--)
+                {
+                    var card = Cards[i];
+                    if (card.State == CardInteractionState.Normal &&
+                        (!latestDict.ContainsKey(card.Word.Id) || _sessionReviewedIds.Contains(card.Word.Id)))
+                    {
+                        Cards.RemoveAt(i);
+                    }
+                }
+
+                // 2. 将最新待学词中尚未进入 Cards 队列且本轮会话尚未打卡的新词实时追加进队列
+                var existingCardWordIds = Cards.Select(c => c.Word.Id).ToHashSet();
+                foreach (var w in latestWords)
+                {
+                    if (!existingCardWordIds.Contains(w.Id) && !_sessionReviewedIds.Contains(w.Id))
+                    {
+                        Cards.Add(new StudyCardItem(w));
+                    }
+                }
+
+                // 3. 动态更新卡片总数与完成状态（绝不清空当前会话已累计的 CompletedCount 与 LapsedCount）
+                TotalCardsCount = CompletedCount + LapsedCount + Cards.Count;
+                IsSessionFinished = Cards.Count == 0;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "StudyViewModel.SyncSessionQueueAsync");
             }
         }
 
@@ -119,6 +158,7 @@ namespace NihongoVocab.ViewModels
                 int? targetId = (listId.HasValue && listId.Value != -1) ? listId.Value : (SelectedList?.Id != -1 ? SelectedList?.Id : null);
                 var words = await _databaseService.GetStudyQueueAsync(targetId);
 
+                _sessionReviewedIds.Clear();
                 Cards.Clear();
                 foreach (var w in words)
                 {
@@ -202,35 +242,36 @@ namespace NihongoVocab.ViewModels
 
         private async Task ConfirmRememberAsync(StudyCardItem card)
         {
-            // 触发 FSRS 算法计算新的稳定性与间隔 (Rating 3 = Good)
-            await _databaseService.UpdateWordFSRSAsync(card.Word, 3, DateTime.Now);
-            SoundService.Instance.PlayStudyMarkSound();
-
+            _sessionReviewedIds.Add(card.Word.Id);
             CompletedCount++;
             Cards.Remove(card);
-
+            TotalCardsCount = CompletedCount + LapsedCount + Cards.Count;
             if (Cards.Count == 0)
             {
                 IsSessionFinished = true;
             }
+
+            // 触发 FSRS 算法计算新的稳定性与间隔 (Rating 3 = Good)
+            await _databaseService.UpdateWordFSRSAsync(card.Word, 3, DateTime.Now);
+            SoundService.Instance.PlayStudyMarkSound();
         }
 
         private async Task ConfirmForgetAsync(StudyCardItem card)
         {
-            // 触发 FSRS 算法计算遗忘更新 (Rating 1 = Again)
-            await _databaseService.UpdateWordFSRSAsync(card.Word, 1, DateTime.Now);
-            SoundService.Instance.PlayStudyMarkSound();
-
+            _sessionReviewedIds.Add(card.Word.Id);
             LapsedCount++;
             card.ResetState();
-
             // 确认遗忘后完成今日该卡片的复习处理（记为遗忘进入学习中，下次排期至明天），绝不再塞回队尾死循环
             Cards.Remove(card);
-
+            TotalCardsCount = CompletedCount + LapsedCount + Cards.Count;
             if (Cards.Count == 0)
             {
                 IsSessionFinished = true;
             }
+
+            // 触发 FSRS 算法计算遗忘更新 (Rating 1 = Again)
+            await _databaseService.UpdateWordFSRSAsync(card.Word, 1, DateTime.Now);
+            SoundService.Instance.PlayStudyMarkSound();
         }
 
         public void ResetOtherPending(StudyCardItem? activeCard = null)
@@ -280,6 +321,7 @@ namespace NihongoVocab.ViewModels
         {
             try
             {
+                _sessionReviewedIds.Remove(item.WordId);
                 await _databaseService.RevertTodayReviewAsync(item.LogId);
                 await LoadTodayReviewsAsync();
             }

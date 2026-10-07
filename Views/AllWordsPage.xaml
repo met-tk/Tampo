@@ -308,10 +308,10 @@
                                                            FontSize="10" Opacity="0.5"/>
                                             </StackPanel>
 
-                                            <Border Grid.Column="1" Background="{ThemeResource AccentFillColorTertiaryBrush}"
-                                                    CornerRadius="10" Padding="6,2" VerticalAlignment="Center">
+                                            <Border Grid.Column="1" Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                    CornerRadius="10" Padding="7,2" VerticalAlignment="Center">
                                                 <TextBlock Text="{x:Bind WordCount}" FontSize="10" FontWeight="Bold"
-                                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                           Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
                                             </Border>
                                         </Grid>
                                     </DataTemplate>
@@ -420,6 +420,12 @@
                               PointerCaptureLost="WordsListView_PointerReleased">
                         <ListView.ContextFlyout>
                             <MenuFlyout>
+                                <MenuFlyoutItem x:Name="MenuEditWordText" Text="编辑单词内容">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE70F;"/>
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutSeparator/>
                                 <MenuFlyoutItem x:Name="MenuBatchCreateNewList" Text="新建自选词单...">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE710;"/>
