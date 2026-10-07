@@ -22,7 +22,19 @@
     <value>返回年视图</value>
   </data>
   <data name="ActivityCalendar_ButtonToday" xml:space="preserve">
-    <value>今天</value>
+    <value>今日</value>
+  </data>
+  <data name="ActivityCalendar_ButtonThisYear" xml:space="preserve">
+    <value>今年</value>
+  </data>
+  <data name="ActivityCalendar_ButtonThisMonth" xml:space="preserve">
+    <value>今月</value>
+  </data>
+  <data name="ActivityCalendar_TooltipThisYear" xml:space="preserve">
+    <value>今年に戻る</value>
+  </data>
+  <data name="ActivityCalendar_TooltipThisMonth" xml:space="preserve">
+    <value>今月に戻る</value>
   </data>
   <data name="ActivityCalendar_MenuMonthView" xml:space="preserve">
     <value>单月特写 (高精日历格)</value>
@@ -1429,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>バージョン：1.2.2</value>
+    <value>バージョン：1.2.3</value>
   </data>
   <data name="ViewModeGrid" xml:space="preserve">
     <value>网格</value>

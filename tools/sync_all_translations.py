@@ -26,6 +26,10 @@ zh_all = extract_existing('_ => key switch')
 # 新增补齐的 102 个词条
 new_entries = {
     "ActivityCalendar_ButtonToday": ("今天", "Today", "今日"),
+    "ActivityCalendar_ButtonThisYear": ("今年", "This Year", "今年"),
+    "ActivityCalendar_ButtonThisMonth": ("本月", "This Month", "今月"),
+    "ActivityCalendar_TooltipThisYear": ("返回今年", "Return to This Year", "今年に戻る"),
+    "ActivityCalendar_TooltipThisMonth": ("返回本月", "Return to This Month", "今月に戻る"),
     "ActivityCalendar_TooltipNextPeriod": ("切换至下一周期", "Next Period", "次の期間へ移動"),
     "ActivityCalendar_TooltipPrevPeriod": ("切换至上一周期", "Previous Period", "前の期間へ移動"),
     "ButtonAnotherSession": ("再来一组", "Another Session", "もう1セッション"),

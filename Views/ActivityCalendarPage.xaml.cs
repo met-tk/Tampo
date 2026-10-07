@@ -58,7 +58,7 @@ namespace NihongoVocab.Views
         {
             var loc = LocalizationService.Instance;
 
-            if (TodayButton != null) TodayButton.Content = loc.GetString("ActivityCalendar_ButtonToday", "今天");
+            UpdateTodayButtonText();
 
             if (PrevPeriodButton != null) ToolTipService.SetToolTip(PrevPeriodButton, loc.GetString("ActivityCalendar_TooltipPrevPeriod", "切换至上一周期"));
             if (NextPeriodButton != null) ToolTipService.SetToolTip(NextPeriodButton, loc.GetString("ActivityCalendar_TooltipNextPeriod", "切换至下一周期"));
@@ -203,6 +203,23 @@ namespace NihongoVocab.Views
             {
                 YearScrollViewer.Visibility = Visibility.Collapsed;
                 MonthDetailViewBorder.Visibility = Visibility.Visible;
+            }
+            UpdateTodayButtonText();
+        }
+
+        private void UpdateTodayButtonText()
+        {
+            if (TodayButton == null) return;
+            var loc = LocalizationService.Instance;
+            if (ViewModel?.CurrentViewMode == "Year")
+            {
+                TodayButton.Content = loc.GetString("ActivityCalendar_ButtonThisYear", "今年");
+                ToolTipService.SetToolTip(TodayButton, loc.GetString("ActivityCalendar_TooltipThisYear", "返回今年"));
+            }
+            else
+            {
+                TodayButton.Content = loc.GetString("ActivityCalendar_ButtonThisMonth", "本月");
+                ToolTipService.SetToolTip(TodayButton, loc.GetString("ActivityCalendar_TooltipThisMonth", "返回本月"));
             }
         }
 

@@ -273,7 +273,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="SectionAboutTextBlock" Text="关于 Tampo" FontWeight="SemiBold" FontSize="14"/>
                     <StackPanel Spacing="4" Margin="0,2,0,0">
-                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.2.2 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
+                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.2.3 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutArchTextBlock" Text="架构: x64 Self-Contained 独立部署" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutEngineTextBlock" Text="算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)" FontSize="12" Opacity="0.7"/>
                         

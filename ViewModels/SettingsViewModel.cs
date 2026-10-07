@@ -33,7 +33,7 @@ namespace NihongoVocab.ViewModels
         public string ClearDataSubLabel => LocalizationService.Instance.GetString("ClearDataSubLabel", "彻底清空本地所有单词、词单及复习日志，不可恢复");
         public string ButtonClearAllData => LocalizationService.Instance.GetString("ButtonClearAllData", "清空所有数据");
         public string AboutTitle => LocalizationService.Instance.GetString("AboutTitle", "关于 Tampo");
-        public string VersionLabel => LocalizationService.Instance.GetString("VersionLabel", "版本：1.2.2");
+        public string VersionLabel => LocalizationService.Instance.GetString("VersionLabel", "版本：1.2.3");
         public string ArchLabel => LocalizationService.Instance.GetString("ArchLabel", "架构：.NET 8 · WinUI 3 · SQLite");
         public string FsrsModelLabel => LocalizationService.Instance.GetString("FsrsModelLabel", "调度模型：FSRS (Free Spaced Repetition Scheduler)");
 

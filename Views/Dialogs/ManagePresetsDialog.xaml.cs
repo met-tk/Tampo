@@ -14,8 +14,12 @@ namespace NihongoVocab.Views.Dialogs
         public ManagePresetsDialog(PresetManager presetManager)
         {
             _presetManager = presetManager;
-            this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
+            var actualTheme = Converters.ThemeHelper.GetActualTheme();
+            this.RequestedTheme = actualTheme;
             this.Loaded += (s, e) => this.RequestedTheme = Converters.ThemeHelper.GetActualTheme();
+            bool isDark = actualTheme == ElementTheme.Dark;
+            this.Resources["ContentDialogSmokeFill"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                isDark ? Windows.UI.Color.FromArgb(166, 0, 0, 0) : Windows.UI.Color.FromArgb(89, 0, 0, 0));
             this.Resources["ContentDialogMinWidth"] = 780.0;
             this.Resources["ContentDialogMaxWidth"] = 920.0;
             this.InitializeComponent();

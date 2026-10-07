@@ -52,6 +52,11 @@ namespace NihongoVocab.Services
                 {
                     fe.RequestedTheme = targetTheme;
                 }
+
+                // 显式注入深邃半透明暗色背景遮罩画刷，彻底清除系统浅色模式下产生的白色滤镜与白雾反光
+                bool isDark = targetTheme == ElementTheme.Dark;
+                dialog.Resources["ContentDialogSmokeFill"] = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                    isDark ? Windows.UI.Color.FromArgb(166, 0, 0, 0) : Windows.UI.Color.FromArgb(89, 0, 0, 0));
             }
             catch (Exception ex)
             {
