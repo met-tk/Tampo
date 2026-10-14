@@ -40,18 +40,18 @@ namespace NihongoVocab
         [STAThread]
         public static void Main(string[] args)
         {
-            bool isNewInstance = false;
+            bool ownsMutex = false;
             try
             {
-                _singleInstanceMutex = new Mutex(true, MutexName, out isNewInstance);
+                _singleInstanceMutex = new Mutex(true, MutexName, out ownsMutex);
             }
             catch (Exception ex)
             {
                 CrashLogger.LogException(ex, "Program.Main: Mutex creation");
-                isNewInstance = true;
+                ownsMutex = false;
             }
 
-            if (!isNewInstance)
+            if (!ownsMutex && _singleInstanceMutex != null)
             {
                 // 已有实例在运行，尝试将现有窗口恢复并激活置顶
                 CrashLogger.LogInfo("Tampo duplicate instance detected, checking existing window.");
@@ -59,12 +59,26 @@ namespace NihongoVocab
                 if (activated)
                 {
                     CrashLogger.LogInfo("Existing window successfully activated, exiting current launcher.");
+                    _singleInstanceMutex.Dispose();
+                    _singleInstanceMutex = null;
                     return;
                 }
 
-                // 若未发现有效窗口，说明旧进程属于残留/僵尸进程，自动清理后启动全新窗口
+                // 若未发现有效窗口，说明旧进程属于残留/僵尸进程，自动清理后重新获取互斥锁并启动全新窗口
                 CrashLogger.LogInfo("Existing process has no visible window. Terminating stale process to launch freshly.");
                 KillStaleInstances();
+                try
+                {
+                    ownsMutex = _singleInstanceMutex.WaitOne(TimeSpan.FromSeconds(2));
+                }
+                catch (AbandonedMutexException)
+                {
+                    ownsMutex = true;
+                }
+                catch (Exception ex)
+                {
+                    CrashLogger.LogException(ex, "Program.Main: Mutex re-acquisition after KillStaleInstances");
+                }
             }
 
             try
@@ -87,12 +101,17 @@ namespace NihongoVocab
             {
                 if (_singleInstanceMutex != null)
                 {
-                    try
+                    if (ownsMutex)
                     {
-                        _singleInstanceMutex.ReleaseMutex();
-                        _singleInstanceMutex.Dispose();
+                        try
+                        {
+                            _singleInstanceMutex.ReleaseMutex();
+                        }
+                        catch (ApplicationException)
+                        {
+                        }
                     }
-                    catch { }
+                    _singleInstanceMutex.Dispose();
                 }
             }
         }

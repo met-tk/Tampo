@@ -58,7 +58,6 @@ namespace NihongoVocab.ViewModels
         {
             _databaseService = databaseService;
             LocalizationService.Instance.LanguageChanged += (s, e) => OnPropertyChanged(string.Empty);
-            DatabaseService.DataChanged += OnDatabaseDataChanged;
         }
 
         private void OnDatabaseDataChanged()

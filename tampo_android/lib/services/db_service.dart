@@ -79,8 +79,19 @@ class DatabaseService {
             deletedAt TEXT NOT NULL
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          )
+        ''');
       },
       onOpen: (db) async {
+        try {
+          await db.rawQuery('PRAGMA journal_mode=WAL');
+          await db.execute('PRAGMA synchronous=NORMAL');
+        } catch (_) {}
         await db.execute('''
           CREATE TABLE IF NOT EXISTS sync_tombstones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,6 +142,7 @@ class DatabaseService {
         await db.execute('CREATE INDEX IF NOT EXISTS idx_words_state_due ON words(state, nextReviewDate)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_review_logs_word_id ON review_logs(wordId)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_review_logs_date ON review_logs(reviewDate)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_tombstones_type_key ON sync_tombstones(entityType, entityKey)');
 
         // 自动将历史版本中误设为 4 的已掌握状态平滑迁移为 3，并确保已掌握词汇脱离复习调度 (nextReviewDate = NULL)
         await db.execute('UPDATE words SET state = 3 WHERE state = 4');
@@ -307,6 +319,7 @@ class DatabaseService {
   Future<void> deleteWordsBatch(List<int> ids) async {
     if (ids.isEmpty) return;
     final db = await database;
+    final nowIso = DateTime.now().toIso8601String();
     await db.transaction((txn) async {
       for (final id in ids) {
         final words = await txn.query('words', where: 'id = ?', whereArgs: [id]);
@@ -314,18 +327,16 @@ class DatabaseService {
           final text = words.first['text']?.toString() ?? '';
           if (text.isNotEmpty) {
             final cleanKey = text.trim().toLowerCase();
-            final existing = await txn.query(
+            await txn.delete(
               'sync_tombstones',
               where: 'entityType = ? AND entityKey = ?',
               whereArgs: ['word', cleanKey],
             );
-            if (existing.isEmpty) {
-              await txn.insert('sync_tombstones', {
-                'entityType': 'word',
-                'entityKey': cleanKey,
-                'deletedAt': DateTime.now().toIso8601String(),
-              });
-            }
+            await txn.insert('sync_tombstones', {
+              'entityType': 'word',
+              'entityKey': cleanKey,
+              'deletedAt': nowIso,
+            });
           }
         }
         await txn.delete('review_logs', where: 'wordId = ?', whereArgs: [id]);
@@ -531,13 +542,19 @@ class DatabaseService {
     final now = DateTime.now();
 
     await db.transaction((txn) async {
+      final existingRows = await txn.rawQuery('SELECT text FROM words');
+      final existingKeys = existingRows
+          .map((r) => (r['text']?.toString() ?? '').trim().toLowerCase())
+          .where((k) => k.isNotEmpty)
+          .toSet();
+
       for (final raw in rawWords) {
         final text = raw.trim();
         if (text.isEmpty) continue;
+        final cleanKey = text.toLowerCase();
 
-        // 查重
-        final existing = await txn.query('words', where: 'text = ?', whereArgs: [text]);
-        if (existing.isEmpty) {
+        // 大小写不敏感查重（与电脑端保持一致，且消除 N 次 SELECT 循环查询）
+        if (existingKeys.add(cleanKey)) {
           final word = Word(
             text: text,
             createdAt: now,
@@ -547,7 +564,6 @@ class DatabaseService {
             state: WordLearningState.newWord.value,
           );
           await txn.insert('words', word.toMap());
-          final cleanKey = text.toLowerCase();
           await txn.delete(
             'sync_tombstones',
             where: 'entityType = ? AND entityKey = ?',
@@ -614,6 +630,7 @@ class DatabaseService {
       final preWord = Word(
         id: word.id,
         text: word.text,
+        createdAt: word.createdAt,
         state: preReps == 0
             ? WordLearningState.newWord.value
             : ((preReps < 2 || (prevLog != null && prevLog.rating == 1))
@@ -765,8 +782,16 @@ class DatabaseService {
       orderBy: 'reviewDate ASC',
     );
     final allOtherLogs = allWordLogMaps.map((m) => ReviewLog.fromMap(m)).toList();
-    final priorLogs = allOtherLogs.where((l) => !l.reviewDate.isAfter(log.reviewDate)).toList();
-    final subsequentLogs = allOtherLogs.where((l) => l.reviewDate.isAfter(log.reviewDate)).toList();
+    final priorLogs = allOtherLogs
+        .where((l) =>
+            l.reviewDate.isBefore(log.reviewDate) ||
+            (l.reviewDate.isAtSameMomentAs(log.reviewDate) && l.id < logId))
+        .toList();
+    final subsequentLogs = allOtherLogs
+        .where((l) =>
+            l.reviewDate.isAfter(log.reviewDate) ||
+            (l.reviewDate.isAtSameMomentAs(log.reviewDate) && l.id > logId))
+        .toList();
     final ReviewLog? prevLog = priorLogs.isNotEmpty ? priorLogs.last : null;
 
     final int preReps = priorLogs.length;
@@ -791,6 +816,7 @@ class DatabaseService {
     final simWord = Word(
       id: word.id,
       text: word.text,
+      createdAt: word.createdAt,
       state: preReps == 0
           ? WordLearningState.newWord.value
           : ((preReps < 2 || (prevLog != null && prevLog.rating == 1))
@@ -921,6 +947,7 @@ class DatabaseService {
         final simWord = Word(
           id: word.id,
           text: word.text,
+          createdAt: word.createdAt,
           state: WordLearningState.newWord.value,
         );
         for (final remLog in remainingLogs) {
@@ -1037,18 +1064,16 @@ class DatabaseService {
         final name = listMaps.first['name']?.toString() ?? '';
         if (name.isNotEmpty) {
           final cleanKey = name.trim().toLowerCase();
-          final existing = await txn.query(
+          await txn.delete(
             'sync_tombstones',
             where: 'entityType = ? AND entityKey = ?',
             whereArgs: ['word_list', cleanKey],
           );
-          if (existing.isEmpty) {
-            await txn.insert('sync_tombstones', {
-              'entityType': 'word_list',
-              'entityKey': cleanKey,
-              'deletedAt': nowIso,
-            });
-          }
+          await txn.insert('sync_tombstones', {
+            'entityType': 'word_list',
+            'entityKey': cleanKey,
+            'deletedAt': nowIso,
+          });
         }
       }
 

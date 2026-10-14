@@ -168,7 +168,7 @@ namespace NihongoVocab.Views.Dialogs
 
             try
             {
-                var regex = new Regex(pattern, RegexOptions.Multiline);
+                var regex = new Regex(pattern, RegexOptions.Multiline, PresetManager.RegexTimeout);
                 var match = regex.Match(testLine);
 
                 if (isInverse)

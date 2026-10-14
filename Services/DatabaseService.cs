@@ -73,7 +73,40 @@ namespace NihongoVocab.Services
     public class DatabaseService
     {
         public static event Action? DataChanged;
-        public static void NotifyDataChanged() => DataChanged?.Invoke();
+        private static int _suppressNotificationsCount = 0;
+        private static int _pendingNotifications = 0;
+
+        public static void NotifyDataChanged()
+        {
+            if (Volatile.Read(ref _suppressNotificationsCount) > 0)
+            {
+                Interlocked.Exchange(ref _pendingNotifications, 1);
+                return;
+            }
+            DataChanged?.Invoke();
+        }
+
+        public static IDisposable SuppressNotifications()
+        {
+            Interlocked.Increment(ref _suppressNotificationsCount);
+            return new NotificationSuppressionScope();
+        }
+
+        private sealed class NotificationSuppressionScope : IDisposable
+        {
+            private int _disposed;
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+                if (Interlocked.Decrement(ref _suppressNotificationsCount) == 0)
+                {
+                    if (Interlocked.Exchange(ref _pendingNotifications, 0) == 1)
+                    {
+                        NotifyDataChanged();
+                    }
+                }
+            }
+        }
 
         private SQLiteAsyncConnection? _database;
         private readonly string _dbPath;
@@ -128,11 +161,27 @@ namespace NihongoVocab.Services
 
                 _database = new SQLiteAsyncConnection(_dbPath);
 
+                try
+                {
+                    await _database.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL;");
+                    await _database.ExecuteAsync("PRAGMA synchronous=NORMAL;");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"PRAGMA WAL failed: {ex.Message}");
+                }
+
                 await _database.CreateTableAsync<Word>();
                 await _database.CreateTableAsync<WordList>();
                 await _database.CreateTableAsync<ReviewLog>();
                 await _database.CreateTableAsync<UserPreference>();
                 await _database.CreateTableAsync<SyncTombstone>();
+
+                await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_words_wordlistid ON Words(WordListId);");
+                await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_words_state_nextrev ON Words(State, NextReviewDate);");
+                await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_reviewlogs_wordid_revdate ON ReviewLogs(WordId, ReviewDate);");
+                await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_reviewlogs_revdate ON ReviewLogs(ReviewDate);");
+                await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_tombstones_type_key ON SyncTombstones(EntityType, EntityKey);");
 
                 // 字段平滑回填迁移保障 (StateUpdatedAt, MetaUpdatedAt, UpdatedAt)
                 try
@@ -277,7 +326,7 @@ namespace NihongoVocab.Services
 
             if (result.InsertedCount > 0)
             {
-                DataChanged?.Invoke();
+                NotifyDataChanged();
             }
 
             return result;
@@ -380,7 +429,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task DeleteWordListCompletelyAsync(int listId)
@@ -426,7 +475,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task RenameWordListAsync(int listId, string newName)
@@ -473,7 +522,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task MergeWordListsAsync(int sourceListId, int targetListId)
@@ -519,7 +568,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task MoveWordsToListAsync(IEnumerable<int> wordIds, int? targetListId)
@@ -560,7 +609,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task UpdateWordsStateAsync(IEnumerable<int> wordIds, WordLearningState newState)
@@ -625,7 +674,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task<int> AddWordAsync(Word word)
@@ -928,7 +977,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         #endregion
@@ -941,6 +990,7 @@ namespace NihongoVocab.Services
         {
             await EnsureInitializedAsync();
             var idList = wordIds.ToList();
+            WordList? createdList = null;
 
             await _dbLock.WaitAsync();
             try
@@ -990,7 +1040,7 @@ namespace NihongoVocab.Services
                 }
 
                 CrashLogger.LogInfo($"CreateWordListAsync: created list '{name}' (ID={list.Id}) with {idList.Count} words");
-                DataChanged?.Invoke();
+                createdList = list;
                 return list;
             }
             catch (Exception ex)
@@ -1001,6 +1051,10 @@ namespace NihongoVocab.Services
             finally
             {
                 _dbLock.Release();
+                if (createdList != null)
+                {
+                    NotifyDataChanged();
+                }
             }
         }
 
@@ -1011,18 +1065,36 @@ namespace NihongoVocab.Services
             try
             {
                 var lists = await _database!.Table<WordList>().OrderByDescending(l => l.CreatedAt).ToListAsync();
+                if (lists.Count == 0) return lists;
+
                 var allWords = await _database!.Table<Word>().ToListAsync();
                 DateTime logicalToday = FsrsEngine.GetLogicalToday();
                 DateTime logicalTodayEnd = logicalToday.AddDays(1).AddTicks(-1);
 
+                var statsByListId = new Dictionary<int, (int Total, int Unreviewed)>(lists.Count);
+                foreach (var w in allWords)
+                {
+                    if (!w.WordListId.HasValue) continue;
+                    int lid = w.WordListId.Value;
+                    statsByListId.TryGetValue(lid, out var cur);
+                    bool isDue = w.State != (int)WordLearningState.Mastered &&
+                                 (!w.LastReviewDate.HasValue || FsrsEngine.GetLogicalDate(w.LastReviewDate.Value) < logicalToday) &&
+                                 (w.Reps == 0 || !w.NextReviewDate.HasValue || w.NextReviewDate.Value <= logicalTodayEnd);
+                    statsByListId[lid] = (cur.Total + 1, cur.Unreviewed + (isDue ? 1 : 0));
+                }
+
                 foreach (var l in lists)
                 {
-                    var wordsInThis = allWords.Where(w => w.WordListId == l.Id).ToList();
-                    l.WordCount = wordsInThis.Count;
-                    l.UnreviewedCount = wordsInThis.Count(w =>
-                        w.State != (int)WordLearningState.Mastered &&
-                        (!w.LastReviewDate.HasValue || FsrsEngine.GetLogicalDate(w.LastReviewDate.Value) < logicalToday) &&
-                        (w.Reps == 0 || !w.NextReviewDate.HasValue || w.NextReviewDate.Value <= logicalTodayEnd));
+                    if (statsByListId.TryGetValue(l.Id, out var st))
+                    {
+                        l.WordCount = st.Total;
+                        l.UnreviewedCount = st.Unreviewed;
+                    }
+                    else
+                    {
+                        l.WordCount = 0;
+                        l.UnreviewedCount = 0;
+                    }
                 }
 
                 return lists;
@@ -1276,57 +1348,82 @@ namespace NihongoVocab.Services
                 }
 
                 var words = await query.ToListAsync();
-                var wordIds = new HashSet<int>(words.Select(w => w.Id));
                 var allLogs = await _database!.Table<ReviewLog>().ToListAsync();
-                var logs = wordListId.HasValue ? allLogs.Where(l => wordIds.Contains(l.WordId)).ToList() : allLogs;
 
-                var masteredWords = words.Where(w => w.State == (int)WordLearningState.Mastered).ToList();
-                var fsrsWords = words.Where(w => w.State != (int)WordLearningState.Mastered).ToList();
+                HashSet<int>? wordIds = wordListId.HasValue ? new HashSet<int>(words.Select(w => w.Id)) : null;
 
-                // FSRS 4 态科学调度细分统计（已掌握分类独立，绝不计入 FSRS 调度池）：
-                // 1. 未学习 (New): w.FsrsState == FsrsScheduleState.New
-                // 2. 初学中 (Learning): w.FsrsState == FsrsScheduleState.Learning
-                // 3. 复习中 (Review): w.FsrsState == FsrsScheduleState.Review
-                // 4. 重新学习 (Relearning): w.FsrsState == FsrsScheduleState.Relearning
-                int fsrsNew = fsrsWords.Count(w => w.FsrsState == FsrsScheduleState.New);
-                int fsrsLearning = fsrsWords.Count(w => w.FsrsState == FsrsScheduleState.Learning);
-                int fsrsReview = fsrsWords.Count(w => w.FsrsState == FsrsScheduleState.Review);
-                int fsrsRelearning = fsrsWords.Count(w => w.FsrsState == FsrsScheduleState.Relearning);
+                var importDaysSet = new HashSet<DateTime>();
+                int newCount = 0, learningCount = 0, reviewCount = 0, masteredCount = 0;
+                int fsrsActive = 0, fsrsNew = 0, fsrsLearning = 0, fsrsReview = 0, fsrsRelearning = 0;
+                int activeReviewedCount = 0;
+                double sumRetention = 0.0, sumStability = 0.0, sumDifficulty = 0.0;
+                DateTime now = DateTime.Now;
 
-                var stats = new DashboardStats
+                foreach (var w in words)
+                {
+                    importDaysSet.Add(FsrsEngine.GetLogicalDate(w.CreatedAt));
+
+                    switch ((WordLearningState)w.State)
+                    {
+                        case WordLearningState.New: newCount++; break;
+                        case WordLearningState.Learning: learningCount++; break;
+                        case WordLearningState.Review: reviewCount++; break;
+                        case WordLearningState.Mastered: masteredCount++; break;
+                    }
+
+                    if (w.State != (int)WordLearningState.Mastered)
+                    {
+                        fsrsActive++;
+                        switch (w.FsrsState)
+                        {
+                            case FsrsScheduleState.New: fsrsNew++; break;
+                            case FsrsScheduleState.Learning: fsrsLearning++; break;
+                            case FsrsScheduleState.Review: fsrsReview++; break;
+                            case FsrsScheduleState.Relearning: fsrsRelearning++; break;
+                        }
+
+                        if (w.Stability > 0)
+                        {
+                            activeReviewedCount++;
+                            sumRetention += FsrsEngine.CalculateRetrievability(w.Stability, w.LastReviewDate ?? w.CreatedAt, now);
+                            sumStability += w.Stability;
+                            sumDifficulty += w.Difficulty;
+                        }
+                    }
+                }
+
+                var studyDaysSet = new HashSet<DateTime>();
+                foreach (var l in allLogs)
+                {
+                    if (wordIds == null || wordIds.Contains(l.WordId))
+                    {
+                        studyDaysSet.Add(FsrsEngine.GetLogicalDate(l.ReviewDate));
+                    }
+                }
+
+                return new DashboardStats
                 {
                     TotalWords = words.Count,
-                    TotalImportDays = words.Select(w => FsrsEngine.GetLogicalDate(w.CreatedAt)).Distinct().Count(),
-                    TotalStudyDays = logs.Select(l => FsrsEngine.GetLogicalDate(l.ReviewDate)).Distinct().Count(),
-                    NewCount = words.Count(w => w.State == (int)WordLearningState.New),
-                    LearningCount = words.Count(w => w.State == (int)WordLearningState.Learning),
-                    ReviewCount = words.Count(w => w.State == (int)WordLearningState.Review),
-                    MasteredCount = masteredWords.Count,
-
-                    FsrsActiveCount = fsrsWords.Count,
+                    TotalImportDays = importDaysSet.Count,
+                    TotalStudyDays = studyDaysSet.Count,
+                    NewCount = newCount,
+                    LearningCount = learningCount,
+                    ReviewCount = reviewCount,
+                    MasteredCount = masteredCount,
+                    FsrsActiveCount = fsrsActive,
                     FsrsNewCount = fsrsNew,
                     FsrsLearningCount = fsrsLearning,
                     FsrsReviewCount = fsrsReview,
-                    FsrsRelearningCount = fsrsRelearning
+                    FsrsRelearningCount = fsrsRelearning,
+                    AverageRetention = activeReviewedCount > 0 ? sumRetention / activeReviewedCount : 0.0,
+                    AverageStability = activeReviewedCount > 0 ? sumStability / activeReviewedCount : 0.0,
+                    AverageDifficulty = activeReviewedCount > 0 ? sumDifficulty / activeReviewedCount : 0.0
                 };
-
-                // 核心 FSRS 算法指标：严格仅基于 FSRS 活跃复习词汇计算，已掌握词汇绝不混入
-                var activeReviewedWords = fsrsWords.Where(w => w.Stability > 0).ToList();
-                if (activeReviewedWords.Count > 0)
-                {
-                    DateTime now = DateTime.Now;
-                    stats.AverageRetention = activeReviewedWords.Average(w => FsrsEngine.CalculateRetrievability(w.Stability, w.LastReviewDate ?? w.CreatedAt, now));
-                    stats.AverageStability = activeReviewedWords.Average(w => w.Stability);
-                    stats.AverageDifficulty = activeReviewedWords.Average(w => w.Difficulty);
-                }
-                else
-                {
-                    stats.AverageRetention = 0.0;
-                    stats.AverageStability = 0.0;
-                    stats.AverageDifficulty = 0.0;
-                }
-
-                return stats;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetDashboardStatsAsync");
+                return new DashboardStats();
             }
             finally
             {
@@ -1572,7 +1669,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task RevertTodayReviewAsync(int logId, bool isSyncRevert = false)
@@ -1708,7 +1805,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task CleanupExpiredTombstonesAsync(int retentionDays = 90)
@@ -1774,7 +1871,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task<List<SyncTombstone>> GetAllTombstonesAsync()
@@ -1939,7 +2036,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         public async Task<List<Word>> GetRecentStudyWordsAsync(string timeSpanLevel, WordLearningState? stateFilter)
@@ -2012,7 +2109,7 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
 
-            DataChanged?.Invoke();
+            NotifyDataChanged();
         }
 
         #region 用户偏好与界面状态持久化 (UserPreferences)

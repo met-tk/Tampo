@@ -40,7 +40,6 @@ namespace NihongoVocab.Views
             // 关键：确保导航时复用同一页面实例，避免多次构造
             this.NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
             RestorePreferences();
-            this.Loaded += WordListPage_Loaded;
             LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
             UpdateLocalizedStrings();
 
@@ -255,27 +254,15 @@ namespace NihongoVocab.Views
             RefreshTreeRootNodes();
         }
 
-        private async void WordListPage_Loaded(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                await ViewModel.LoadDataAsync();
-                RefreshTreeRootNodes();
-                ApplySearchFilter();
-                UpdateBatchMoveFlyout();
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "WordListPage.WordListPage_Loaded");
-            }
-        }
+        private static readonly InputSystemCursor _sizeWestEastCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+        private static readonly InputSystemCursor _sizeNorthSouthCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);
 
 
 
         #region 分割滑块 Splitter 拖拽逻辑 (水平 ColumnSplitter 与 垂直 RowSplitter)
         private void ColumnSplitter_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+            ProtectedCursor = _sizeWestEastCursor;
         }
 
         private void ColumnSplitter_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -321,7 +308,7 @@ namespace NihongoVocab.Views
 
         private void RowSplitter_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);
+            ProtectedCursor = _sizeNorthSouthCursor;
         }
 
         private void RowSplitter_PointerExited(object sender, PointerRoutedEventArgs e)

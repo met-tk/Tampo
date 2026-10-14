@@ -71,20 +71,9 @@ namespace NihongoVocab.Views
             }
         }
 
-        private async void StudyPage_Loaded(object sender, RoutedEventArgs e)
+        private void StudyPage_Loaded(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                if (!_isPageLoaded)
-                {
-                    _isPageLoaded = true;
-                    await ViewModel.LoadSessionAsync(ViewModel.SelectedList?.Id);
-                }
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "StudyPage.StudyPage_Loaded");
-            }
+            _isPageLoaded = true;
         }
 
         private async void ListFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

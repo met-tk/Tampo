@@ -472,6 +472,7 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
       children: [
         // 预设选择器
         DropdownButtonFormField<CleansingPreset>(
+          key: ValueKey(_selectedPreset.id),
           initialValue: _presets.any((p) => p.id == _selectedPreset.id)
               ? _presets.firstWhere((p) => p.id == _selectedPreset.id)
               : _presets.first,
@@ -576,6 +577,7 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<int>(
+                      key: ValueKey(_captureGroupIndex),
                       initialValue: _captureGroupIndex,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -767,10 +769,10 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
             ),
             onPressed: _isImporting || _cleanedWords.isEmpty ? null : _handleImportWords,
             child: _isImporting
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.onPrimary),
                   )
                 : Text(
                     _cleanedWords.isNotEmpty ? '导入词库 (${_cleanedWords.length})' : '暂无有效候选词',
@@ -869,12 +871,18 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: _isSyncing ? null : () => _startSync(true),
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('双向合并同步', style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 2),
-                    Text('互通两端最新进度 (推荐)', style: TextStyle(fontSize: 10, color: Colors.white70)),
+                    const Text('双向合并同步', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '互通两端最新进度 (推荐)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.colorScheme.onPrimary.withValues(alpha: 0.75),
+                      ),
+                    ),
                   ],
                 ),
               ),

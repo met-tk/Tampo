@@ -7,24 +7,47 @@ import android.os.Looper
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.io.FileInputStream
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.taketo.tampo_android/audio"
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var mediaPlayer: MediaPlayer? = null
+    private var pendingTimeoutRunnable: Runnable? = null
+    private var pendingResult: MethodChannel.Result? = null
+
+    private fun finishPendingResult(success: Boolean) {
+        pendingTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        pendingTimeoutRunnable = null
+        val res = pendingResult
+        pendingResult = null
+        if (res != null) {
+            try {
+                res.success(success)
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     private fun safeCleanMediaPlayer() {
+        finishPendingResult(false)
         try {
             mediaPlayer?.let { player ->
                 player.setOnPreparedListener(null)
                 player.setOnCompletionListener(null)
                 player.setOnErrorListener(null)
-                if (player.isPlaying) {
-                    player.stop()
+                try {
+                    if (player.isPlaying) {
+                        player.stop()
+                    }
+                } catch (_: Exception) {
                 }
                 player.reset()
                 player.release()
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
         mediaPlayer = null
     }
 
@@ -40,19 +63,22 @@ class MainActivity : FlutterActivity() {
                     }
                     try {
                         safeCleanMediaPlayer()
-                        var hasResponded = false
-                        val mainHandler = Handler(Looper.getMainLooper())
+                        pendingResult = result
+
+                        val newPlayer = MediaPlayer()
+                        mediaPlayer = newPlayer
 
                         val timeoutRunnable = Runnable {
-                            if (!hasResponded) {
-                                hasResponded = true
+                            if (mediaPlayer === newPlayer) {
                                 safeCleanMediaPlayer()
-                                result.success(false)
+                            } else {
+                                finishPendingResult(false)
                             }
                         }
+                        pendingTimeoutRunnable = timeoutRunnable
                         mainHandler.postDelayed(timeoutRunnable, 4000)
 
-                        val newPlayer = MediaPlayer().apply {
+                        newPlayer.apply {
                             setAudioAttributes(
                                 AudioAttributes.Builder()
                                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -60,11 +86,11 @@ class MainActivity : FlutterActivity() {
                                     .build()
                             )
                             if (url.startsWith("/")) {
-                                val file = java.io.File(url)
+                                val file = File(url)
                                 if (file.exists()) {
-                                    val fis = java.io.FileInputStream(file)
-                                    setDataSource(fis.fd)
-                                    fis.close()
+                                    FileInputStream(file).use { fis ->
+                                        setDataSource(fis.fd)
+                                    }
                                 } else {
                                     setDataSource(url)
                                 }
@@ -72,37 +98,30 @@ class MainActivity : FlutterActivity() {
                                 setDataSource(url)
                             }
                             setOnPreparedListener { mp ->
-                                if (mediaPlayer == mp) {
-                                    if (!hasResponded) {
-                                        hasResponded = true
-                                        mainHandler.removeCallbacks(timeoutRunnable)
-                                        result.success(true)
+                                if (mediaPlayer === mp) {
+                                    finishPendingResult(true)
+                                    try {
+                                        mp.start()
+                                    } catch (_: Exception) {
+                                        safeCleanMediaPlayer()
                                     }
-                                    mp.start()
                                 }
                             }
                             setOnErrorListener { mp, _, _ ->
-                                if (mediaPlayer == mp) {
+                                if (mediaPlayer === mp) {
                                     safeCleanMediaPlayer()
-                                }
-                                if (!hasResponded) {
-                                    hasResponded = true
-                                    mainHandler.removeCallbacks(timeoutRunnable)
-                                    result.success(false)
                                 }
                                 true
                             }
                             setOnCompletionListener { mp ->
-                                if (mediaPlayer == mp) {
+                                if (mediaPlayer === mp) {
                                     safeCleanMediaPlayer()
                                 }
                             }
                             prepareAsync()
                         }
-                        mediaPlayer = newPlayer
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         safeCleanMediaPlayer()
-                        result.success(false)
                     }
                 }
                 "stop" -> {
@@ -115,8 +134,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
-        mediaPlayer?.release()
-        mediaPlayer = null
+        safeCleanMediaPlayer()
         super.onDestroy()
     }
 }

@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -201,9 +200,25 @@ namespace NihongoVocab.Installer
             if (dialog.ShowDialog() == true)
             {
                 // 强制追加 \Tampo 子目录，不污染父目录
-                _targetDirectory = Path.Combine(dialog.FolderName, "Tampo");
+                _targetDirectory = NormalizeSafeInstallDirectory(dialog.FolderName);
                 InstallPathTextBox.Text = _targetDirectory;
             }
+        }
+
+        /// <summary>
+        /// 规范化安装目录，确保手动输入的路径也必定落入独立的 \Tampo（或既有 \NihongoVocab）子文件夹中，
+        /// 杜绝直接将磁盘根目录或桌面等父目录作为安装目录导致清理时误删其他文件。
+        /// </summary>
+        private static string NormalizeSafeInstallDirectory(string rawPath)
+        {
+            string fullPath = Path.GetFullPath(rawPath.Trim()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string leafName = Path.GetFileName(fullPath);
+            if (!string.Equals(leafName, "Tampo", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(leafName, "NihongoVocab", StringComparison.OrdinalIgnoreCase))
+            {
+                fullPath = Path.Combine(fullPath, "Tampo");
+            }
+            return fullPath;
         }
 
         // ─── 安装按钮 ─────────────────────────────────────────────────────────────
@@ -216,7 +231,18 @@ namespace NihongoVocab.Installer
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            _targetDirectory = installPath;
+
+            try
+            {
+                _targetDirectory = NormalizeSafeInstallDirectory(installPath);
+                InstallPathTextBox.Text = _targetDirectory;
+            }
+            catch
+            {
+                MessageBox.Show("Please specify a valid installation path.", "Tampo",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             // 关闭正在运行的 Tampo 进程
             if (!await PromptAndKillRunningProcess()) return;
@@ -250,12 +276,20 @@ namespace NihongoVocab.Installer
 
             var result = MessageBox.Show(msg, "Tampo",
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result != MessageBoxResult.Yes) return false;
+            if (result != MessageBoxResult.Yes)
+            {
+                foreach (var p in procs) p.Dispose();
+                return false;
+            }
 
             await Task.Run(() =>
             {
                 foreach (var p in procs)
-                    try { p.Kill(); p.WaitForExit(3000); } catch { }
+                {
+                    try { p.Kill(); p.WaitForExit(3000); }
+                    catch { }
+                    finally { p.Dispose(); }
+                }
             });
             return true;
         }
@@ -299,20 +333,30 @@ namespace NihongoVocab.Installer
                 if (zipStream == null)
                     throw new FileNotFoundException("Missing payload.zip resource.");
 
-                // ④ 解压所有文件
+                // ④ 解压所有文件（严格校验目标路径以防御 Zip Slip 路径穿越漏洞）
+                string fullTargetRoot = Path.GetFullPath(_targetDirectory)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+
                 using (zipStream)
                 using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Read))
                 {
-                    int total = archive.Entries.Count;
+                    int total = Math.Max(1, archive.Entries.Count);
                     int done = 0;
                     foreach (var entry in archive.Entries)
                     {
-                        if (string.IsNullOrEmpty(entry.Name) && entry.FullName.EndsWith("/"))
+                        string dest = Path.GetFullPath(Path.Combine(_targetDirectory, entry.FullName));
+                        if (!dest.StartsWith(fullTargetRoot, StringComparison.OrdinalIgnoreCase))
                         {
-                            Directory.CreateDirectory(Path.Combine(_targetDirectory, entry.FullName));
+                            throw new InvalidDataException($"Blocked unsafe zip entry path: {entry.FullName}");
+                        }
+
+                        if (string.IsNullOrEmpty(entry.Name) && (entry.FullName.EndsWith("/") || entry.FullName.EndsWith("\\")))
+                        {
+                            Directory.CreateDirectory(dest);
                             continue;
                         }
-                        string dest = Path.Combine(_targetDirectory, entry.FullName);
+
                         string? dir = Path.GetDirectoryName(dest);
                         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                             Directory.CreateDirectory(dir);
@@ -326,7 +370,8 @@ namespace NihongoVocab.Installer
 
                 // ⑤ 复制自身作为 Uninstall.exe
                 UpdateProgress(80, _loc.StatusConfiguring);
-                string selfExe = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                using var currentProcess = Process.GetCurrentProcess();
+                string selfExe = currentProcess.MainModule?.FileName ?? "";
                 string uninstallExe = Path.Combine(_targetDirectory, "Uninstall.exe");
                 if (File.Exists(selfExe)) File.Copy(selfExe, uninstallExe, overwrite: true);
 
@@ -375,14 +420,29 @@ namespace NihongoVocab.Installer
             }
         }
 
-        /// <summary>清理旧版本程序文件（保留用户生词库数据目录）</summary>
+        /// <summary>清理旧版本程序文件（保留用户生词库数据目录，并校验安全子目录边界）</summary>
         private static void CleanOldProgramFiles(string dir)
         {
-            if (!Directory.Exists(dir)) return;
+            if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
+
             try
             {
+                string fullPath = Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string? rootPath = Path.GetPathRoot(fullPath)?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (string.Equals(fullPath, rootPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return; // 严禁清理磁盘根目录
+                }
+
+                string leafName = Path.GetFileName(fullPath);
+                if (!string.Equals(leafName, "Tampo", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(leafName, "NihongoVocab", StringComparison.OrdinalIgnoreCase))
+                {
+                    return; // 仅允许清理专属应用子目录
+                }
+
                 // 删除根目录下所有文件
-                foreach (var f in Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly))
+                foreach (var f in Directory.GetFiles(fullPath, "*", SearchOption.TopDirectoryOnly))
                 {
                     try
                     {
@@ -391,8 +451,8 @@ namespace NihongoVocab.Installer
                     }
                     catch { }
                 }
-                // 删除子目录（保留 Assets 图标缓存，会被解压覆盖；整体删除然后重建更彻底）
-                foreach (var d in Directory.GetDirectories(dir))
+                // 删除子目录
+                foreach (var d in Directory.GetDirectories(fullPath))
                 {
                     try { Directory.Delete(d, recursive: true); } catch { }
                 }
@@ -422,9 +482,13 @@ namespace NihongoVocab.Installer
                 key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
 
                 // 清理旧键名
-                try { Registry.CurrentUser.DeleteSubKeyTree(
-                    @"Software\Microsoft\Windows\CurrentVersion\Uninstall\NihongoVocab",
-                    throwOnMissingSubKey: false); } catch { }
+                try
+                {
+                    Registry.CurrentUser.DeleteSubKeyTree(
+                        @"Software\Microsoft\Windows\CurrentVersion\Uninstall\NihongoVocab",
+                        throwOnMissingSubKey: false);
+                }
+                catch { }
             }
             catch (Exception ex)
             {

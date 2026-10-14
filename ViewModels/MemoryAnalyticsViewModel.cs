@@ -64,7 +64,6 @@ namespace NihongoVocab.ViewModels
         public MemoryAnalyticsViewModel(DatabaseService databaseService)
         {
             _databaseService = databaseService;
-            DatabaseService.DataChanged += OnDatabaseDataChanged;
             LocalizationService.Instance.LanguageChanged += (s, e) =>
             {
                 OnPropertyChanged(string.Empty);
@@ -80,8 +79,11 @@ namespace NihongoVocab.ViewModels
             });
         }
 
+        private bool _isLoadingOptions;
+
         public async Task LoadDataAsync()
         {
+            _isLoadingOptions = true;
             try
             {
                 var previousId = SelectedOption?.Id;
@@ -111,18 +113,25 @@ namespace NihongoVocab.ViewModels
                     }
                 }
 
-                await RefreshStatsAsync();
             }
             catch (Exception ex)
             {
                 CrashLogger.LogException(ex, "MemoryAnalyticsViewModel.LoadDataAsync");
             }
+            finally
+            {
+                _isLoadingOptions = false;
+            }
+            await RefreshStatsAsync();
         }
 
         partial void OnSelectedOptionChanged(WordListFilterOption? value)
         {
             UserPreferenceService.Instance.SetInt("MemoryAnalytics_SelectedListId", value?.Id ?? -1);
-            _ = RefreshStatsAsync();
+            if (!_isLoadingOptions)
+            {
+                _ = RefreshStatsAsync();
+            }
         }
 
         partial void OnSearchQueryChanged(string value)

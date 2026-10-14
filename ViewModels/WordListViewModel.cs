@@ -87,7 +87,6 @@ namespace NihongoVocab.ViewModels
                 OnPropertyChanged(string.Empty);
             };
 
-            DatabaseService.DataChanged += OnDatabaseDataChanged;
         }
 
         private void OnDatabaseDataChanged()
@@ -140,7 +139,15 @@ namespace NihongoVocab.ViewModels
                     AllWords.Add(w);
                 }
 
-                BuildHierarchyTree(words.Where(w => !w.IsInList));
+                var prefFlat = await _databaseService.GetPreferenceAsync("WordList_IsFlatLevelMode", "false");
+                if (bool.TryParse(prefFlat, out var isFlat) && isFlat != IsFlatLevelMode)
+                {
+                    IsFlatLevelMode = isFlat;
+                }
+                else
+                {
+                    BuildHierarchyTree(words.Where(w => !w.IsInList));
+                }
 
                 if (SelectedWordList != null)
                 {
@@ -149,9 +156,8 @@ namespace NihongoVocab.ViewModels
                     {
                         SelectedWordList = updated;
                         UpdateCurrentViewTitle();
-                        var listWords = await _databaseService.GetWordsByListIdAsync(updated.Id);
                         ActiveWords.Clear();
-                        foreach (var w in listWords)
+                        foreach (var w in words.Where(w => w.WordListId == updated.Id).OrderBy(w => w.Id))
                         {
                             ActiveWords.Add(w);
                         }
@@ -166,11 +172,10 @@ namespace NihongoVocab.ViewModels
                 else if (_selectedDateNode != null)
                 {
                     // 保持用户当前查看的时间节点，绝对不自动切换到自定义词单
-                    var ids = _selectedDateNode.GetAllContainedWordIds().ToList();
-                    var nodeWords = await _databaseService.GetWordsByIdsAsync(ids);
+                    var idSet = _selectedDateNode.GetAllContainedWordIds().ToHashSet();
                     UpdateCurrentViewTitle();
                     ActiveWords.Clear();
-                    foreach (var w in nodeWords)
+                    foreach (var w in words.Where(w => idSet.Contains(w.Id)).OrderBy(w => w.CreatedAt))
                     {
                         ActiveWords.Add(w);
                     }
@@ -183,12 +188,6 @@ namespace NihongoVocab.ViewModels
                     {
                         ActiveWords.Add(w);
                     }
-                }
-
-                var prefFlat = await _databaseService.GetPreferenceAsync("WordList_IsFlatLevelMode", "false");
-                if (bool.TryParse(prefFlat, out var isFlat) && isFlat != IsFlatLevelMode)
-                {
-                    IsFlatLevelMode = isFlat;
                 }
             }
             catch (Exception ex)

@@ -11,6 +11,7 @@ namespace NihongoVocab.Services
 {
     public class PresetManager
     {
+        public static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(500);
         private readonly string _presetsFilePath;
 
         public static readonly List<CleansingPreset> BuiltInPresets = new()
@@ -156,7 +157,7 @@ namespace NihongoVocab.Services
         }
 
         /// <summary>
-        /// 执行正则清洗流水线：支持显式指定是否反向过滤及是否匹配整行
+        /// 执行正则清洗流水线：支持显式指定是否反向过滤及是否匹配整行（带超时熔断保护，防御 ReDoS 回溯卡死）
         /// </summary>
         public List<string> Cleanse(string sourceText, CleansingPreset preset, bool isInverseFilter, bool matchWholeLine)
         {
@@ -170,13 +171,14 @@ namespace NihongoVocab.Services
 
             try
             {
-                var regex = new Regex(preset.Pattern, RegexOptions.Multiline);
+                var regex = new Regex(preset.Pattern, RegexOptions.Multiline, RegexTimeout);
 
                 if (isInverseFilter)
                 {
                     // ===== 反向过滤 =====
-                    var lines = sourceText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-                    foreach (var rawLine in lines)
+                    using var reader = new StringReader(sourceText);
+                    string? rawLine;
+                    while ((rawLine = reader.ReadLine()) != null)
                     {
                         if (string.IsNullOrWhiteSpace(rawLine)) continue;
 
@@ -189,9 +191,8 @@ namespace NihongoVocab.Services
                             }
 
                             string line = rawLine.Trim();
-                            if (!string.IsNullOrEmpty(line) && !seen.Contains(line))
+                            if (!string.IsNullOrEmpty(line) && seen.Add(line))
                             {
-                                seen.Add(line);
                                 results.Add(line);
                             }
                         }
@@ -199,9 +200,8 @@ namespace NihongoVocab.Services
                         {
                             // 反向过滤 (未勾选匹配整行)：单纯匹配字符并删除，保留该行剩余文本
                             string cleanedLine = regex.Replace(rawLine, string.Empty).Trim();
-                            if (!string.IsNullOrEmpty(cleanedLine) && !seen.Contains(cleanedLine))
+                            if (!string.IsNullOrEmpty(cleanedLine) && seen.Add(cleanedLine))
                             {
-                                seen.Add(cleanedLine);
                                 results.Add(cleanedLine);
                             }
                         }
@@ -213,17 +213,17 @@ namespace NihongoVocab.Services
                     if (matchWholeLine)
                     {
                         // 正向过滤 + 匹配整行：只要行内命中任意字符，就将整行输出
-                        var lines = sourceText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-                        foreach (var rawLine in lines)
+                        using var reader = new StringReader(sourceText);
+                        string? rawLine;
+                        while ((rawLine = reader.ReadLine()) != null)
                         {
                             if (string.IsNullOrWhiteSpace(rawLine)) continue;
 
                             if (regex.IsMatch(rawLine))
                             {
                                 string line = rawLine.Trim();
-                                if (!string.IsNullOrEmpty(line) && !seen.Contains(line))
+                                if (!string.IsNullOrEmpty(line) && seen.Add(line))
                                 {
-                                    seen.Add(line);
                                     results.Add(line);
                                 }
                             }
@@ -237,20 +237,13 @@ namespace NihongoVocab.Services
                         {
                             if (match.Success)
                             {
-                                string extracted = string.Empty;
-                                if (preset.CaptureGroupIndex > 0 && match.Groups.Count > preset.CaptureGroupIndex)
-                                {
-                                    extracted = match.Groups[preset.CaptureGroupIndex].Value;
-                                }
-                                else
-                                {
-                                    extracted = match.Value;
-                                }
+                                string extracted = (preset.CaptureGroupIndex > 0 && match.Groups.Count > preset.CaptureGroupIndex)
+                                    ? match.Groups[preset.CaptureGroupIndex].Value
+                                    : match.Value;
 
                                 string clean = extracted.Trim();
-                                if (!string.IsNullOrEmpty(clean) && !seen.Contains(clean))
+                                if (!string.IsNullOrEmpty(clean) && seen.Add(clean))
                                 {
-                                    seen.Add(clean);
                                     results.Add(clean);
                                 }
                             }
@@ -260,7 +253,7 @@ namespace NihongoVocab.Services
             }
             catch
             {
-                // 正则表达式有误时优雅返回空结果
+                // 正则表达式有误或发生超时熔断时优雅返回已有结果
             }
 
             return results;

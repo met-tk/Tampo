@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NihongoVocab.Models;
@@ -117,7 +114,6 @@ namespace NihongoVocab.Views.Dialogs
 
         private void AddPreset_Click(object sender, RoutedEventArgs e)
         {
-            var loc = LocalizationService.Instance;
             string name = PresetNameInput.Text.Trim();
             string pattern = PresetPatternInput.Text.Trim();
             string replacement = PresetReplacementInput.Text;
@@ -190,19 +186,7 @@ namespace NihongoVocab.Views.Dialogs
 
         private string GenerateExportText(string pattern, string replacement)
         {
-            if (_words.Count == 0)
-            {
-                return string.Empty;
-            }
-
-            var sb = new StringBuilder();
-            for (int i = 0; i < _words.Count; i++)
-            {
-                string source = ExportPresetManager.FormatWordToSourceLine(_words[i]);
-                string result = ExportPresetManager.FormatLine(source, pattern, replacement, i + 1);
-                sb.AppendLine(result);
-            }
-            return sb.ToString().TrimEnd('\r', '\n');
+            return ExportPresetManager.FormatWordsBatch(_words, pattern, replacement);
         }
 
         private void CopyAllButton_Click(object sender, RoutedEventArgs e)

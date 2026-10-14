@@ -145,7 +145,6 @@ namespace NihongoVocab.ViewModels
                 OnPropertyChanged(string.Empty);
             };
 
-            DatabaseService.DataChanged += OnDatabaseDataChanged;
         }
 
         private void OnDatabaseDataChanged()
@@ -168,18 +167,28 @@ namespace NihongoVocab.ViewModels
             {
                 var words = await _databaseService.GetAllWordsAsync();
                 AllWords.Clear();
+                int newCnt = 0, learnCnt = 0, revCnt = 0, mastCnt = 0, unarchCnt = 0, archCnt = 0;
                 foreach (var w in words)
                 {
                     AllWords.Add(w);
+                    switch ((WordLearningState)w.State)
+                    {
+                        case WordLearningState.New: newCnt++; break;
+                        case WordLearningState.Learning: learnCnt++; break;
+                        case WordLearningState.Review: revCnt++; break;
+                        case WordLearningState.Mastered: mastCnt++; break;
+                    }
+                    if (w.IsInList) archCnt++;
+                    else unarchCnt++;
                 }
 
                 TotalCount = words.Count;
-                NewCount = words.Count(w => w.State == (int)WordLearningState.New);
-                LearningCount = words.Count(w => w.State == (int)WordLearningState.Learning);
-                ReviewingCount = words.Count(w => w.State == (int)WordLearningState.Review);
-                MasteredCount = words.Count(w => w.State == (int)WordLearningState.Mastered);
-                UnarchivedCount = words.Count(w => !w.IsInList);
-                ArchivedCount = words.Count(w => w.IsInList);
+                NewCount = newCnt;
+                LearningCount = learnCnt;
+                ReviewingCount = revCnt;
+                MasteredCount = mastCnt;
+                UnarchivedCount = unarchCnt;
+                ArchivedCount = archCnt;
 
                 var lists = await _databaseService.GetAllWordListsAsync();
                 WordLists.Clear();
@@ -197,8 +206,10 @@ namespace NihongoVocab.ViewModels
                 {
                     IsFlatLevelMode = isFlat;
                 }
-
-                BuildDateTree();
+                else
+                {
+                    BuildDateTree();
+                }
                 UpdateSliceStatistics();
                 FilterWords();
             }
@@ -580,8 +591,8 @@ namespace NihongoVocab.ViewModels
             if (trimmed == word.Text) return;
 
             var loc = LocalizationService.Instance;
-            var allWords = await _databaseService.GetAllWordsAsync();
-            if (allWords.Any(w => w.Id != word.Id && string.Equals(w.Text?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
+            var sourceWords = AllWords.Count > 0 ? (IEnumerable<Word>)AllWords : await _databaseService.GetAllWordsAsync();
+            if (sourceWords.Any(w => w.Id != word.Id && string.Equals(w.Text?.Trim(), trimmed, StringComparison.OrdinalIgnoreCase)))
             {
                 StatusMessage = string.Format(loc.GetString("MsgAddSingleWordDuplicateFormat", "单词「{0}」已在词库中，无需重复添加"), trimmed);
                 return;

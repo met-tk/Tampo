@@ -9,6 +9,7 @@ class SyncService {
   SyncService._internal();
 
   final DatabaseService _db = DatabaseService.instance;
+  final http.Client _httpClient = http.Client();
 
   String formatServerUrl(String rawHost) {
     String host = rawHost.trim();
@@ -29,7 +30,7 @@ class SyncService {
   Future<bool> ping(String rawHost) async {
     try {
       final url = '${formatServerUrl(rawHost)}/api/ping';
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
+      final res = await _httpClient.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -41,7 +42,7 @@ class SyncService {
     final serverUrl = formatServerUrl(rawHost);
     final url = '$serverUrl/api/sync/pull';
 
-    final res = await http.post(
+    final res = await _httpClient.post(
       Uri.parse(url),
       headers: {
         'Content-Type': 'application/json',
@@ -88,7 +89,7 @@ class SyncService {
       'deviceName': 'Tampo Android Mobile',
     };
 
-    final pushRes = await http.post(
+    final pushRes = await _httpClient.post(
       Uri.parse(pushUrl),
       headers: {
         'Content-Type': 'application/json',
@@ -530,6 +531,7 @@ class SyncService {
         final simWord = Word(
           id: w.id,
           text: w.text,
+          createdAt: w.createdAt,
           state: WordLearningState.newWord.value,
         );
         for (final rl in dedupedLogs) {

@@ -224,14 +224,13 @@ namespace NihongoVocab.ViewModels
         {
             try
             {
-                var stats = await _databaseService.GetDashboardStatsAsync();
-                TotalImportDays = stats.TotalImportDays;
-                TotalStudyDays = stats.TotalStudyDays;
-                TotalWords = stats.TotalWords;
-
                 var (imported, studied) = await _databaseService.GetCalendarActivityDetailsDictAsync();
                 _importedWordsDict = imported;
                 _studiedWordsDict = studied;
+
+                TotalImportDays = imported.Count;
+                TotalStudyDays = studied.Count;
+                TotalWords = imported.Values.Sum(list => list.Count);
 
                 BuildGrids();
             }

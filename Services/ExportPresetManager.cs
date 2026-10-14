@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using NihongoVocab.Models;
@@ -11,6 +12,7 @@ namespace NihongoVocab.Services
 {
     public class ExportPresetManager
     {
+        public static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(500);
         private static ExportPresetManager? _instance;
         public static ExportPresetManager Instance => _instance ??= new ExportPresetManager();
 
@@ -170,6 +172,73 @@ namespace NihongoVocab.Services
         }
 
         /// <summary>
+        /// 批量对单词集合执行正则格式化（预编译一次 Regex 实例，避免在循环中重复编译 2N 次）
+        /// </summary>
+        public static string FormatWordsBatch(IReadOnlyList<Word> words, string pattern, string replacement)
+        {
+            if (words == null || words.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            Regex? compiledRegex = null;
+            if (!string.IsNullOrEmpty(pattern))
+            {
+                try
+                {
+                    compiledRegex = new Regex(pattern, RegexOptions.None, RegexTimeout);
+                }
+                catch
+                {
+                    compiledRegex = null;
+                }
+            }
+
+            string baseUnescaped = (replacement ?? string.Empty)
+                .Replace(@"\t", "\t", StringComparison.Ordinal)
+                .Replace(@"\n", "\n", StringComparison.Ordinal)
+                .Replace(@"\r", "\r", StringComparison.Ordinal);
+
+            var sb = new StringBuilder(words.Count * 16);
+            for (int i = 0; i < words.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.AppendLine();
+                }
+
+                string sourceLine = FormatWordToSourceLine(words[i]);
+                if (compiledRegex == null)
+                {
+                    sb.Append(sourceLine);
+                    continue;
+                }
+
+                try
+                {
+                    string unescapedReplacement = baseUnescaped
+                        .Replace("{index}", (i + 1).ToString(), StringComparison.Ordinal)
+                        .Replace("{word}", sourceLine, StringComparison.Ordinal);
+
+                    if (compiledRegex.IsMatch(sourceLine))
+                    {
+                        sb.Append(compiledRegex.Replace(sourceLine, unescapedReplacement));
+                    }
+                    else
+                    {
+                        sb.Append(sourceLine);
+                    }
+                }
+                catch
+                {
+                    sb.Append(sourceLine);
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// 使用给定的 Pattern 和 Replacement 正则替换处理单行
         /// </summary>
         public static string FormatLine(string sourceLine, string pattern, string replacement, int index = 1)
@@ -181,17 +250,19 @@ namespace NihongoVocab.Services
 
             try
             {
+                var regex = new Regex(pattern, RegexOptions.None, RegexTimeout);
+
                 // 处理替换串中的转义符如 \t, \n 以及常用占位符 {index}, {word}
-                string unescapedReplacement = replacement
+                string unescapedReplacement = (replacement ?? string.Empty)
                     .Replace(@"\t", "\t")
                     .Replace(@"\n", "\n")
                     .Replace(@"\r", "\r")
                     .Replace("{index}", index.ToString())
                     .Replace("{word}", sourceLine);
 
-                if (Regex.IsMatch(sourceLine, pattern))
+                if (regex.IsMatch(sourceLine))
                 {
-                    return Regex.Replace(sourceLine, pattern, unescapedReplacement);
+                    return regex.Replace(sourceLine, unescapedReplacement);
                 }
                 else
                 {

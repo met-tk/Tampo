@@ -270,7 +270,7 @@ class _TodayPageState extends State<TodayPage> {
                             final rating = item['rating'] as int;
                             final isRemembered = rating >= 3;
                             final dateRaw = item['reviewDate']?.toString() ?? '';
-                            final dt = DateTime.tryParse(dateRaw) ?? DateTime.now();
+                            final dt = (DateTime.tryParse(dateRaw) ?? DateTime.now()).toLocal();
                             final timeStr = DateFormat('HH:mm:ss').format(dt);
                             final retention = _calculateRetention(item);
 

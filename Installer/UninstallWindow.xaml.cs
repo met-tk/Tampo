@@ -55,7 +55,8 @@ namespace NihongoVocab.Installer
             {
                 try
                 {
-                    string currentExe = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                    using var currentProc = Process.GetCurrentProcess();
+                    string currentExe = currentProc.MainModule?.FileName ?? "";
                     if (File.Exists(currentExe))
                     {
                         string tempDir = Path.Combine(Path.GetTempPath(), $"Tampo_Uninstall_{Guid.NewGuid():N}");
@@ -131,7 +132,9 @@ namespace NihongoVocab.Installer
                     procs.AddRange(Process.GetProcessesByName("NihongoVocab"));
                     foreach (var p in procs)
                     {
-                        try { p.Kill(); p.WaitForExit(3000); } catch { }
+                        try { p.Kill(); p.WaitForExit(3000); }
+                        catch { }
+                        finally { p.Dispose(); }
                     }
                 }
                 catch { }
@@ -182,8 +185,8 @@ namespace NihongoVocab.Installer
 
                 UpdateProgress(85, _loc.UninstallingTitle);
 
-                // 5. 彻底物理销毁整个安装目标目录及其下所有文件和子目录（做到 100% 毫无残留）
-                if (!string.IsNullOrEmpty(_appDirectory) && Directory.Exists(_appDirectory))
+                // 5. 彻底物理销毁整个安装目标目录及其下所有文件和子目录（仅当通过安全目录边界验证时执行）
+                if (!string.IsNullOrEmpty(_appDirectory) && Directory.Exists(_appDirectory) && IsSafeDirectoryToDelete(_appDirectory))
                 {
                     ForceDeleteDirectory(_appDirectory);
                 }
@@ -197,11 +200,51 @@ namespace NihongoVocab.Installer
         }
 
         /// <summary>
+        /// 校验待删除目录是否为合法的 Tampo / NihongoVocab 专属目录，防止在根目录或系统目录误执行递归删除
+        /// </summary>
+        private static bool IsSafeDirectoryToDelete(string targetDir)
+        {
+            if (string.IsNullOrWhiteSpace(targetDir)) return false;
+            try
+            {
+                string fullPath = Path.GetFullPath(targetDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string? rootPath = Path.GetPathRoot(fullPath)?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (string.IsNullOrEmpty(fullPath) || string.Equals(fullPath, rootPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                string leafName = Path.GetFileName(fullPath);
+                if (string.Equals(leafName, "Tampo", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(leafName, "NihongoVocab", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                // 若目录名自定义，则必须包含 Tampo.exe 或 NihongoVocab.exe 特征文件且不处于用户主目录/桌面顶层
+                string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (string.Equals(fullPath, desktop, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(fullPath, profile, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                return File.Exists(Path.Combine(fullPath, "Tampo.exe")) ||
+                       File.Exists(Path.Combine(fullPath, "NihongoVocab.exe"));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 彻底删除指定目录（深度递归清除只读、隐藏属性，多轮重试直到目录完全消失）
         /// </summary>
         private static void ForceDeleteDirectory(string targetDir)
         {
-            if (!Directory.Exists(targetDir)) return;
+            if (!Directory.Exists(targetDir) || !IsSafeDirectoryToDelete(targetDir)) return;
 
             for (int attempt = 1; attempt <= 5; attempt++)
             {
@@ -241,10 +284,11 @@ namespace NihongoVocab.Installer
             {
                 try
                 {
+                    string safePath = Path.GetFullPath(targetDir).Replace("\"", "");
                     var psi = new ProcessStartInfo
                     {
                         FileName = "cmd.exe",
-                        Arguments = $"/c rd /s /q \"{targetDir}\"",
+                        Arguments = $"/c rd /s /q \"{safePath}\"",
                         CreateNoWindow = true,
                         UseShellExecute = false,
                         WindowStyle = ProcessWindowStyle.Hidden
@@ -276,10 +320,11 @@ namespace NihongoVocab.Installer
                     if (currentTempDir.IndexOf("Temp", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         string tempBat = Path.Combine(Path.GetTempPath(), $"clean_{Guid.NewGuid():N}.bat");
+                        string safeTempDir = currentTempDir.Replace("\"", "");
                         string script = $@"@echo off
 chcp 65001 >nul
 ping 127.0.0.1 -n 2 >nul
-rd /s /q ""{currentTempDir}""
+rd /s /q ""{safeTempDir}""
 del ""%~f0""
 ";
                         File.WriteAllText(tempBat, script, new System.Text.UTF8Encoding(false));

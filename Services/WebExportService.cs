@@ -30,7 +30,7 @@ namespace NihongoVocab.Services
                 wordListDto.Add(new
                 {
                     id = w.Id,
-                    text = w.Text,
+                    text = w.Text ?? string.Empty,
                     createdAt = w.CreatedAt.ToString("yyyy-MM-dd"),
                     year = w.CreatedAt.Year,
                     month = w.CreatedAt.ToString("yyyy-MM"),
@@ -53,7 +53,11 @@ namespace NihongoVocab.Services
                 Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                 WriteIndented = false
             };
-            string wordsJson = JsonSerializer.Serialize(wordListDto, jsonOptions);
+            // 防御 </script> 闭合逃逸以及 U+2028 / U+2029 行分隔符导致内联脚本断裂或 XSS
+            string wordsJson = JsonSerializer.Serialize(wordListDto, jsonOptions)
+                .Replace("</", "<\\/", StringComparison.Ordinal)
+                .Replace("\u2028", "\\u2028", StringComparison.Ordinal)
+                .Replace("\u2029", "\\u2029", StringComparison.Ordinal);
 
             string htmlContent = $@"<!DOCTYPE html>
 <html lang=""zh-CN"">
@@ -250,24 +254,45 @@ namespace NihongoVocab.Services
             }});
 
             filteredCount.textContent = '当前显示：' + filtered.length + ' 词';
-            wordGrid.innerHTML = '';
+            wordGrid.replaceChildren();
 
+            const fragment = document.createDocumentFragment();
             filtered.forEach(w => {{
                 const card = document.createElement('div');
                 card.className = 'card';
-                card.innerHTML = `
-                    <div class=""word-text"">${{w.text}}</div>
-                    <div class=""word-meta"">
-                        <span>${{w.state}}</span>
-                        <span>${{w.createdAt}}</span>
-                        <span>留存: ${{w.retention}}</span>
-                    </div>
-                `;
-                wordGrid.appendChild(card);
+
+                const wordText = document.createElement('div');
+                wordText.className = 'word-text';
+                wordText.textContent = w.text;
+
+                const wordMeta = document.createElement('div');
+                wordMeta.className = 'word-meta';
+
+                const stateSpan = document.createElement('span');
+                stateSpan.textContent = w.state;
+
+                const dateSpan = document.createElement('span');
+                dateSpan.textContent = w.createdAt;
+
+                const retentionSpan = document.createElement('span');
+                retentionSpan.textContent = '留存: ' + w.retention;
+
+                wordMeta.appendChild(stateSpan);
+                wordMeta.appendChild(dateSpan);
+                wordMeta.appendChild(retentionSpan);
+
+                card.appendChild(wordText);
+                card.appendChild(wordMeta);
+                fragment.appendChild(card);
             }});
+            wordGrid.appendChild(fragment);
         }}
 
-        searchInput.addEventListener('input', renderWords);
+        let debounceTimer = null;
+        searchInput.addEventListener('input', () => {{
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(renderWords, 80);
+        }});
         timeFilter.addEventListener('change', renderWords);
         stateFilter.addEventListener('change', renderWords);
 
@@ -283,10 +308,12 @@ namespace NihongoVocab.Services
         public async Task OpenInBrowserAsync(IEnumerable<Word> words)
         {
             string htmlPath = await ExportLibraryToHtmlAsync(words);
-            Process.Start(new ProcessStartInfo(htmlPath)
+            var psi = new ProcessStartInfo
             {
+                FileName = htmlPath,
                 UseShellExecute = true
-            });
+            };
+            Process.Start(psi);
         }
     }
 }

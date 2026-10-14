@@ -51,8 +51,11 @@ namespace NihongoVocab.ViewModels
             DatabaseService.DataChanged += OnDatabaseDataChanged;
         }
 
+        private bool _isInternalReviewUpdate;
+
         private void OnDatabaseDataChanged()
         {
+            if (_isInternalReviewUpdate) return;
             var dispatcher = App.UIThreadDispatcher ?? App.MainWindowInstance?.DispatcherQueue;
             if (dispatcher != null)
             {
@@ -232,7 +235,7 @@ namespace NihongoVocab.ViewModels
             }
 
             // 触发 FSRS 算法计算新的稳定性与间隔 (Rating 3 = Good)
-            await _databaseService.UpdateWordFSRSAsync(card.Word, 3, DateTime.Now);
+            try { _isInternalReviewUpdate = true; await _databaseService.UpdateWordFSRSAsync(card.Word, 3, DateTime.Now); } finally { _isInternalReviewUpdate = false; }
             SoundService.Instance.PlayStudyMarkSound();
         }
 
@@ -249,7 +252,7 @@ namespace NihongoVocab.ViewModels
             }
 
             // 触发 FSRS 算法计算遗忘更新 (Rating 1 = Again)
-            await _databaseService.UpdateWordFSRSAsync(card.Word, 1, DateTime.Now);
+            try { _isInternalReviewUpdate = true; await _databaseService.UpdateWordFSRSAsync(card.Word, 1, DateTime.Now); } finally { _isInternalReviewUpdate = false; }
             SoundService.Instance.PlayStudyMarkSound();
         }
 

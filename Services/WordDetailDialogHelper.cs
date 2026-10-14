@@ -26,6 +26,8 @@ namespace NihongoVocab.Services
         private static readonly Brush LightLayerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
         private static readonly Brush DarkStrokeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(32, 255, 255, 255));
         private static readonly Brush LightStrokeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(22, 0, 0, 0));
+        private static readonly Brush RememberTextBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 34, 197, 94));
+        private static readonly Brush ForgetTextBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 239, 68, 68));
 
         private static bool IsDarkTheme() => ThemeHelper.IsCurrentDarkTheme();
 
@@ -201,9 +203,7 @@ namespace NihongoVocab.Services
                             Text = l.Rating == 3 ? loc.GetString("RatingRemembered", "记得") : loc.GetString("RatingForgotten", "遗忘"),
                             FontSize = 11,
                             FontWeight = Microsoft.UI.Text.FontWeights.Medium,
-                            Foreground = l.Rating == 3
-                                ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 34, 197, 94))
-                                : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 239, 68, 68)),
+                            Foreground = l.Rating == 3 ? RememberTextBrush : ForgetTextBrush,
                             VerticalAlignment = VerticalAlignment.Center
                         };
                         Grid.SetColumn(ratingText, 1);

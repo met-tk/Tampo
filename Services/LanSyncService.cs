@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -36,6 +38,7 @@ namespace NihongoVocab.Services
             writer.WriteBooleanValue(value);
         }
     }
+
     public class SyncPayload
     {
         public List<WordList> WordLists { get; set; } = new();
@@ -74,6 +77,25 @@ namespace NihongoVocab.Services
         private TcpListener? _tcpListener;
         private CancellationTokenSource? _cts;
         private readonly DatabaseService _dbService;
+        private readonly ConcurrentDictionary<string, (int Failures, DateTime LockedUntilUtc)> _pinRateLimiter = new();
+
+        private static readonly JsonSerializerOptions _incomingJsonOptions = CreateIncomingJsonOptions();
+        private static readonly JsonSerializerOptions _outgoingJsonOptions = new()
+        {
+            WriteIndented = false,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        private static JsonSerializerOptions CreateIncomingJsonOptions()
+        {
+            var opts = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = JsonNumberHandling.AllowReadingFromString
+            };
+            opts.Converters.Add(new FlexibleBoolConverter());
+            return opts;
+        }
 
         public bool IsRunning { get; private set; }
         public string CurrentPin { get; private set; } = GeneratePin();
@@ -90,13 +112,22 @@ namespace NihongoVocab.Services
 
         public static string GeneratePin()
         {
-            return System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+            return RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
         }
 
         public void RefreshPin()
         {
             CurrentPin = GeneratePin();
+            _pinRateLimiter.Clear();
             LogReceived?.Invoke($"安全配对 PIN 码已刷新为: {CurrentPin}");
+        }
+
+        private bool VerifyPinConstantTime(string clientPin)
+        {
+            if (string.IsNullOrWhiteSpace(clientPin)) return false;
+            byte[] a = Encoding.UTF8.GetBytes(clientPin.Trim());
+            byte[] b = Encoding.UTF8.GetBytes(CurrentPin);
+            return CryptographicOperations.FixedTimeEquals(a, b);
         }
 
         /// <summary>
@@ -192,8 +223,8 @@ namespace NihongoVocab.Services
                 StatusChanged?.Invoke(true);
 
                 var endpoints = GetNetworkEndpoints();
-                string primaryDesc = endpoints.Count > 0 
-                    ? $"{endpoints[0].DisplayUrl} ({endpoints[0].InterfaceTypeDescription})" 
+                string primaryDesc = endpoints.Count > 0
+                    ? $"{endpoints[0].DisplayUrl} ({endpoints[0].InterfaceTypeDescription})"
                     : $"http://127.0.0.1:{Port}";
 
                 LogReceived?.Invoke($"局域网同步服务已启动！监听端口: {Port}");
@@ -223,7 +254,9 @@ namespace NihongoVocab.Services
             finally
             {
                 _tcpListener = null;
+                _cts?.Dispose();
                 _cts = null;
+                _pinRateLimiter.Clear();
                 IsRunning = false;
                 StatusChanged?.Invoke(false);
                 LogReceived?.Invoke("局域网同步服务已停止。");
@@ -257,41 +290,44 @@ namespace NihongoVocab.Services
         {
             using (client)
             using (var stream = client.GetStream())
+            using (var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+                var reqToken = timeoutCts.Token;
+
                 try
                 {
                     stream.ReadTimeout = 15000;
                     stream.WriteTimeout = 15000;
 
-                    // 读取 HTTP 请求报文头
-                    var headerBytes = new List<byte>();
-                    int b;
+                    // 异步读取 HTTP 请求报文头（避免同步 ReadByte 阻塞线程池）
+                    const int MaxHeaderBytes = 65536;
+                    byte[] readBuf = new byte[4096];
+                    using var requestBuffer = new MemoryStream();
+                    int headerEndIndex = -1;
 
-                    while ((b = stream.ReadByte()) != -1)
+                    while (headerEndIndex < 0)
                     {
-                        headerBytes.Add((byte)b);
-                        if (b == '\r' || b == '\n')
-                        {
-                            if (headerBytes.Count >= 4)
-                            {
-                                int len = headerBytes.Count;
-                                if (headerBytes[len - 4] == '\r' && headerBytes[len - 3] == '\n' &&
-                                    headerBytes[len - 2] == '\r' && headerBytes[len - 1] == '\n')
-                                {
-                                    break;
-                                }
-                            }
-                        }
-                        if (headerBytes.Count > 65536) // 防恶意超长 Header
+                        int n = await stream.ReadAsync(readBuf, 0, readBuf.Length, reqToken);
+                        if (n <= 0) break;
+
+                        requestBuffer.Write(readBuf, 0, n);
+                        headerEndIndex = FindHeaderEnd(requestBuffer.GetBuffer(), (int)requestBuffer.Length);
+
+                        if (headerEndIndex < 0 && requestBuffer.Length > MaxHeaderBytes)
                         {
                             await SendHttpResponseAsync(stream, 400, "Header Too Large");
                             return;
                         }
                     }
 
-                    if (headerBytes.Count == 0) return;
+                    if (headerEndIndex < 0) return;
 
-                    string headerString = Encoding.UTF8.GetString(headerBytes.ToArray());
+                    byte[] rawBuf = requestBuffer.GetBuffer();
+                    int totalBuffered = (int)requestBuffer.Length;
+                    int bodyStartOffset = headerEndIndex + 4;
+
+                    string headerString = Encoding.UTF8.GetString(rawBuf, 0, headerEndIndex);
                     var headerLines = headerString.Split(new[] { "\r\n" }, StringSplitOptions.None);
                     if (headerLines.Length == 0) return;
 
@@ -331,27 +367,46 @@ namespace NihongoVocab.Services
                             version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.2.8",
                             server_time = DateTime.Now
                         };
-                        await SendHttpJsonAsync(stream, 200, pingObj);
+                        await SendHttpJsonAsync(stream, 200, pingObj, reqToken);
                         return;
                     }
 
-                    // 2. 检查配对 PIN 码
+                    // 2. 检查配对 PIN 码（常数时间比对 + IP 级防暴力破解限流）
+                    string remoteIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "unknown";
+                    if (_pinRateLimiter.TryGetValue(remoteIp, out var limitInfo) && DateTime.UtcNow < limitInfo.LockedUntilUtc)
+                    {
+                        await SendHttpJsonAsync(stream, 429, new { error = "Too Many Requests: PIN temporarily locked due to repeated failures" }, reqToken);
+                        return;
+                    }
+
                     headers.TryGetValue("X-Sync-Pin", out var clientPin);
                     clientPin ??= "";
 
-                    if (string.IsNullOrWhiteSpace(clientPin) || clientPin != CurrentPin)
+                    if (!VerifyPinConstantTime(clientPin))
                     {
+                        _pinRateLimiter.AddOrUpdate(
+                            remoteIp,
+                            _ => (1, DateTime.MinValue),
+                            (_, prev) =>
+                            {
+                                int nextFailures = prev.Failures + 1;
+                                DateTime lockedUntil = nextFailures >= 5 ? DateTime.UtcNow.AddSeconds(30) : DateTime.MinValue;
+                                return (nextFailures, lockedUntil);
+                            });
+
                         LogReceived?.Invoke($"[拒绝] 客户端 ({client.Client.RemoteEndPoint}) PIN 码验证未通过。");
-                        await SendHttpJsonAsync(stream, 401, new { error = "Unauthorized: Invalid X-Sync-Pin" });
+                        await SendHttpJsonAsync(stream, 401, new { error = "Unauthorized: Invalid X-Sync-Pin" }, reqToken);
                         return;
                     }
+
+                    _pinRateLimiter.TryRemove(remoteIp, out _);
 
                     // 3. POST /api/sync/pull (拉取全部)
                     if (path.Equals("/api/sync/pull", StringComparison.OrdinalIgnoreCase) && method == "POST")
                     {
                         LogReceived?.Invoke($"[拉取数据] 手机端 ({client.Client.RemoteEndPoint}) 正在拉取词库与进度...");
                         var payload = await BuildCurrentPayloadAsync();
-                        await SendHttpJsonAsync(stream, 200, payload);
+                        await SendHttpJsonAsync(stream, 200, payload, reqToken);
                         LogReceived?.Invoke($"[发送完成] 已传输 {payload.Words.Count} 个单词与 {payload.ReviewLogs.Count} 条打卡记录！");
                         return;
                     }
@@ -360,7 +415,7 @@ namespace NihongoVocab.Services
                     if (path.Equals("/api/sync/push", StringComparison.OrdinalIgnoreCase) && method == "POST")
                     {
                         LogReceived?.Invoke($"[双向合并] 收到手机端 ({client.Client.RemoteEndPoint}) 数据包，正在合并...");
-                        
+
                         const int MaxPayloadBytes = 50 * 1024 * 1024; // 50 MB 上限防 OOM
                         int contentLength = 0;
                         if (headers.TryGetValue("Content-Length", out var clStr))
@@ -370,43 +425,48 @@ namespace NihongoVocab.Services
 
                         if (contentLength <= 0 || contentLength > MaxPayloadBytes)
                         {
-                            await SendHttpJsonAsync(stream, 413, new { error = "Payload Too Large or Invalid Content-Length" });
+                            await SendHttpJsonAsync(stream, 413, new { error = "Payload Too Large or Invalid Content-Length" }, reqToken);
                             return;
                         }
 
                         byte[] bodyBytes = new byte[contentLength];
-                        int totalRead = 0;
+                        int alreadyBufferedBody = Math.Min(contentLength, Math.Max(0, totalBuffered - bodyStartOffset));
+                        if (alreadyBufferedBody > 0)
+                        {
+                            Buffer.BlockCopy(rawBuf, bodyStartOffset, bodyBytes, 0, alreadyBufferedBody);
+                        }
+
+                        int totalRead = alreadyBufferedBody;
                         while (totalRead < contentLength)
                         {
-                            int read = await stream.ReadAsync(bodyBytes, totalRead, contentLength - totalRead, token);
+                            int read = await stream.ReadAsync(bodyBytes, totalRead, contentLength - totalRead, reqToken);
                             if (read <= 0) break;
                             totalRead += read;
                         }
 
-                        string bodyJson = Encoding.UTF8.GetString(bodyBytes, 0, totalRead);
-                        var jsonOptions = new JsonSerializerOptions
+                        if (totalRead < contentLength)
                         {
-                            PropertyNameCaseInsensitive = true,
-                            NumberHandling = JsonNumberHandling.AllowReadingFromString
-                        };
-                        jsonOptions.Converters.Add(new FlexibleBoolConverter());
+                            await SendHttpJsonAsync(stream, 400, new { error = "Incomplete request body" }, reqToken);
+                            return;
+                        }
 
-                        var incomingPayload = JsonSerializer.Deserialize<SyncPayload>(bodyJson, jsonOptions);
+                        string bodyJson = Encoding.UTF8.GetString(bodyBytes, 0, totalRead);
+                        var incomingPayload = JsonSerializer.Deserialize<SyncPayload>(bodyJson, _incomingJsonOptions);
 
                         if (incomingPayload == null)
                         {
-                            await SendHttpJsonAsync(stream, 400, new { error = "Invalid JSON" });
+                            await SendHttpJsonAsync(stream, 400, new { error = "Invalid JSON" }, reqToken);
                             return;
                         }
 
                         var result = await MergeIncomingPayloadAsync(incomingPayload);
-                        await SendHttpJsonAsync(stream, 200, result);
+                        await SendHttpJsonAsync(stream, 200, result, reqToken);
                         LogReceived?.Invoke($"[合并成功] 更新单词: {result.SyncedWords}，新日志: {result.SyncedLogs}！");
                         DatabaseService.NotifyDataChanged();
                         return;
                     }
 
-                    await SendHttpResponseAsync(stream, 404, "Not Found");
+                    await SendHttpResponseAsync(stream, 404, "Not Found", reqToken);
                 }
                 catch (Exception ex)
                 {
@@ -414,7 +474,7 @@ namespace NihongoVocab.Services
                     CrashLogger.LogException(ex, "LanSyncService.HandleTcpClientAsync");
                     try
                     {
-                        await SendHttpJsonAsync(stream, 500, new { error = ex.Message });
+                        await SendHttpJsonAsync(stream, 500, new { error = ex.Message }, reqToken);
                     }
                     catch { }
                 }
@@ -432,10 +492,35 @@ namespace NihongoVocab.Services
             }
         }
 
-        private static async Task SendHttpResponseAsync(Stream stream, int statusCode, string body)
+        private static int FindHeaderEnd(byte[] buffer, int length)
+        {
+            for (int i = 0; i <= length - 4; i++)
+            {
+                if (buffer[i] == '\r' && buffer[i + 1] == '\n' &&
+                    buffer[i + 2] == '\r' && buffer[i + 3] == '\n')
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        private static string GetStatusText(int statusCode) => statusCode switch
+        {
+            200 => "OK",
+            400 => "Bad Request",
+            401 => "Unauthorized",
+            404 => "Not Found",
+            413 => "Payload Too Large",
+            429 => "Too Many Requests",
+            500 => "Internal Server Error",
+            _ => "OK"
+        };
+
+        private static async Task SendHttpResponseAsync(Stream stream, int statusCode, string body, CancellationToken token = default)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(body);
-            string headers = $"HTTP/1.1 {statusCode} OK\r\n" +
+            string headers = $"HTTP/1.1 {statusCode} {GetStatusText(statusCode)}\r\n" +
                              "Access-Control-Allow-Origin: *\r\n" +
                              "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
                              "Access-Control-Allow-Headers: Content-Type, X-Sync-Pin\r\n" +
@@ -443,20 +528,16 @@ namespace NihongoVocab.Services
                              $"Content-Length: {bytes.Length}\r\n" +
                              "Connection: close\r\n\r\n";
             byte[] headerBytes = Encoding.ASCII.GetBytes(headers);
-            await stream.WriteAsync(headerBytes, 0, headerBytes.Length);
-            await stream.WriteAsync(bytes, 0, bytes.Length);
-            await stream.FlushAsync();
+            await stream.WriteAsync(headerBytes.AsMemory(0, headerBytes.Length), token);
+            await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), token);
+            await stream.FlushAsync(token);
         }
 
-        private static async Task SendHttpJsonAsync(Stream stream, int statusCode, object data)
+        private static async Task SendHttpJsonAsync(Stream stream, int statusCode, object data, CancellationToken token = default)
         {
-            string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
-            {
-                WriteIndented = false,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
+            string json = JsonSerializer.Serialize(data, _outgoingJsonOptions);
             byte[] bytes = Encoding.UTF8.GetBytes(json);
-            string headers = $"HTTP/1.1 {statusCode} OK\r\n" +
+            string headers = $"HTTP/1.1 {statusCode} {GetStatusText(statusCode)}\r\n" +
                              "Access-Control-Allow-Origin: *\r\n" +
                              "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
                              "Access-Control-Allow-Headers: Content-Type, X-Sync-Pin\r\n" +
@@ -464,9 +545,9 @@ namespace NihongoVocab.Services
                              $"Content-Length: {bytes.Length}\r\n" +
                              "Connection: close\r\n\r\n";
             byte[] headerBytes = Encoding.ASCII.GetBytes(headers);
-            await stream.WriteAsync(headerBytes, 0, headerBytes.Length);
-            await stream.WriteAsync(bytes, 0, bytes.Length);
-            await stream.FlushAsync();
+            await stream.WriteAsync(headerBytes.AsMemory(0, headerBytes.Length), token);
+            await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), token);
+            await stream.FlushAsync(token);
         }
 
         private async Task<SyncPayload> BuildCurrentPayloadAsync()
@@ -489,6 +570,9 @@ namespace NihongoVocab.Services
 
         private async Task<SyncResult> MergeIncomingPayloadAsync(SyncPayload incoming)
         {
+            // 抑制合并过程中的高频逐项 DataChanged 事件风暴，统一在同步结束时刷新一次
+            using var _ = DatabaseService.SuppressNotifications();
+
             int updatedWords = 0;
             int insertedLogs = 0;
             int syncedLists = 0;
@@ -511,7 +595,9 @@ namespace NihongoVocab.Services
                     deletedListTimes[k] = t.DeletedAt;
             }
 
-            var deletedLogKeys = new HashSet<string>(localTombstones.Where(t => t.EntityType == "review_log").Select(t => t.EntityKey.Trim().ToLowerInvariant()), StringComparer.OrdinalIgnoreCase);
+            var deletedLogKeys = new HashSet<string>(
+                localTombstones.Where(t => t.EntityType == "review_log").Select(t => t.EntityKey.Trim().ToLowerInvariant()),
+                StringComparer.OrdinalIgnoreCase);
 
             var currentWords = await _dbService.GetAllWordsAsync();
 
@@ -520,13 +606,37 @@ namespace NihongoVocab.Services
                 var currentListsNow = await _dbService.GetAllWordListsAsync();
                 var currentLogsNow = await _dbService.GetAllReviewLogsAsync();
 
+                // 构建 O(1) 哈希索引，消除原先在墓碑循环内的 O(T * W)、O(T * L)、O(T * R) 线性查找
+                var wordIndexByKey = new Dictionary<string, Word>(StringComparer.OrdinalIgnoreCase);
+                foreach (var w in currentWords)
+                {
+                    string k = w.Text.Trim();
+                    if (!string.IsNullOrEmpty(k) && !wordIndexByKey.ContainsKey(k))
+                        wordIndexByKey[k] = w;
+                }
+
+                var listIndexByKey = new Dictionary<string, WordList>(StringComparer.OrdinalIgnoreCase);
+                foreach (var l in currentListsNow)
+                {
+                    string k = l.Name.Trim();
+                    if (!string.IsNullOrEmpty(k) && !listIndexByKey.ContainsKey(k))
+                        listIndexByKey[k] = l;
+                }
+
+                var logIndexByWordAndTime = new Dictionary<string, ReviewLog>(StringComparer.OrdinalIgnoreCase);
+                foreach (var l in currentLogsNow)
+                {
+                    DateTime d = l.ReviewDate.Kind == DateTimeKind.Utc ? l.ReviewDate.ToLocalTime() : l.ReviewDate;
+                    logIndexByWordAndTime[$"{l.WordId}_{d:yyyyMMddHHmmss}"] = l;
+                }
+
                 foreach (var inTomb in incoming.Tombstones)
                 {
                     string cleanKey = inTomb.EntityKey.Trim().ToLowerInvariant();
                     DateTime tombDeletedAt = inTomb.DeletedAt.Kind == DateTimeKind.Utc ? inTomb.DeletedAt.ToLocalTime() : inTomb.DeletedAt;
                     if (inTomb.EntityType == "word")
                     {
-                        var match = currentWords.FirstOrDefault(w => w.Text.Trim().Equals(cleanKey, StringComparison.OrdinalIgnoreCase));
+                        wordIndexByKey.TryGetValue(cleanKey, out var match);
                         DateTime matchTime = match != null ? (match.MetaUpdatedAt > match.CreatedAt ? match.MetaUpdatedAt : match.CreatedAt) : default;
 
                         if (match == null || tombDeletedAt == default || tombDeletedAt >= matchTime.AddSeconds(-1))
@@ -537,7 +647,7 @@ namespace NihongoVocab.Services
                             if (match != null)
                             {
                                 await _dbService.DeleteWordsAsync(new[] { match.Id });
-                                currentWords.Remove(match);
+                                wordIndexByKey.Remove(cleanKey);
                             }
                         }
                         else
@@ -548,7 +658,7 @@ namespace NihongoVocab.Services
                     }
                     else if (inTomb.EntityType == "word_list")
                     {
-                        var match = currentListsNow.FirstOrDefault(l => l.Name.Trim().Equals(cleanKey, StringComparison.OrdinalIgnoreCase));
+                        listIndexByKey.TryGetValue(cleanKey, out var match);
                         DateTime matchTime = match != null ? (match.UpdatedAt > match.CreatedAt ? match.UpdatedAt : match.CreatedAt) : default;
 
                         if (match == null || tombDeletedAt == default || tombDeletedAt >= matchTime.AddSeconds(-1))
@@ -559,7 +669,7 @@ namespace NihongoVocab.Services
                             if (match != null)
                             {
                                 await _dbService.DeleteWordListAsync(match.Id);
-                                currentListsNow.Remove(match);
+                                listIndexByKey.Remove(cleanKey);
                             }
                         }
                         else
@@ -578,17 +688,11 @@ namespace NihongoVocab.Services
                         {
                             string wText = cleanKey.Substring(0, lastUnderscore);
                             string timeStr = cleanKey.Substring(lastUnderscore + 1);
-                            var matchWord = currentWords.FirstOrDefault(w => w.Text.Trim().Equals(wText, StringComparison.OrdinalIgnoreCase));
-                            if (matchWord != null)
+                            if (wordIndexByKey.TryGetValue(wText, out var matchWord) &&
+                                logIndexByWordAndTime.TryGetValue($"{matchWord.Id}_{timeStr}", out var matchLog))
                             {
-                                var matchLog = currentLogsNow.FirstOrDefault(l =>
-                                    l.WordId == matchWord.Id &&
-                                    (l.ReviewDate.Kind == DateTimeKind.Utc ? l.ReviewDate.ToLocalTime() : l.ReviewDate).ToString("yyyyMMddHHmmss") == timeStr);
-                                if (matchLog != null)
-                                {
-                                    await _dbService.RevertTodayReviewAsync(matchLog.Id, isSyncRevert: true);
-                                    currentLogsNow.Remove(matchLog);
-                                }
+                                await _dbService.RevertTodayReviewAsync(matchLog.Id, isSyncRevert: true);
+                                logIndexByWordAndTime.Remove($"{matchWord.Id}_{timeStr}");
                             }
                         }
                     }

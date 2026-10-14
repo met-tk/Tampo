@@ -26,7 +26,6 @@ namespace NihongoVocab.Views
             this.InitializeComponent();
             this.NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
             RestorePreferences();
-            this.Loaded += AllWordsPage_Loaded;
             LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
             UpdateLocalizedStrings();
 
@@ -270,25 +269,15 @@ namespace NihongoVocab.Views
             }
         }
 
-        private async void AllWordsPage_Loaded(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                await ViewModel.LoadDataAsync();
-                RefreshTreeRootNodes();
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "AllWordsPage.AllWordsPage_Loaded");
-            }
-        }
+        private static readonly InputSystemCursor _sizeWestEastCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+        private static readonly InputSystemCursor _sizeNorthSouthCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);
 
 
 
         #region Splitter 拖拽调整 (水平 ColumnSplitter 与 垂直 RowSplitter)
         private void ColumnSplitter_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+            ProtectedCursor = _sizeWestEastCursor;
         }
 
         private void ColumnSplitter_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -334,7 +323,7 @@ namespace NihongoVocab.Views
 
         private void RowSplitter_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
-            ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);
+            ProtectedCursor = _sizeNorthSouthCursor;
         }
 
         private void RowSplitter_PointerExited(object sender, PointerRoutedEventArgs e)

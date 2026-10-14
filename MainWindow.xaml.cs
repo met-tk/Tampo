@@ -9,12 +9,18 @@ namespace NihongoVocab
     public sealed partial class MainWindow : Window
     {
         private static ContentDialog? _currentActiveDialog;
+        private IntPtr _hIconBig = IntPtr.Zero;
+        private IntPtr _hIconSmall = IntPtr.Zero;
 
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
         private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, SetLastError = true)]
         private static extern IntPtr LoadImage(IntPtr hInst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
 
         public MainWindow()
         {
@@ -48,10 +54,26 @@ namespace NihongoVocab
 
             this.Closed += (s, e) =>
             {
+                LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
+                ReleaseNativeIcons();
                 CrashLogger.LogInfo("MainWindow.Closed event fired!");
             };
 
             CrashLogger.LogInfo("MainWindow ctor end");
+        }
+
+        private void ReleaseNativeIcons()
+        {
+            if (_hIconBig != IntPtr.Zero)
+            {
+                DestroyIcon(_hIconBig);
+                _hIconBig = IntPtr.Zero;
+            }
+            if (_hIconSmall != IntPtr.Zero)
+            {
+                DestroyIcon(_hIconSmall);
+                _hIconSmall = IntPtr.Zero;
+            }
         }
 
         /// <summary>
@@ -245,15 +267,16 @@ namespace NihongoVocab
                     var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
                     if (hWnd != IntPtr.Zero)
                     {
-                        IntPtr hIconBig = LoadImage(IntPtr.Zero, iconPath, 1, 32, 32, 0x00000010);
-                        IntPtr hIconSmall = LoadImage(IntPtr.Zero, iconPath, 1, 16, 16, 0x00000010);
-                        if (hIconBig != IntPtr.Zero)
+                        ReleaseNativeIcons();
+                        _hIconBig = LoadImage(IntPtr.Zero, iconPath, 1, 32, 32, 0x00000010);
+                        _hIconSmall = LoadImage(IntPtr.Zero, iconPath, 1, 16, 16, 0x00000010);
+                        if (_hIconBig != IntPtr.Zero)
                         {
-                            SendMessage(hWnd, 0x0080, (IntPtr)1, hIconBig);
+                            SendMessage(hWnd, 0x0080, (IntPtr)1, _hIconBig);
                         }
-                        if (hIconSmall != IntPtr.Zero)
+                        if (_hIconSmall != IntPtr.Zero)
                         {
-                            SendMessage(hWnd, 0x0080, (IntPtr)0, hIconSmall);
+                            SendMessage(hWnd, 0x0080, (IntPtr)0, _hIconSmall);
                         }
                     }
                 }

@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:NihongoVocab.Models"
+    xmlns:converters="using:NihongoVocab.Converters"
     mc:Ignorable="d"
     Title="格式化导出 (Regex 替换)"
     CloseButtonText="关闭"
@@ -35,6 +36,8 @@
             </ResourceDictionary.ThemeDictionaries>
             <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
             <x:Double x:Key="ContentDialogMinWidth">780</x:Double>
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
         </ResourceDictionary>
     </ContentDialog.Resources>
 
@@ -83,7 +86,7 @@
                                 <Border Grid.Column="1" VerticalAlignment="Center"
                                         Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                         CornerRadius="4" Padding="4,2"
-                                        Visibility="{x:Bind IsBuiltIn}">
+                                        Visibility="{x:Bind IsBuiltIn, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <TextBlock x:Name="BuiltInBadgeText" Text="内置" FontSize="10" Opacity="0.7"/>
                                 </Border>
 

@@ -20,6 +20,8 @@ class _WordsPageState extends State<WordsPage> {
   final DatabaseService _db = DatabaseService.instance;
   final TextEditingController _searchCtrl = TextEditingController();
   StreamSubscription? _eventSub;
+  Timer? _searchDebounce;
+  int _loadToken = 0;
 
   List<Word> _words = [];
   List<WordList> _wordLists = [];
@@ -45,15 +47,28 @@ class _WordsPageState extends State<WordsPage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _eventSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
+  void _onSearchChanged(String _) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
+      if (mounted) _loadData();
+    });
+  }
+
   Future<void> _loadData() async {
+    final int token = ++_loadToken;
     setState(() => _isLoading = true);
     try {
       final lists = await _db.getAllWordLists();
+      if (_selectedListId != null && !lists.any((l) => l.id == _selectedListId)) {
+        _selectedListId = null;
+      }
 
       int? stateFilter;
       bool? archivedFilter;
@@ -77,7 +92,7 @@ class _WordsPageState extends State<WordsPage> {
         query: _searchCtrl.text,
       );
 
-      if (mounted) {
+      if (mounted && token == _loadToken) {
         setState(() {
           _wordLists = lists;
           _words = words;
@@ -89,7 +104,7 @@ class _WordsPageState extends State<WordsPage> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && token == _loadToken) {
         setState(() => _isLoading = false);
       }
     }
@@ -471,7 +486,7 @@ class _WordsPageState extends State<WordsPage> {
                     height: 40,
                     child: TextField(
                       controller: _searchCtrl,
-                      onChanged: (_) => _loadData(),
+                      onChanged: _onSearchChanged,
                       style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
                         hintText: '搜索词汇...',

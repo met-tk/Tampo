@@ -51,6 +51,9 @@ class StudyPageState extends State<StudyPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final lists = await _db.getAllWordLists();
+    if (_selectedListId != null && !lists.any((l) => l.id == _selectedListId)) {
+      _selectedListId = null;
+    }
     final queue = await _db.getStudyQueue(listId: _selectedListId);
 
     if (mounted) {
@@ -211,10 +214,10 @@ class StudyPageState extends State<StudyPage> {
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: ElevatedButton.icon(
                 icon: _isSubmitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.onPrimary),
                       )
                     : const Icon(Icons.check, size: 16),
                 label: Text('提交 ($pendingCount)'),
