@@ -1,8 +1,8 @@
-; Inno Setup 脚本 - Tampo (NihongoVocab)
+; Inno Setup 脚本 - Tampo
 #define MyAppName "Tampo"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.8"
 #define MyAppPublisher "taketo"
-#define MyAppExeName "NihongoVocab.exe"
+#define MyAppExeName "Tampo.exe"
 
 [Setup]
 AppId={{E68F231D-894C-4D62-8419-48227653229E}

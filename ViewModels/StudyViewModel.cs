@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using NihongoVocab.Models;
 using NihongoVocab.Services;
 
@@ -14,9 +13,6 @@ namespace NihongoVocab.ViewModels
     {
         private readonly DatabaseService _databaseService;
         private readonly HashSet<int> _sessionReviewedIds = new();
-
-        [ObservableProperty]
-        private int _totalCardsCount = 0;
 
         [ObservableProperty]
         private int _completedCount = 0;
@@ -39,17 +35,7 @@ namespace NihongoVocab.ViewModels
         public ObservableCollection<WordList> AvailableLists { get; } = new();
         public ObservableCollection<StudyCardItem> Cards { get; } = new();
 
-        public string StudyStartTitle => LocalizationService.Instance.GetString("StudyStartTitle", "开始学习");
-        public string StudyScopeLabel => LocalizationService.Instance.GetString("StudyScopeLabel", "复习范围：");
         public string AllDueWordsPlaceholder => LocalizationService.Instance.GetString("AllDueWordsPlaceholder", "全部到期词汇");
-        public string RemainingCountLabel => LocalizationService.Instance.GetString("RemainingCountLabel", "剩余待认：");
-        public string CompletedCountLabel => LocalizationService.Instance.GetString("CompletedCountLabel", "已记住：");
-        public string LapsedCountLabel => LocalizationService.Instance.GetString("LapsedCountLabel", "遗忘重学：");
-        public string ConfirmRememberTip => LocalizationService.Instance.GetString("ConfirmRememberTip", "再次左键确认记得");
-        public string ConfirmForgetTip => LocalizationService.Instance.GetString("ConfirmForgetTip", "再次右键确认遗忘");
-        public string NoDueWordsTitle => LocalizationService.Instance.GetString("NoDueWordsTitle", "当前范围内无待复习单词");
-        public string NoDueWordsSubTitle => LocalizationService.Instance.GetString("NoDueWordsSubTitle", "所有单词均已处于最佳记忆保护期，或当前选定词单暂无单词");
-        public string ButtonRestartSession => LocalizationService.Instance.GetString("ButtonRestartSession", "重新检查 / 刷新待学队列");
 
         public StudyViewModel(DatabaseService databaseService)
         {
@@ -72,10 +58,7 @@ namespace NihongoVocab.ViewModels
             {
                 dispatcher.TryEnqueue(async () =>
                 {
-                    // 1. 同步刷新当日已打卡记录列表
-                    await LoadTodayReviewsAsync();
-
-                    // 2. 实时智能同步待学队列（无缝追加新导入词汇，同步更新卡片数与完成状态）
+                    // 实时智能同步待学队列（无缝追加新导入词汇，同步更新卡片数与完成状态）
                     await SyncSessionQueueAsync();
                 });
             }
@@ -111,8 +94,7 @@ namespace NihongoVocab.ViewModels
                     }
                 }
 
-                // 3. 动态更新卡片总数与完成状态（绝不清空当前会话已累计的 CompletedCount 与 LapsedCount）
-                TotalCardsCount = CompletedCount + LapsedCount + Cards.Count;
+                // 3. 动态更新完成状态（绝不清空当前会话已累计的 CompletedCount 与 LapsedCount）
                 IsSessionFinished = Cards.Count == 0;
             }
             catch (Exception ex)
@@ -123,7 +105,7 @@ namespace NihongoVocab.ViewModels
 
         private bool _isLoadingSession = false;
 
-        public async Task LoadSessionAsync(int? listId = null, bool forceReload = false)
+        public async Task LoadSessionAsync(int? listId = null)
         {
             if (_isLoadingSession) return;
             _isLoadingSession = true;
@@ -165,7 +147,6 @@ namespace NihongoVocab.ViewModels
                     Cards.Add(new StudyCardItem(w));
                 }
 
-                TotalCardsCount = Cards.Count;
                 CompletedCount = 0;
                 LapsedCount = 0;
                 IsSessionFinished = Cards.Count == 0;
@@ -245,7 +226,6 @@ namespace NihongoVocab.ViewModels
             _sessionReviewedIds.Add(card.Word.Id);
             CompletedCount++;
             Cards.Remove(card);
-            TotalCardsCount = CompletedCount + LapsedCount + Cards.Count;
             if (Cards.Count == 0)
             {
                 IsSessionFinished = true;
@@ -263,7 +243,6 @@ namespace NihongoVocab.ViewModels
             card.ResetState();
             // 确认遗忘后完成今日该卡片的复习处理（记为遗忘进入学习中，下次排期至明天），绝不再塞回队尾死循环
             Cards.Remove(card);
-            TotalCardsCount = CompletedCount + LapsedCount + Cards.Count;
             if (Cards.Count == 0)
             {
                 IsSessionFinished = true;
@@ -283,58 +262,6 @@ namespace NihongoVocab.ViewModels
                     item.ResetState();
                 }
             }
-        }
-
-        public ObservableCollection<TodayReviewItem> TodayReviews { get; } = new();
-
-        public async Task LoadTodayReviewsAsync()
-        {
-            try
-            {
-                var items = await _databaseService.GetTodayReviewItemsAsync();
-                TodayReviews.Clear();
-                foreach (var it in items)
-                {
-                    TodayReviews.Add(it);
-                }
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "StudyViewModel.LoadTodayReviewsAsync");
-            }
-        }
-
-        public async Task ChangeReviewRatingAsync(TodayReviewItem item, int newRating)
-        {
-            try
-            {
-                await _databaseService.ChangeTodayReviewRatingAsync(item.LogId, newRating);
-                await LoadTodayReviewsAsync();
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "StudyViewModel.ChangeReviewRatingAsync");
-            }
-        }
-
-        public async Task RevertReviewAsync(TodayReviewItem item)
-        {
-            try
-            {
-                _sessionReviewedIds.Remove(item.WordId);
-                await _databaseService.RevertTodayReviewAsync(item.LogId);
-                await LoadTodayReviewsAsync();
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "StudyViewModel.RevertReviewAsync");
-            }
-        }
-
-        [RelayCommand]
-        public async Task RestartSessionAsync()
-        {
-            await LoadSessionAsync(SelectedList?.Id);
         }
     }
 }

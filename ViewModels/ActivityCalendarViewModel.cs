@@ -25,7 +25,7 @@ namespace NihongoVocab.ViewModels
         public DateTime Date { get; set; }
         public int DayNumber => Date.Day;
         public bool IsCurrentMonth { get; set; }
-        public bool IsToday => Date.Date == DateTime.Today;
+        public bool IsToday => Date.Date == Services.FsrsEngine.GetLogicalToday();
         public int StudyCount { get; set; }
         public int ImportCount { get; set; }
         public bool HasActivity => StudyCount > 0 || ImportCount > 0;
@@ -174,12 +174,6 @@ namespace NihongoVocab.ViewModels
     {
         private readonly DatabaseService _databaseService;
 
-        [ObservableProperty]
-        private Dictionary<DateTime, int> _importHeatmapData = new();
-
-        [ObservableProperty]
-        private Dictionary<DateTime, int> _studyHeatmapData = new();
-
         private Dictionary<DateTime, List<string>> _importedWordsDict = new();
         private Dictionary<DateTime, List<string>> _studiedWordsDict = new();
 
@@ -196,10 +190,10 @@ namespace NihongoVocab.ViewModels
         private DayActivityDetail? _selectedDayDetail;
 
         [ObservableProperty]
-        private int _currentYear = DateTime.Today.Year;
+        private int _currentYear = Services.FsrsEngine.GetLogicalToday().Year;
 
         [ObservableProperty]
-        private int _currentMonth = DateTime.Today.Month;
+        private int _currentMonth = Services.FsrsEngine.GetLogicalToday().Month;
 
         [ObservableProperty]
         private string _currentViewMode = "Year"; // "Year" 或 "Month"
@@ -211,30 +205,6 @@ namespace NihongoVocab.ViewModels
         public string ViewModeButtonText => CurrentViewMode == "Year" 
             ? LocalizationService.Instance.GetString("YearUnit", "年") 
             : LocalizationService.Instance.GetString("MonthUnit", "月");
-
-        public string YearViewOption => LocalizationService.Instance.GetString("YearViewOption", "年 (12个月全景平铺)");
-        public string MonthViewOption => LocalizationService.Instance.GetString("MonthViewOption", "月 (单月份放大明细)");
-        public string TooltipPrevPeriod => LocalizationService.Instance.GetString("TooltipPrevPeriod", "上一周期");
-        public string ButtonToday => LocalizationService.Instance.GetString("ButtonToday", "今天");
-        public string TooltipNextPeriod => LocalizationService.Instance.GetString("TooltipNextPeriod", "下一周期");
-        public string TotalWordsRecordedLabel => LocalizationService.Instance.GetString("TotalWordsRecordedLabel", "累计收录词数:");
-        public string TotalImportDaysLabel => LocalizationService.Instance.GetString("TotalImportDaysLabel", "累计导入天数:");
-        public string TotalReviewDaysLabel => LocalizationService.Instance.GetString("TotalReviewDaysLabel", "累计复习打卡天数:");
-        public string BackToYearView => LocalizationService.Instance.GetString("BackToYearView", "返回全年平铺视图");
-        public string SunShort => LocalizationService.Instance.GetString("SunShort", "日");
-        public string MonShort => LocalizationService.Instance.GetString("MonShort", "一");
-        public string TueShort => LocalizationService.Instance.GetString("TueShort", "二");
-        public string WedShort => LocalizationService.Instance.GetString("WedShort", "三");
-        public string ThuShort => LocalizationService.Instance.GetString("ThuShort", "四");
-        public string FriShort => LocalizationService.Instance.GetString("FriShort", "五");
-        public string SatShort => LocalizationService.Instance.GetString("SatShort", "六");
-        public string SunLong => LocalizationService.Instance.GetString("SunLong", "周日");
-        public string MonLong => LocalizationService.Instance.GetString("MonLong", "周一");
-        public string TueLong => LocalizationService.Instance.GetString("TueLong", "周二");
-        public string WedLong => LocalizationService.Instance.GetString("WedLong", "周三");
-        public string ThuLong => LocalizationService.Instance.GetString("ThuLong", "周四");
-        public string FriLong => LocalizationService.Instance.GetString("FriLong", "周五");
-        public string SatLong => LocalizationService.Instance.GetString("SatLong", "周六");
 
         public ObservableCollection<YearMonthItem> YearMonths { get; } = new();
         public ObservableCollection<MonthCalendarDayItem> CurrentMonthDays { get; } = new();
@@ -248,21 +218,6 @@ namespace NihongoVocab.ViewModels
                 _lastBuiltYear = -1; // 强制刷新月份网格标题（如 1月、1月/Jan 等）
                 BuildGrids();
             };
-
-            DatabaseService.DataChanged += OnDatabaseDataChanged;
-        }
-
-        private void OnDatabaseDataChanged()
-        {
-            var dispatcher = App.UIThreadDispatcher ?? App.MainWindowInstance?.DispatcherQueue;
-            if (dispatcher != null)
-            {
-                dispatcher.TryEnqueue(async () => await LoadDataAsync());
-            }
-            else
-            {
-                _ = LoadDataAsync();
-            }
         }
 
         public async Task LoadDataAsync()
@@ -273,9 +228,6 @@ namespace NihongoVocab.ViewModels
                 TotalImportDays = stats.TotalImportDays;
                 TotalStudyDays = stats.TotalStudyDays;
                 TotalWords = stats.TotalWords;
-
-                ImportHeatmapData = await _databaseService.GetImportHeatmapDataAsync();
-                StudyHeatmapData = await _databaseService.GetStudyHeatmapDataAsync();
 
                 var (imported, studied) = await _databaseService.GetCalendarActivityDetailsDictAsync();
                 _importedWordsDict = imported;
@@ -349,8 +301,9 @@ namespace NihongoVocab.ViewModels
 
         public void NavigateToday()
         {
-            CurrentYear = DateTime.Today.Year;
-            CurrentMonth = DateTime.Today.Month;
+            DateTime logicalToday = Services.FsrsEngine.GetLogicalToday();
+            CurrentYear = logicalToday.Year;
+            CurrentMonth = logicalToday.Month;
             OnPropertyChanged(nameof(HeaderTitle));
             BuildGrids();
         }
@@ -442,9 +395,6 @@ namespace NihongoVocab.ViewModels
             for (int i = 0; i < 42; i++)
             {
                 var date = startDate.AddDays(i);
-                int study = StudyHeatmapData.TryGetValue(date.Date, out var s) ? s : 0;
-                int import = ImportHeatmapData.TryGetValue(date.Date, out var im) ? im : 0;
-
                 _importedWordsDict.TryGetValue(date.Date, out var impWords);
                 _studiedWordsDict.TryGetValue(date.Date, out var stdWords);
 
@@ -452,8 +402,8 @@ namespace NihongoVocab.ViewModels
                 {
                     Date = date,
                     IsCurrentMonth = date.Month == month,
-                    StudyCount = study,
-                    ImportCount = import,
+                    StudyCount = stdWords?.Count ?? 0,
+                    ImportCount = impWords?.Count ?? 0,
                     ImportedWords = impWords ?? new(),
                     StudiedWords = stdWords ?? new()
                 });

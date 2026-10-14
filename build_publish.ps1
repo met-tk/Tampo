@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
 Write-Host "[0/5] Ensuring previous processes are closed..." -ForegroundColor Cyan
-Get-Process -Name "NihongoVocab","Setup","Tampo_Setup_v1.0.0","Tampo_Setup_v1.1.0","Tampo_Setup_v1.1.1","Tampo_Setup_v1.1.2","Tampo_Update_v1.1.2","Tampo_Setup_v1.1.3","Tampo_Update_v1.1.3","Tampo_Setup_v1.1.4","Tampo_Update_v1.1.4","Tampo_Setup_v1.1.5","Tampo_Update_v1.1.5","Tampo_Setup_v1.1.6","Tampo_Update_v1.1.6","Tampo_Setup_v1.1.7","Tampo_Update_v1.1.7","Tampo_Setup_v1.1.8","Tampo_Update_v1.1.8","Tampo_Setup_v1.1.9","Tampo_Update_v1.1.9","Tampo_Setup_v1.2.0","Tampo_Update_v1.2.0","Tampo_Setup_v1.2.1","Tampo_Update_v1.2.1","Tampo_Setup_v1.2.2","Tampo_Update_v1.2.2","Tampo_Setup_v1.2.3","Tampo_Update_v1.2.3","Tampo_Setup_v1.2.4","Tampo_Update_v1.2.4","Tampo_Setup_v1.2.5","Tampo_Update_v1.2.5" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process | Where-Object { $_.ProcessName -match '^(Tampo|NihongoVocab|Setup|Tampo_Setup_.*|Tampo_Update_.*)$' } | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 600
 
 Write-Host "[1/5] Cleaning old build caches and regenerating icons..." -ForegroundColor Cyan
@@ -15,7 +15,7 @@ Write-Host "  Generating smooth rounded icons from original ta.png..." -Foregrou
 python "$root\tools\generate_icons.py"
 
 Write-Host "[2/5] Publishing Release..." -ForegroundColor Cyan
-dotnet publish "$root\NihongoVocab.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishReadyToRun=false
+dotnet publish "$root\Tampo.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishReadyToRun=false
 
 Write-Host "[3/5] Syncing to publish directory..." -ForegroundColor Cyan
 $binDir = "$root\bin\Release\net8.0-windows10.0.26100.0\win-x64"
@@ -29,7 +29,10 @@ if (Test-Path "$binDir\Views")            { Copy-Item "$binDir\Views"           
 if (Test-Path "$binDir\Controls")         { Copy-Item "$binDir\Controls"         "$dst\Controls"         -Recurse -Force }
 if (Test-Path "$binDir\App.xbf")          { Copy-Item "$binDir\App.xbf"          "$dst\App.xbf"          -Force }
 if (Test-Path "$binDir\MainWindow.xbf")   { Copy-Item "$binDir\MainWindow.xbf"   "$dst\MainWindow.xbf"   -Force }
-if (Test-Path "$binDir\NihongoVocab.pri") {
+if (Test-Path "$binDir\Tampo.pri") {
+    Copy-Item "$binDir\Tampo.pri" "$dst\Tampo.pri" -Force
+    Copy-Item "$binDir\Tampo.pri" "$dst\resources.pri" -Force
+} elseif (Test-Path "$binDir\NihongoVocab.pri") {
     Copy-Item "$binDir\NihongoVocab.pri" "$dst\NihongoVocab.pri" -Force
     Copy-Item "$binDir\NihongoVocab.pri" "$dst\resources.pri"    -Force
 }
@@ -45,8 +48,8 @@ Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
 
 # ---- Prepare Setup output directory ----------------------------------------
 $setupDir       = "$root\Setup"
-$setupExeFinal  = "$setupDir\Tampo_Setup_v1.2.5.exe"
-$updateExeFinal = "$setupDir\Tampo_Update_v1.2.5.exe"
+$setupExeFinal  = "$setupDir\Tampo_Setup_v1.2.8.exe"
+$updateExeFinal = "$setupDir\Tampo_Update_v1.2.8.exe"
 
 if (Test-Path $setupDir) {
     Remove-Item $setupDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -63,11 +66,11 @@ Compress-Archive -Path "$dst\*" -DestinationPath $payloadZip -CompressionLevel O
 
 Write-Host "  Compiling standalone single-file installer..." -ForegroundColor DarkGray
 # Pass AssemblyName directly so the output exe is already correctly named -- no rename step needed
-dotnet publish "$root\Installer\NihongoVocab.Installer.csproj" `
+dotnet publish "$root\Installer\Tampo.Installer.csproj" `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:AssemblyName=Tampo_Setup_v1.2.5 `
+    -p:AssemblyName=Tampo_Setup_v1.2.8 `
     -o $setupDir | Out-Null
 
 # ---- Clean intermediate artifacts ------------------------------------------

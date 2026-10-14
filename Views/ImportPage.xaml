@@ -30,8 +30,7 @@
                 <TextBlock x:Name="PresetLabelTextBlock" Text="文本清洗预设:" VerticalAlignment="Center" Opacity="0.8"/>
                 <ComboBox x:Name="PresetComboBox" Width="200"
                           ItemsSource="{x:Bind ViewModel.Presets}"
-                          SelectedItem="{x:Bind ViewModel.SelectedPreset, Mode=TwoWay}"
-                          SelectionChanged="PresetComboBox_SelectionChanged">
+                          SelectedItem="{x:Bind ViewModel.SelectedPreset, Mode=TwoWay}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate x:DataType="models:CleansingPreset">
                             <TextBlock Text="{x:Bind Name}"/>

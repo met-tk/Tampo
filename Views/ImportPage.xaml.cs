@@ -15,8 +15,16 @@ namespace NihongoVocab.Views
         public ImportPage()
         {
             this.InitializeComponent();
-            LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
-            this.Loaded += (s, e) => UpdateLocalizedStrings();
+            this.Loaded += (s, e) =>
+            {
+                LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
+                LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
+                UpdateLocalizedStrings();
+            };
+            this.Unloaded += (s, e) =>
+            {
+                LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
+            };
             UpdateLocalizedStrings();
         }
 
@@ -58,10 +66,6 @@ namespace NihongoVocab.Views
             {
                 CrashLogger.LogException(ex, "ImportPage.ManagePresetsButton_Click");
             }
-        }
-
-        private void PresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
         }
 
         private void DeleteCandidate_Click(object sender, RoutedEventArgs e)

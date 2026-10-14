@@ -18,23 +18,24 @@ namespace NihongoVocab.Services
     /// </summary>
     public static class WordDetailDialogHelper
     {
+        private static readonly Brush DarkCardBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 43, 43, 43));
+        private static readonly Brush LightCardBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+        private static readonly Brush DarkCardSecondaryBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 50));
+        private static readonly Brush LightCardSecondaryBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+        private static readonly Brush DarkLayerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 38, 38, 38));
+        private static readonly Brush LightLayerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+        private static readonly Brush DarkStrokeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(32, 255, 255, 255));
+        private static readonly Brush LightStrokeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(22, 0, 0, 0));
+
         private static bool IsDarkTheme() => ThemeHelper.IsCurrentDarkTheme();
 
-        private static Brush GetThemeCardBrush(bool isDark) =>
-            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 43, 43, 43))
-                   : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+        private static Brush GetThemeCardBrush(bool isDark) => isDark ? DarkCardBrush : LightCardBrush;
 
-        private static Brush GetThemeCardSecondaryBrush(bool isDark) =>
-            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 50))
-                   : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+        private static Brush GetThemeCardSecondaryBrush(bool isDark) => isDark ? DarkCardSecondaryBrush : LightCardSecondaryBrush;
 
-        private static Brush GetThemeLayerBrush(bool isDark) =>
-            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 38, 38, 38))
-                   : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 245, 245, 245));
+        private static Brush GetThemeLayerBrush(bool isDark) => isDark ? DarkLayerBrush : LightLayerBrush;
 
-        private static Brush GetThemeStrokeBrush(bool isDark) =>
-            isDark ? new SolidColorBrush(Windows.UI.Color.FromArgb(32, 255, 255, 255))
-                   : new SolidColorBrush(Windows.UI.Color.FromArgb(22, 0, 0, 0));
+        private static Brush GetThemeStrokeBrush(bool isDark) => isDark ? DarkStrokeBrush : LightStrokeBrush;
 
         public static async Task ShowWordDetailDialogAsync(
             XamlRoot xamlRoot,
@@ -59,7 +60,7 @@ namespace NihongoVocab.Services
             try
             {
                 var db = App.GetService<DatabaseService>();
-                var logs = await db.GetReviewLogsByWordIdAsync(word.Id);
+                var logs = await db.GetWordReviewLogsAsync(word.Id);
                 bool isDark = IsDarkTheme();
                 var currentTheme = (App.MainWindowInstance?.Content as FrameworkElement)?.ActualTheme 
                                    ?? (isDark ? ElementTheme.Dark : ElementTheme.Light);

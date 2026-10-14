@@ -1,3 +1,5 @@
+import '../services/fsrs_engine.dart';
+
 /// 单词状态枚举 (与电脑端完全一致)
 enum WordLearningState {
   newWord(0),
@@ -73,20 +75,18 @@ class Word {
         metaUpdatedAt = metaUpdatedAt ?? createdAt ?? DateTime.now();
 
   WordLearningState get learningState => WordLearningState.fromInt(state);
-  set learningState(WordLearningState s) => state = s.value;
 
   bool get isDue {
-    if (state == WordLearningState.mastered.value || state == 4) return false;
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
-    if (lastReviewDate != null && !lastReviewDate!.toLocal().isBefore(todayStart)) {
+    if (state == WordLearningState.mastered.value) return false;
+    final logicalToday = FsrsEngine.getLogicalToday();
+    final logicalTodayEnd = DateTime(logicalToday.year, logicalToday.month, logicalToday.day, 23, 59, 59, 999);
+    if (lastReviewDate != null && !FsrsEngine.getLogicalDate(lastReviewDate!).isBefore(logicalToday)) {
       return false;
     }
     if (state == WordLearningState.newWord.value || reps <= 0 || nextReviewDate == null) {
       return true;
     }
-    return !nextReviewDate!.toLocal().isAfter(endOfToday);
+    return !nextReviewDate!.toLocal().isAfter(logicalTodayEnd);
   }
 
   Map<String, dynamic> toMap() {
@@ -111,21 +111,8 @@ class Word {
 
   Map<String, dynamic> toSyncMap() {
     return {
-      if (id > 0) 'id': id,
-      'text': text,
-      'createdAt': createdAt.toIso8601String(),
+      ...toMap(),
       'isInList': isInList,
-      'wordListId': wordListId,
-      'wordListName': wordListName,
-      'state': state,
-      'stability': stability,
-      'difficulty': difficulty,
-      'reps': reps,
-      'lapses': lapses,
-      'lastReviewDate': lastReviewDate?.toIso8601String(),
-      'nextReviewDate': nextReviewDate?.toIso8601String(),
-      'stateUpdatedAt': stateUpdatedAt.toIso8601String(),
-      'metaUpdatedAt': metaUpdatedAt.toIso8601String(),
     };
   }
 
@@ -167,9 +154,6 @@ class Word {
           : cDate ?? now,
     );
   }
-
-  Map<String, dynamic> toJson() => toMap();
-  factory Word.fromJson(Map<String, dynamic> json) => Word.fromMap(json);
 }
 
 /// 词单模型
@@ -213,9 +197,6 @@ class WordList {
       wordCount: map['wordCount'] is int ? map['wordCount'] : int.tryParse(map['wordCount']?.toString() ?? '') ?? 0,
     );
   }
-
-  Map<String, dynamic> toJson() => toMap();
-  factory WordList.fromJson(Map<String, dynamic> json) => WordList.fromMap(json);
 }
 
 /// 打卡复习日志
@@ -247,10 +228,7 @@ class ReviewLog {
   }) : reviewDate = reviewDate ?? DateTime.now();
 
   double get stabilityAfter => stability;
-  set stabilityAfter(double v) => stability = v;
-
   double get difficultyAfter => difficulty;
-  set difficultyAfter(double v) => difficulty = v;
 
   Map<String, dynamic> toMap() {
     return {
@@ -307,7 +285,4 @@ class ReviewLog {
       scheduledDays: map['scheduledDays'] is int ? map['scheduledDays'] : int.tryParse(map['scheduledDays']?.toString() ?? '') ?? 0,
     );
   }
-
-  Map<String, dynamic> toJson() => toSyncMap();
-  factory ReviewLog.fromJson(Map<String, dynamic> json) => ReviewLog.fromMap(json);
 }

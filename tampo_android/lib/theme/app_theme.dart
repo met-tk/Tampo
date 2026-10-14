@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppTheme {
   // 浅色主题：雅白基调，纯黑高反差文字与单色线框
@@ -19,6 +20,11 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
         iconTheme: IconThemeData(color: Color(0xFF111111), size: 20),
         titleTextStyle: TextStyle(
           color: Color(0xFF111111),
@@ -74,6 +80,11 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
         iconTheme: IconThemeData(color: Colors.white, size: 20),
         titleTextStyle: TextStyle(
           color: Colors.white,

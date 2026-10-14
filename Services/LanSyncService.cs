@@ -82,9 +82,10 @@ namespace NihongoVocab.Services
         public event Action<bool>? StatusChanged;
         public event Action<string>? LogReceived;
 
-        private LanSyncService()
+        public LanSyncService(DatabaseService? dbService = null, int port = DefaultPort)
         {
-            _dbService = new DatabaseService();
+            _dbService = dbService ?? new DatabaseService();
+            Port = port;
         }
 
         public static string GeneratePin()
@@ -161,16 +162,6 @@ namespace NihongoVocab.Services
             return results.OrderByDescending(e => e.IsEthernet)
                           .ThenBy(e => e.IpAddress.StartsWith("192.168.") ? 0 : 1)
                           .ToList();
-        }
-
-        public List<string> GetLocalIpAddresses()
-        {
-            var endpoints = GetNetworkEndpoints();
-            if (endpoints.Count > 0)
-            {
-                return endpoints.Select(e => e.IpAddress).ToList();
-            }
-            return new List<string> { "127.0.0.1" };
         }
 
         public async Task StartAsync()
@@ -337,7 +328,7 @@ namespace NihongoVocab.Services
                         {
                             status = "ok",
                             device = Environment.MachineName,
-                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.1.7",
+                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.2.8",
                             server_time = DateTime.Now
                         };
                         await SendHttpJsonAsync(stream, 200, pingObj);
@@ -526,6 +517,9 @@ namespace NihongoVocab.Services
 
             if (incoming.Tombstones != null && incoming.Tombstones.Count > 0)
             {
+                var currentListsNow = await _dbService.GetAllWordListsAsync();
+                var currentLogsNow = await _dbService.GetAllReviewLogsAsync();
+
                 foreach (var inTomb in incoming.Tombstones)
                 {
                     string cleanKey = inTomb.EntityKey.Trim().ToLowerInvariant();
@@ -543,6 +537,7 @@ namespace NihongoVocab.Services
                             if (match != null)
                             {
                                 await _dbService.DeleteWordsAsync(new[] { match.Id });
+                                currentWords.Remove(match);
                             }
                         }
                         else
@@ -553,7 +548,6 @@ namespace NihongoVocab.Services
                     }
                     else if (inTomb.EntityType == "word_list")
                     {
-                        var currentListsNow = await _dbService.GetAllWordListsAsync();
                         var match = currentListsNow.FirstOrDefault(l => l.Name.Trim().Equals(cleanKey, StringComparison.OrdinalIgnoreCase));
                         DateTime matchTime = match != null ? (match.UpdatedAt > match.CreatedAt ? match.UpdatedAt : match.CreatedAt) : default;
 
@@ -565,6 +559,7 @@ namespace NihongoVocab.Services
                             if (match != null)
                             {
                                 await _dbService.DeleteWordListAsync(match.Id);
+                                currentListsNow.Remove(match);
                             }
                         }
                         else
@@ -586,13 +581,13 @@ namespace NihongoVocab.Services
                             var matchWord = currentWords.FirstOrDefault(w => w.Text.Trim().Equals(wText, StringComparison.OrdinalIgnoreCase));
                             if (matchWord != null)
                             {
-                                var logs = await _dbService.GetAllReviewLogsAsync();
-                                var matchLog = logs.FirstOrDefault(l =>
+                                var matchLog = currentLogsNow.FirstOrDefault(l =>
                                     l.WordId == matchWord.Id &&
                                     (l.ReviewDate.Kind == DateTimeKind.Utc ? l.ReviewDate.ToLocalTime() : l.ReviewDate).ToString("yyyyMMddHHmmss") == timeStr);
                                 if (matchLog != null)
                                 {
                                     await _dbService.RevertTodayReviewAsync(matchLog.Id, isSyncRevert: true);
+                                    currentLogsNow.Remove(matchLog);
                                 }
                             }
                         }
@@ -782,15 +777,16 @@ namespace NihongoVocab.Services
                 }
             }
 
-            // 3. 增量追加或同日幂等合并打卡复习日志（按自然日 WordId + yyyyMMdd 保证每日至多 1 条日志）
+            // 3. 增量追加或同日幂等合并打卡复习日志（按逻辑日 WordId + yyyyMMdd 保证每日至多 1 条日志）
             var existingLogs = await _dbService.GetAllReviewLogsAsync();
             var existingLogsByKey = new Dictionary<string, ReviewLog>(StringComparer.OrdinalIgnoreCase);
             var existingLogsByWordDay = new Dictionary<string, ReviewLog>(StringComparer.OrdinalIgnoreCase);
             foreach (var l in existingLogs)
             {
                 DateTime localDate = l.ReviewDate.Kind == DateTimeKind.Utc ? l.ReviewDate.ToLocalTime() : l.ReviewDate;
+                DateTime logicalDay = FsrsEngine.GetLogicalDate(localDate);
                 string k = $"{l.WordId}_{localDate:yyyyMMddHHmmss}";
-                string dayK = $"{l.WordId}_{localDate:yyyyMMdd}";
+                string dayK = $"{l.WordId}_{logicalDay:yyyyMMdd}";
                 existingLogsByKey[k] = l;
                 if (!existingLogsByWordDay.TryGetValue(dayK, out var prevDayLog) || localDate >= prevDayLog.ReviewDate)
                 {
@@ -829,8 +825,9 @@ namespace NihongoVocab.Services
 
                     DateTime localReviewDate = inLog.ReviewDate.Kind == DateTimeKind.Utc ? inLog.ReviewDate.ToLocalTime() : inLog.ReviewDate;
                     inLog.ReviewDate = localReviewDate;
+                    DateTime logicalReviewDay = FsrsEngine.GetLogicalDate(localReviewDate);
                     string timeStr = localReviewDate.ToString("yyyyMMddHHmmss");
-                    string dayStr = localReviewDate.ToString("yyyyMMdd");
+                    string dayStr = logicalReviewDay.ToString("yyyyMMdd");
 
                     string tombKey = $"{cleanWordKey}_{timeStr}";
                     // 若已被撤销删除，严禁复活！
@@ -859,7 +856,7 @@ namespace NihongoVocab.Services
                     }
                     else if (existingLogsByWordDay.TryGetValue(dayKey, out var sameDayLog))
                     {
-                        // 双端同日不同时刻离线打卡幂等归一：同一单词在同一自然日最多保留 1 条最新记录，旧时间戳写入墓碑防复活
+                        // 双端同日不同时刻离线打卡幂等归一：同一单词在同一逻辑日最多保留 1 条最新记录，旧时间戳写入墓碑防复活
                         DateTime existingLocalDate = sameDayLog.ReviewDate.Kind == DateTimeKind.Utc
                             ? sameDayLog.ReviewDate.ToLocalTime()
                             : sameDayLog.ReviewDate;
@@ -959,7 +956,7 @@ namespace NihongoVocab.Services
                                 ? 0
                                 : (int)Math.Round(FsrsEngine.GetCalendarElapsedDays(simWord.LastReviewDate ?? w.CreatedAt, rLog.ReviewDate));
                             var (rNewS, rNewD, rNext) = FsrsEngine.Review(simWord, rLog.Rating, rLog.ReviewDate);
-                            int rSched = Math.Max(1, (int)Math.Round((rNext.Date - rLog.ReviewDate.Date).TotalDays));
+                            int rSched = Math.Max(1, (int)Math.Round((rNext.Date - FsrsEngine.GetLogicalDate(rLog.ReviewDate)).TotalDays));
 
                             if (Math.Abs(rLog.StabilityBefore - rPreS) > 0.001 ||
                                 Math.Abs(rLog.StabilityAfter - rNewS) > 0.001 ||

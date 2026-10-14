@@ -58,7 +58,6 @@ namespace NihongoVocab.Views
             {
                 if (ViewModel.Cards.Count > 0 || ViewModel.CompletedCount > 0 || ViewModel.LapsedCount > 0)
                 {
-                    await ViewModel.LoadTodayReviewsAsync();
                     await ViewModel.SyncSessionQueueAsync();
                 }
                 else
@@ -70,11 +69,6 @@ namespace NihongoVocab.Views
             {
                 CrashLogger.LogException(ex, "StudyPage.OnNavigatedTo");
             }
-        }
-
-        protected override void OnNavigatedFrom(NavigationEventArgs e)
-        {
-            base.OnNavigatedFrom(e);
         }
 
         private async void StudyPage_Loaded(object sender, RoutedEventArgs e)
@@ -103,18 +97,6 @@ namespace NihongoVocab.Views
             catch (Exception ex)
             {
                 CrashLogger.LogException(ex, "StudyPage.ListFilterComboBox_SelectionChanged");
-            }
-        }
-
-        private async void RestartSession_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                await ViewModel.RestartSessionAsync();
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "StudyPage.RestartSession_Click");
             }
         }
 

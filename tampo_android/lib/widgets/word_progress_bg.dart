@@ -43,7 +43,7 @@ class WordCardProgressBackground extends StatelessWidget {
               final maxWidth = constraints.maxWidth;
 
               return TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0.0, end: ratio),
+                tween: Tween<double>(begin: ratio, end: ratio),
                 duration: const Duration(milliseconds: 550),
                 curve: Curves.easeOutCubic,
                 builder: (context, animRatio, _) {

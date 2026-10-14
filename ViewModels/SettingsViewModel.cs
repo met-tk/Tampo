@@ -16,26 +16,10 @@ namespace NihongoVocab.ViewModels
         private ElementTheme _currentTheme = ElementTheme.Default;
 
         [ObservableProperty]
-        private string _logPath;
+        private int _dayRolloverHour = 4;
 
-        public string SettingsTitle => LocalizationService.Instance.GetString("SettingsTitle", "设置");
-        public string AppearanceAndLanguage => LocalizationService.Instance.GetString("AppearanceAndLanguage", "外观与语言");
-        public string ThemeSettings => LocalizationService.Instance.GetString("ThemeSettings", "应用主题");
-        public string ThemeDefault => LocalizationService.Instance.GetString("ThemeDefault", "跟随系统");
-        public string ThemeLight => LocalizationService.Instance.GetString("ThemeLight", "明亮模式");
-        public string ThemeDark => LocalizationService.Instance.GetString("ThemeDark", "深色模式");
-        public string LanguageSettings => LocalizationService.Instance.GetString("LanguageSettings", "显示语言");
-        public string DiagnosticAndLogs => LocalizationService.Instance.GetString("DiagnosticAndLogs", "诊断与日志");
-        public string LogPathLabel => LocalizationService.Instance.GetString("LogPathLabel", "运行日志路径");
-        public string ButtonOpenDirectory => LocalizationService.Instance.GetString("ButtonOpenDirectory", "打开目录");
-        public string DataMaintenance => LocalizationService.Instance.GetString("DataMaintenance", "数据维护");
-        public string ClearDataLabel => LocalizationService.Instance.GetString("ClearDataLabel", "清空所有词库与复习数据");
-        public string ClearDataSubLabel => LocalizationService.Instance.GetString("ClearDataSubLabel", "彻底清空本地所有单词、词单及复习日志，不可恢复");
-        public string ButtonClearAllData => LocalizationService.Instance.GetString("ButtonClearAllData", "清空所有数据");
-        public string AboutTitle => LocalizationService.Instance.GetString("AboutTitle", "关于 Tampo");
-        public string VersionLabel => LocalizationService.Instance.GetString("VersionLabel", "版本：1.2.5");
-        public string ArchLabel => LocalizationService.Instance.GetString("ArchLabel", "架构：.NET 8 · WinUI 3 · SQLite");
-        public string FsrsModelLabel => LocalizationService.Instance.GetString("FsrsModelLabel", "调度模型：FSRS (Free Spaced Repetition Scheduler)");
+        [ObservableProperty]
+        private string _logPath;
 
         public SettingsViewModel()
         {
@@ -47,6 +31,9 @@ namespace NihongoVocab.ViewModels
             {
                 _currentTheme = parsedTheme;
             }
+
+            _dayRolloverHour = Math.Clamp(UserPreferenceService.Instance.GetInt("App_DayRolloverHour", 4), 0, 6);
+            FsrsEngine.DayRolloverHour = _dayRolloverHour;
 
             LocalizationService.Instance.LanguageChanged += (s, e) =>
             {
@@ -70,6 +57,15 @@ namespace NihongoVocab.ViewModels
                 rootElement.RequestedTheme = theme;
             }
             App.MainWindowInstance?.UpdateTitleBarTheme(theme);
+        }
+
+        public void SetDayRolloverHour(int hour)
+        {
+            int clamped = Math.Clamp(hour, 0, 6);
+            DayRolloverHour = clamped;
+            FsrsEngine.DayRolloverHour = clamped;
+            UserPreferenceService.Instance.SetInt("App_DayRolloverHour", clamped);
+            DatabaseService.NotifyDataChanged();
         }
 
         public async Task ClearAllDataAsync()

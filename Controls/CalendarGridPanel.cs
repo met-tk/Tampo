@@ -30,12 +30,7 @@ namespace NihongoVocab.Controls
                 child.Measure(childAvailableSize);
             }
 
-            int count = Children.Count;
-            int rowCount = (count + 6) / 7;
-            if (rowCount == 0) rowCount = 6;
-
-            double totalHeight = rowCount * CellHeight + Math.Max(0, rowCount - 1) * RowSpacing;
-            return new Size(availableWidth, totalHeight);
+            return new Size(availableWidth, CalculateGridHeight(Children.Count));
         }
 
         protected override Size ArrangeOverride(Size finalSize)
@@ -53,12 +48,14 @@ namespace NihongoVocab.Controls
                 Children[i].Arrange(new Rect(x, y, colWidth, CellHeight));
             }
 
-            int count = Children.Count;
+            return new Size(finalSize.Width, CalculateGridHeight(Children.Count));
+        }
+
+        private double CalculateGridHeight(int count)
+        {
             int rowCount = (count + 6) / 7;
             if (rowCount == 0) rowCount = 6;
-
-            double totalHeight = rowCount * CellHeight + Math.Max(0, rowCount - 1) * RowSpacing;
-            return new Size(finalSize.Width, totalHeight);
+            return rowCount * CellHeight + Math.Max(0, rowCount - 1) * RowSpacing;
         }
     }
 }

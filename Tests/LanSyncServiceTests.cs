@@ -10,6 +10,24 @@ namespace NihongoVocab.Tests
 {
     public class LanSyncServiceTests
     {
+        private static (string DbPath, DatabaseService Db, LanSyncService Service) CreateIsolatedSyncEnv()
+        {
+            string tempDbPath = Path.Combine(Path.GetTempPath(), $"tampo_sync_test_{Guid.NewGuid():N}.db");
+            var db = new DatabaseService(tempDbPath);
+            var service = new LanSyncService(db, port: 0);
+            return (tempDbPath, db, service);
+        }
+
+        private static void CleanupIsolatedSyncEnv(string dbPath, LanSyncService service)
+        {
+            service.Stop();
+            try
+            {
+                if (File.Exists(dbPath)) File.Delete(dbPath);
+            }
+            catch { }
+        }
+
         [Fact]
         public void NetworkEndpoints_Should_Prioritize_Ethernet_And_Filter_Virtual_Adapters()
         {
@@ -29,7 +47,7 @@ namespace NihongoVocab.Tests
         [Fact]
         public async Task LanSyncService_Start_Ping_And_Pull_Should_Work()
         {
-            var service = LanSyncService.Instance;
+            var (dbPath, _, service) = CreateIsolatedSyncEnv();
             await service.StartAsync();
 
             try
@@ -65,7 +83,7 @@ namespace NihongoVocab.Tests
             }
             finally
             {
-                service.Stop();
+                CleanupIsolatedSyncEnv(dbPath, service);
                 Assert.False(service.IsRunning);
             }
         }
@@ -73,12 +91,8 @@ namespace NihongoVocab.Tests
         [Fact]
         public async Task LanSyncService_Push_Mastered_Word_Should_Merge_Correctly()
         {
-            var service = LanSyncService.Instance;
+            var (dbPath, db, service) = CreateIsolatedSyncEnv();
             await service.StartAsync();
-
-            var db = new DatabaseService();
-            await db.RemoveTombstoneAsync("word", "测试掌握同步词A");
-            await db.RemoveTombstoneAsync("word", "测试掌握兼容词B");
 
             try
             {
@@ -135,28 +149,19 @@ namespace NihongoVocab.Tests
                 Assert.Equal(3, wordB.State);
                 Assert.Null(wordB.NextReviewDate);
                 Assert.Equal(3.7145, wordB.Stability, 4);
-
-                // 清理测试临时插入的词
-                if (wordA != null) await db.DeleteWordsAsync(new[] { wordA.Id });
-                if (wordB != null) await db.DeleteWordsAsync(new[] { wordB.Id });
-                await db.RemoveTombstoneAsync("word", "测试掌握同步词A");
-                await db.RemoveTombstoneAsync("word", "测试掌握兼容词B");
             }
             finally
             {
-                service.Stop();
+                CleanupIsolatedSyncEnv(dbPath, service);
             }
         }
 
         [Fact]
         public async Task LanSyncService_OrthogonalMerge_Should_Preserve_Reviews_While_Updating_WordList()
         {
-            var db = new DatabaseService();
+            var (dbPath, db, service) = CreateIsolatedSyncEnv();
             string testWord = "测试正交合并词_" + Guid.NewGuid().ToString("N").Substring(0, 6);
             string testList = "测试正交词单_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-
-            await db.RemoveTombstoneAsync("word", testWord);
-            await db.RemoveTombstoneAsync("word_list", testList);
 
             // 1. 本地初始化：电脑端复习了 5 次，StateUpdatedAt 为今天 10:00，无词单归属
             var localWord = new Models.Word
@@ -174,8 +179,6 @@ namespace NihongoVocab.Tests
                 WordListId = null
             };
             await db.AddWordAsync(localWord);
-
-            var service = LanSyncService.Instance;
             await service.StartAsync();
 
             try
@@ -236,25 +239,17 @@ namespace NihongoVocab.Tests
                 Assert.Equal((int)Models.WordLearningState.Review, merged.State);
                 Assert.True(merged.IsInList); // 核心：词单归属成功合并！
                 Assert.Equal(testList, merged.WordListName);
-
-                // 清理
-                var allLists = await db.GetAllWordListsAsync();
-                var targetL = allLists.Find(l => l.Name.Equals(testList, StringComparison.OrdinalIgnoreCase));
-                if (targetL != null) await db.DeleteWordListAsync(targetL.Id);
-                await db.DeleteWordsAsync(new[] { merged.Id });
-                await db.RemoveTombstoneAsync("word", testWord);
-                await db.RemoveTombstoneAsync("word_list", testList);
             }
             finally
             {
-                service.Stop();
+                CleanupIsolatedSyncEnv(dbPath, service);
             }
         }
 
         [Fact]
         public async Task LanSyncService_WordList_Tombstone_Should_Prevent_Deleted_List_From_Resurrecting()
         {
-            var db = new DatabaseService();
+            var (dbPath, db, service) = CreateIsolatedSyncEnv();
             string deletedListName = "已删除词单_" + Guid.NewGuid().ToString("N").Substring(0, 6);
 
             // 1. 创建词单后删除之，验证墓碑已产生
@@ -264,7 +259,6 @@ namespace NihongoVocab.Tests
             var tombstones = await db.GetAllTombstonesAsync();
             Assert.Contains(tombstones, t => t.EntityType == "word_list" && t.EntityKey.Equals(deletedListName, StringComparison.OrdinalIgnoreCase));
 
-            var service = LanSyncService.Instance;
             await service.StartAsync();
 
             try
@@ -299,22 +293,18 @@ namespace NihongoVocab.Tests
                 // 3. 验证该词单绝未在本地复活
                 var allLists = await db.GetAllWordListsAsync();
                 Assert.DoesNotContain(allLists, l => l.Name.Equals(deletedListName, StringComparison.OrdinalIgnoreCase));
-
-                // 清理墓碑
-                await db.RemoveTombstoneAsync("word_list", deletedListName);
             }
             finally
             {
-                service.Stop();
+                CleanupIsolatedSyncEnv(dbPath, service);
             }
         }
 
         [Fact]
         public async Task LanSyncService_ReviewLog_RatingOverride_Should_Update_InPlace_Without_Duplicate_Logs()
         {
-            var db = new DatabaseService();
+            var (dbPath, db, service) = CreateIsolatedSyncEnv();
             string testWord = "同步改判词_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-            await db.RemoveTombstoneAsync("word", testWord);
 
             DateTime reviewTime = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 10, 30, 15, DateTimeKind.Local);
             var localWord = new Models.Word
@@ -334,7 +324,6 @@ namespace NihongoVocab.Tests
             // 本地先记录一次 Rating=1 的打卡
             await db.UpdateWordFSRSAsync(insertedWord, 1, reviewTime);
 
-            var service = LanSyncService.Instance;
             await service.StartAsync();
 
             try
@@ -399,28 +388,22 @@ namespace NihongoVocab.Tests
                 Assert.Equal(1, updatedWord.Reps);
                 Assert.Equal(0, updatedWord.Lapses);
                 Assert.Equal(3.7145, updatedWord.Stability, 3);
-
-                // 清理测试数据
-                await db.DeleteWordsAsync(new[] { insertedWord.Id });
-                await db.RemoveTombstoneAsync("word", testWord);
             }
             finally
             {
-                service.Stop();
+                CleanupIsolatedSyncEnv(dbPath, service);
             }
         }
 
         [Fact]
         public async Task LanSyncService_SameDayCrossDeviceLogs_Should_DeduplicateToLatest_And_WriteOldTombstone()
         {
-            var db = new DatabaseService();
+            var (dbPath, db, service) = CreateIsolatedSyncEnv();
             string testWord = "同日跨端去重词_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-            await db.RemoveTombstoneAsync("word", testWord);
 
             DateTime morningTime = DateTime.Today.AddHours(9).AddMinutes(15).AddSeconds(10);
             DateTime afternoonTime = DateTime.Today.AddHours(16).AddMinutes(40).AddSeconds(25);
             string oldTombKey = $"{testWord.ToLowerInvariant()}_{morningTime:yyyyMMddHHmmss}";
-            await db.RemoveTombstoneAsync("review_log", oldTombKey);
 
             var localWord = new Models.Word
             {
@@ -435,7 +418,6 @@ namespace NihongoVocab.Tests
             // 本地早上 09:15:10 打卡 Again(1)
             await db.UpdateWordFSRSAsync(insertedWord, 1, morningTime);
 
-            var service = LanSyncService.Instance;
             await service.StartAsync();
 
             try
@@ -505,21 +487,16 @@ namespace NihongoVocab.Tests
             }
             finally
             {
-                await db.DeleteWordsAsync(new[] { insertedWord.Id });
-                await db.RemoveTombstoneAsync("word", testWord);
-                await db.RemoveTombstoneAsync("review_log", oldTombKey);
-                service.Stop();
+                CleanupIsolatedSyncEnv(dbPath, service);
             }
         }
 
         [Fact]
         public async Task LanSyncService_OfflineCrossDayReviews_Should_TriggerTimelineReplayCalibration_And_MasteredPreservesStability()
         {
-            var db = new DatabaseService();
+            var (dbPath, db, service) = CreateIsolatedSyncEnv();
             string replayWordText = "跨日重演校准词_" + Guid.NewGuid().ToString("N").Substring(0, 6);
             string masteredWordText = "掌握免篡改词_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-            await db.RemoveTombstoneAsync("word", replayWordText);
-            await db.RemoveTombstoneAsync("word", masteredWordText);
 
             DateTime createdDate = DateTime.Today.AddDays(-6);
             DateTime dayMinus4 = DateTime.Today.AddDays(-4).AddHours(10);
@@ -550,7 +527,6 @@ namespace NihongoVocab.Tests
             await db.UpdateWordFSRSAsync(insertedReplay, 3, dayMinus4);
             await db.UpdateWordFSRSAsync(insertedMastered, 3, dayMinus4);
 
-            var service = LanSyncService.Instance;
             await service.StartAsync();
 
             try
@@ -642,10 +618,7 @@ namespace NihongoVocab.Tests
             }
             finally
             {
-                await db.DeleteWordsAsync(new[] { insertedReplay.Id, insertedMastered.Id });
-                await db.RemoveTombstoneAsync("word", replayWordText);
-                await db.RemoveTombstoneAsync("word", masteredWordText);
-                service.Stop();
+                CleanupIsolatedSyncEnv(dbPath, service);
             }
         }
     }

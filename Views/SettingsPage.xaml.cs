@@ -21,16 +21,20 @@ namespace NihongoVocab.Views
             ViewModel = App.GetService<SettingsViewModel>();
             this.DataContext = ViewModel;
 
-            LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
             this.Loaded += (s, e) =>
             {
+                LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
+                LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
                 UpdateLocalizedStrings();
                 UpdateLanSyncUI();
+                LanSyncService.Instance.LogReceived -= OnLanSyncLogReceived;
                 LanSyncService.Instance.LogReceived += OnLanSyncLogReceived;
+                LanSyncService.Instance.StatusChanged -= OnLanSyncStatusChanged;
                 LanSyncService.Instance.StatusChanged += OnLanSyncStatusChanged;
             };
             this.Unloaded += (s, e) =>
             {
+                LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
                 LanSyncService.Instance.LogReceived -= OnLanSyncLogReceived;
                 LanSyncService.Instance.StatusChanged -= OnLanSyncStatusChanged;
             };
@@ -50,6 +54,8 @@ namespace NihongoVocab.Views
             if (SectionAppearanceTextBlock != null) SectionAppearanceTextBlock.Text = loc.GetString("AppearanceAndLanguage", "外观与语言");
             if (ThemeLabelTextBlock != null) ThemeLabelTextBlock.Text = loc.GetString("ThemeSettings", "深浅主题");
             if (LanguageLabelTextBlock != null) LanguageLabelTextBlock.Text = loc.GetString("Language", "语言");
+            if (DayRolloverLabelTextBlock != null) DayRolloverLabelTextBlock.Text = loc.GetString("DayRolloverLabel", "每日结算时刻");
+            if (DayRolloverSubTextBlock != null) DayRolloverSubTextBlock.Text = loc.GetString("DayRolloverSubLabel", "跨零点熬夜学习时，在此时间前仍计入前一天（默认 04:00）");
 
             if (ThemeComboBox != null)
             {
@@ -85,7 +91,7 @@ namespace NihongoVocab.Views
             if (ClearDataButtonText != null) ClearDataButtonText.Text = loc.GetString("ButtonClearAllData", "清空并重置");
 
             if (SectionAboutTextBlock != null) SectionAboutTextBlock.Text = loc.GetString("AboutTitle", "关于 Tampo");
-            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.2.5 (Windows App SDK / WinUI 3)");
+            if (AboutVersionTextBlock != null) AboutVersionTextBlock.Text = loc.GetString("VersionLabel", "版本: v1.2.8 (Windows App SDK / WinUI 3)");
             if (AboutArchTextBlock != null) AboutArchTextBlock.Text = loc.GetString("ArchLabel", "架构: x64 Self-Contained 独立部署");
             if (AboutEngineTextBlock != null) AboutEngineTextBlock.Text = loc.GetString("EngineLabel", "算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)");
             if (AuthorLinkButton != null) AuthorLinkButton.Content = loc.GetString("AuthorLinkText", "找我玩");
@@ -137,6 +143,23 @@ namespace NihongoVocab.Views
                 ElementTheme.Dark => 2,
                 _ => 0
             };
+
+            int currentRollover = Math.Clamp(UserPreferenceService.Instance.GetInt("App_DayRolloverHour", FsrsEngine.DayRolloverHour), 0, 6);
+            if (DayRolloverComboBox != null && currentRollover >= 0 && currentRollover < DayRolloverComboBox.Items.Count)
+            {
+                DayRolloverComboBox.SelectedIndex = currentRollover;
+            }
+        }
+
+        private void DayRolloverComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DayRolloverComboBox.SelectedItem is ComboBoxItem item && item.Tag is string hourStr && int.TryParse(hourStr, out int hour))
+            {
+                if (hour != FsrsEngine.DayRolloverHour)
+                {
+                    ViewModel.SetDayRolloverHour(hour);
+                }
+            }
         }
 
         private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -101,14 +101,17 @@ namespace NihongoVocab
         {
             try
             {
-                var currentProc = Process.GetCurrentProcess();
+                using var currentProc = Process.GetCurrentProcess();
                 var processes = Process.GetProcessesByName(currentProc.ProcessName);
                 foreach (var proc in processes)
                 {
-                    if (proc.Id != currentProc.Id)
+                    using (proc)
                     {
-                        proc.Kill();
-                        proc.WaitForExit(1000);
+                        if (proc.Id != currentProc.Id)
+                        {
+                            proc.Kill();
+                            proc.WaitForExit(1000);
+                        }
                     }
                 }
             }
@@ -119,38 +122,41 @@ namespace NihongoVocab
         {
             try
             {
-                var currentProc = Process.GetCurrentProcess();
+                using var currentProc = Process.GetCurrentProcess();
                 var processes = Process.GetProcessesByName(currentProc.ProcessName);
 
                 foreach (var proc in processes)
                 {
-                    if (proc.Id == currentProc.Id) continue;
-
-                    IntPtr targetHwnd = proc.MainWindowHandle;
-                    if (targetHwnd == IntPtr.Zero)
+                    using (proc)
                     {
-                        EnumWindows((hWnd, lParam) =>
+                        if (proc.Id == currentProc.Id) continue;
+
+                        IntPtr targetHwnd = proc.MainWindowHandle;
+                        if (targetHwnd == IntPtr.Zero)
                         {
-                            GetWindowThreadProcessId(hWnd, out uint pid);
-                            if (pid == proc.Id)
+                            EnumWindows((hWnd, lParam) =>
                             {
-                                targetHwnd = hWnd;
-                                return false;
-                            }
-                            return true;
-                        }, IntPtr.Zero);
-                    }
-
-                    if (targetHwnd != IntPtr.Zero)
-                    {
-                        if (IsIconic(targetHwnd))
-                        {
-                            ShowWindow(targetHwnd, SW_RESTORE);
+                                GetWindowThreadProcessId(hWnd, out uint pid);
+                                if (pid == proc.Id)
+                                {
+                                    targetHwnd = hWnd;
+                                    return false;
+                                }
+                                return true;
+                            }, IntPtr.Zero);
                         }
-                        ShowWindow(targetHwnd, SW_SHOW);
-                        SetForegroundWindow(targetHwnd);
-                        SwitchToThisWindow(targetHwnd, true);
-                        return true;
+
+                        if (targetHwnd != IntPtr.Zero)
+                        {
+                            if (IsIconic(targetHwnd))
+                            {
+                                ShowWindow(targetHwnd, SW_RESTORE);
+                            }
+                            ShowWindow(targetHwnd, SW_SHOW);
+                            SetForegroundWindow(targetHwnd);
+                            SwitchToThisWindow(targetHwnd, true);
+                            return true;
+                        }
                     }
                 }
             }

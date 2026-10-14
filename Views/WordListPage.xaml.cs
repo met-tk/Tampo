@@ -71,6 +71,7 @@ namespace NihongoVocab.Views
                         MenuMergeList.Tag = targetList;
                         MenuExportList.Tag = targetList;
                         MenuDissolveList.Tag = targetList;
+                        MenuDeleteListCompletely.Tag = targetList;
                     }
                 }
             };
@@ -78,8 +79,7 @@ namespace NihongoVocab.Views
             MenuMergeList.Click += MenuMergeList_Click;
             MenuExportList.Click += MenuExportList_Click;
             MenuDissolveList.Click += MenuDissolveList_Click;
-            MenuTopDissolveList.Click += MenuDissolveList_Click;
-            MenuTopRenameList.Click += MenuRenameList_Click;
+            MenuDeleteListCompletely.Click += MenuDeleteListCompletely_Click;
 
             // --- ColumnSplitter 拖拽 ---
             ColumnSplitter.PointerEntered += ColumnSplitter_PointerEntered;
@@ -104,7 +104,6 @@ namespace NihongoVocab.Views
 
             // --- 单词列表 ---
             ActiveWordsListView.SelectionChanged += ActiveWordsListView_SelectionChanged;
-            ActiveWordsListView.PointerReleased += ActiveWordsListView_PointerReleased;
             ContextMenuCreateNewList.Click += ContextMenuCreateNewList_Click;
 
             ViewModel.TreeRebuilt += () => DispatcherQueue.TryEnqueue(RefreshTreeRootNodes);
@@ -136,8 +135,11 @@ namespace NihongoVocab.Views
             if (MenuMergeList != null) MenuMergeList.Text = loc.GetString("MenuMergeList", "合并至其他词单...");
             if (TopMenuMergeList != null) TopMenuMergeList.Text = loc.GetString("MenuMergeList", "合并至其他词单...");
             if (MenuExportList != null) MenuExportList.Text = loc.GetString("MenuExportList", "在浏览器中查看");
+            if (TopMenuExportList != null) TopMenuExportList.Text = loc.GetString("MenuExportList", "在浏览器中查看");
             if (MenuDissolveList != null) MenuDissolveList.Text = loc.GetString("MenuDissolveList", "解散词单（词汇恢复未归档）");
             if (TopMenuDissolveList != null) TopMenuDissolveList.Text = loc.GetString("MenuDissolveList", "解散词单（词汇恢复未归档）");
+            if (MenuDeleteListCompletely != null) MenuDeleteListCompletely.Text = loc.GetString("MenuDeleteListCompletely", "彻底删除词单及全部单词");
+            if (TopMenuDeleteListCompletely != null) TopMenuDeleteListCompletely.Text = loc.GetString("MenuDeleteListCompletely", "彻底删除词单及全部单词");
             if (ContextMenuCreateNewList != null) ContextMenuCreateNewList.Text = loc.GetString("MenuCreateListFromSelected", "将已选单词新建为词单...");
 
             if (DimensionComboBox != null)
@@ -431,24 +433,6 @@ namespace NihongoVocab.Views
             SetExpandedRecursive(DateHierarchyTreeView.RootNodes, false);
         }
 
-        private void NodeCheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is CheckBox cb && cb.Tag is DateHierarchyNode node)
-            {
-                node.SetChecked(cb.IsChecked);
-            }
-        }
-
-        private async void TreeNodeViewButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button btn && btn.Tag is DateHierarchyNode node)
-            {
-                WordListsListView.SelectedItem = null;
-                await ViewModel.SelectNodeAsync(node);
-                ApplySearchFilter();
-            }
-        }
-
         private async void DateHierarchyTreeView_ItemInvoked(TreeView sender, TreeViewItemInvokedEventArgs args)
         {
             var node = args.InvokedItem as DateHierarchyNode 
@@ -650,6 +634,35 @@ namespace NihongoVocab.Views
             }
         }
 
+        private async void MenuDeleteListCompletely_Click(object sender, RoutedEventArgs e)
+        {
+            var list = (sender as MenuFlyoutItem)?.Tag as WordList ?? WordListsListView.SelectedItem as WordList ?? ViewModel.SelectedWordList;
+            if (list != null)
+            {
+                var loc = LocalizationService.Instance;
+                var confirmDialog = new ContentDialog
+                {
+                    Title = loc.GetString("DialogTitleDeleteListCompletely", "彻底删除词单"),
+                    Content = DialogHelper.CreateTextBlockContent(string.Format(loc.GetString("DialogMsgDeleteListCompletely", "确定要彻底删除词单「{0}」及其包含的所有单词吗？\n此操作不可恢复，单词与复习记录将从数据库中永久抹除。"), list.Name)),
+                    PrimaryButtonText = loc.GetString("ButtonDeleteCompletely", "彻底删除"),
+                    CloseButtonText = loc.GetString("ButtonCancel", "取消"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
+                };
+
+                MainWindow.RegisterActiveDialog(confirmDialog);
+                var res = await confirmDialog.ShowAsync();
+                MainWindow.UnregisterActiveDialog(confirmDialog);
+
+                if (res == ContentDialogResult.Primary)
+                {
+                    await ViewModel.DeleteWordListCompletelyAsync(list);
+                    UpdateBatchMoveFlyout();
+                }
+            }
+        }
+
         private void WordListItem_RightTapped(object sender, RightTappedRoutedEventArgs e)
         {
             if (sender is FrameworkElement fe && fe.DataContext is WordList list)
@@ -662,6 +675,7 @@ namespace NihongoVocab.Views
                 MenuMergeList.Tag = list;
                 MenuExportList.Tag = list;
                 MenuDissolveList.Tag = list;
+                MenuDeleteListCompletely.Tag = list;
             }
         }
         #endregion

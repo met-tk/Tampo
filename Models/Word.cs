@@ -98,11 +98,11 @@ namespace NihongoVocab.Models
             get
             {
                 if (State == (int)WordLearningState.Mastered) return false;
-                DateTime today = DateTime.Today;
-                DateTime endOfToday = today.AddDays(1).AddTicks(-1);
-                if (LastReviewDate.HasValue && LastReviewDate.Value.Date >= today) return false;
+                DateTime logicalToday = Services.FsrsEngine.GetLogicalToday();
+                DateTime logicalTodayEnd = logicalToday.AddDays(1).AddTicks(-1);
+                if (LastReviewDate.HasValue && Services.FsrsEngine.GetLogicalDate(LastReviewDate.Value) >= logicalToday) return false;
                 if (State == (int)WordLearningState.New || Reps <= 0 || !NextReviewDate.HasValue) return true;
-                return NextReviewDate.Value <= endOfToday;
+                return NextReviewDate.Value <= logicalTodayEnd;
             }
         }
 
@@ -152,7 +152,7 @@ namespace NihongoVocab.Models
                 DateTime nextDay = (NextReviewDate.Value.Kind == DateTimeKind.Utc
                     ? NextReviewDate.Value.ToLocalTime()
                     : NextReviewDate.Value).Date;
-                int dayDiff = (nextDay - DateTime.Today).Days;
+                int dayDiff = (nextDay - Services.FsrsEngine.GetLogicalToday()).Days;
 
                 if (dayDiff <= 0)
                 {

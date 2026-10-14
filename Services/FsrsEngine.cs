@@ -19,14 +19,61 @@ namespace NihongoVocab.Services
         private const double Factor = 19.0 / 81.0;
         public const double DefaultDesiredRetention = 0.90;
 
+        private static int _dayRolloverHour = 4;
+
         /// <summary>
-        /// 按自然日（Calendar Day）计算两次时间之间的间隔天数
+        /// 每日结算时刻（逻辑零点小时，允许范围 0 ~ 6，默认 4 表示凌晨 04:00:00）
+        /// </summary>
+        public static int DayRolloverHour
+        {
+            get => _dayRolloverHour;
+            set => _dayRolloverHour = Math.Clamp(value, 0, 6);
+        }
+
+        /// <summary>
+        /// 将物理时间戳转换为所属的逻辑日（00:00:00）
+        /// </summary>
+        public static DateTime GetLogicalDate(DateTime dt)
+        {
+            DateTime local = dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
+            return local.AddHours(-_dayRolloverHour).Date;
+        }
+
+        /// <summary>
+        /// 获取当前时刻（或指定物理时刻）所属的逻辑今日（00:00:00）
+        /// </summary>
+        public static DateTime GetLogicalToday(DateTime? now = null)
+        {
+            return GetLogicalDate(now ?? DateTime.Now);
+        }
+
+        /// <summary>
+        /// 获取指定物理时刻所属逻辑日的物理起止时间窗口 [Start, End]
+        /// </summary>
+        public static (DateTime Start, DateTime End) GetLogicalDayRange(DateTime? now = null)
+        {
+            DateTime logicalDate = GetLogicalDate(now ?? DateTime.Now);
+            DateTime start = logicalDate.AddHours(_dayRolloverHour);
+            DateTime end = start.AddDays(1).AddTicks(-1);
+            return (start, end);
+        }
+
+        /// <summary>
+        /// 获取指定日历日期（如日历格子 2026-10-10）对应的逻辑日物理起止时间窗口 [Start, End]
+        /// </summary>
+        public static (DateTime Start, DateTime End) GetLogicalDayRangeForCalendarDate(DateTime calendarDate)
+        {
+            DateTime start = calendarDate.Date.AddHours(_dayRolloverHour);
+            DateTime end = start.AddDays(1).AddTicks(-1);
+            return (start, end);
+        }
+
+        /// <summary>
+        /// 按逻辑自然日（Logical Calendar Day）计算两次物理时间之间的间隔天数
         /// </summary>
         public static double GetCalendarElapsedDays(DateTime lastReview, DateTime now)
         {
-            DateTime lastLocal = lastReview.Kind == DateTimeKind.Utc ? lastReview.ToLocalTime() : lastReview;
-            DateTime nowLocal = now.Kind == DateTimeKind.Utc ? now.ToLocalTime() : now;
-            return Math.Max(0.0, (nowLocal.Date - lastLocal.Date).TotalDays);
+            return Math.Max(0.0, (GetLogicalDate(now) - GetLogicalDate(lastReview)).TotalDays);
         }
 
         /// <summary>
@@ -105,7 +152,7 @@ namespace NihongoVocab.Services
             newD = Math.Clamp(newD, 1.0, 10.0);
 
             int intervalDays = (g == 1) ? 1 : NextIntervalDays(newS, DefaultDesiredRetention);
-            DateTime nextReview = now.Date.AddDays(intervalDays);
+            DateTime nextReview = GetLogicalDate(now).AddDays(intervalDays);
 
             return (newS, newD, nextReview);
         }

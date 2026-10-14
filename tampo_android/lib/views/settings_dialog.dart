@@ -4,6 +4,7 @@ import '../services/theme_service.dart';
 import '../services/tts_service.dart';
 import '../services/db_service.dart';
 import '../services/event_service.dart';
+import '../services/fsrs_engine.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -277,6 +278,75 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  _buildSectionHeader('每日结算时刻', Icons.schedule_outlined, theme),
+                  const SizedBox(height: 8),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.cardTheme.color,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: theme.colorScheme.outline),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '每日学习结算点',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '跨午夜熬夜打卡归入前一日的截止时刻',
+                                style: TextStyle(fontSize: 11, color: theme.hintColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        DropdownButtonHideUnderline(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: theme.colorScheme.outline),
+                            ),
+                            child: DropdownButton<int>(
+                              value: FsrsEngine.dayRolloverHour.clamp(0, 6),
+                              isDense: true,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              items: List.generate(7, (h) {
+                                final label = '${h.toString().padLeft(2, '0')}:00:00';
+                                return DropdownMenuItem<int>(
+                                  value: h,
+                                  child: Text(label),
+                                );
+                              }),
+                              onChanged: (val) async {
+                                if (val == null) return;
+                                final clamped = val.clamp(0, 6);
+                                setState(() {
+                                  FsrsEngine.dayRolloverHour = clamped;
+                                });
+                                await DatabaseService.instance.setSetting('day_rollover_hour', clamped.toString());
+                                DataEventService.instance.notify('words_changed');
+                                HapticFeedback.selectionClick();
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
                   _buildSectionHeader('数据管理', Icons.storage_outlined, theme),
                   const SizedBox(height: 8),
 
@@ -318,7 +388,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     child: Column(
                       children: [
                         Text(
-                          'Tampo Android v1.2.6',
+                          'Tampo Android v1.2.8',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -527,7 +597,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   padding: EdgeInsets.zero,
                   onPressed: () async {
-                    await _ttsService.deleteApi(api.id);
+                    await _ttsService.removeApi(api.id);
                     setState(() {});
                   },
                 ),
@@ -649,7 +719,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               final name = nameCtrl.text.trim();
               final url = urlCtrl.text.trim();
               if (name.isNotEmpty && url.isNotEmpty) {
-                await _ttsService.addCustomApi(name, url);
+                await _ttsService.addApi(name, url);
                 if (ctx.mounted) Navigator.pop(ctx);
                 setState(() {});
               }

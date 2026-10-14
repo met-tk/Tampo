@@ -20,8 +20,8 @@
 | **UI 框架** | Windows App SDK / WinUI 3 | `1.6.250205002` (非打包/Unpackaged 模式运行) |
 | **架构模式** | MVVM | `CommunityToolkit.Mvvm` 8.4.0 (弱引用消息、ObservableProperty) |
 | **存储层** | SQLite (单文件数据库) | `Microsoft.Data.Sqlite` 9.0.2，WAL 模式并发，纯原生 SQL 驱动 |
-| **自研安装包** | 自研独立单文件安装器/更新器 | `Installer\NihongoVocab.Installer.csproj`，内嵌 Zip Payload，零全局运行时依赖，生成 `Tampo_Setup_v1.1.5.exe` 与 `Tampo_Update_v1.1.5.exe` |
-| **单元测试** | xUnit + FluentAssertions | `Tests\NihongoVocab.Tests.csproj` (48 项核心业务、FSRS 算法与双向同步测试全绿) |
+| **自研安装包** | 自研独立单文件安装器/更新器 | `Installer\Tampo.Installer.csproj`，内嵌 Zip Payload，零全局运行时依赖，生成 `Tampo_Setup_v1.1.5.exe` 与 `Tampo_Update_v1.1.5.exe` |
+| **单元测试** | xUnit + FluentAssertions | `Tests\Tampo.Tests.csproj` (48 项核心业务、FSRS 算法与双向同步测试全绿) |
 | **局域网同步** | UDP 广播 + TCP 增量双向同步 | 双端正交分离合并协议 (`StateUpdatedAt` 与 `MetaUpdatedAt`) + 实体墓碑机制 (`word`, `word_list`, `review_log`) |
 
 ---
@@ -33,7 +33,7 @@
 ```text
 ├── App.xaml / App.xaml.cs       # 应用程序级生命周期、主题与未捕获异常兜底
 ├── Program.cs                   # 自定义入口点：单实例互斥锁与原生 Win32 窗口唤醒置顶
-├── NihongoVocab.csproj          # 主程序工程配置 (含 DISABLE_XAML_GENERATED_MAIN)
+├── Tampo.csproj          # 主程序工程配置 (含 DISABLE_XAML_GENERATED_MAIN)
 ├── Models/                      # 核心数据模型 (WordItem, StudySession, CustomSliceItem 等)
 ├── Services/                    # 业务服务层
 │   ├── DatabaseService.cs       # SQLite 读写单例、数据库升级脚本、事务安全操作
@@ -84,14 +84,14 @@
 - **问题**：WinUI 3 默认在生成代码中内建隐藏的 `Program.Main`，一旦用户快速双击或重复启动，会弹出多个相互独立的实例窗口，造成 SQLite 数据库争用与复习进度冲突。
 - **推翻方案**：在 `App.xaml.cs` 的 `OnLaunched` 中检测。该方案进程已被拉起并加载了 WinAppSDK 运行时，响应过慢且销毁进程容易发生资源泄露。
 - **最终方案**：
-  1. 在 `NihongoVocab.csproj` 中配置 `<DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>` 禁用 XAML 自动生成入口。
+  1. 在 `Tampo.csproj` 中配置 `<DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>` 禁用 XAML 自动生成入口。
   2. 新建根目录 `Program.cs`，使用全局命名互斥量 `Local\Tampo_App_SingleInstance_Mutex_2026` 进行零开销前置判定。
   3. 若已有实例运行，利用 Win32 API (`FindWindowEx` + `ShowWindowAsync(SW_RESTORE)` + `SetForegroundWindow`) 将既有窗口激活置顶，当前进程直接秒退，干净彻底。
 
 ### 3.2 自研安装器 vs 第三方打包工具 (Inno Setup / MSIX)
 - **问题**：MSIX 在非应用商店环境需要用户配置受信任证书，且沙盒机制容易导致词库数据库文件被隐式重定向或在更新时丢失；传统的 Inno Setup 界面粗糙、与现代化 Windows 11 Fluent 视觉割裂，且多语言支持笨重。
 - **最终方案**：
-  - 基于 WPF (.NET 8) 打造现代化无边框毛玻璃质感安装/卸载器（`NihongoVocab.Installer`）。
+  - 基于 WPF (.NET 8) 打造现代化无边框毛玻璃质感安装/卸载器（`Tampo.Installer`）。
   - **内嵌 Payload 机制**：将编译发布的完整绿色应用压缩后直接作为二进制内嵌资源打入单文件 `Tampo_Setup_v1.1.0.exe`。
   - **强制目录隔离与防污染**：无论用户选择何种父目录，安装器底层强制追加生成 `\Tampo` 专用目录，防止散落文件污染用户磁盘；卸载器提供【保留我的生词本与学习历史记录数据库】选项，卸载时仅清理程序文件与注册表，确保用户珍贵学习数据永不丢失。
   - **版本自动识别**：根据注册表及现有安装文件比对版本号，智能呈现【立即升级】、【重新安装（修复）】或【降级警告】。
@@ -143,14 +143,14 @@
 ### 5.1 运行单元测试
 在项目根目录下执行：
 ```powershell
-dotnet test Tests/NihongoVocab.Tests.csproj
+dotnet test Tests/Tampo.Tests.csproj
 ```
 *预期结果*：51 个测试全部通过（通过率 100%），覆盖 FSRS 调度计算、难度均值回归收敛、当日打卡撤销回退排期、学习队列自然日边界、词单切片模型、局域网增量合并与双端属性正交合并测试。
 
 ### 5.2 启动本地调试开发
 在 Visual Studio 2022 或使用命令行启动主程序（Unpackaged 模式）：
 ```powershell
-dotnet run --project NihongoVocab.csproj
+dotnet run --project Tampo.csproj
 ```
 
 ### 5.3 一键构建与打包发行版 (Release)

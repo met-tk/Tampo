@@ -40,36 +40,55 @@ void main() {
     expect(resLapse.nextReviewDate, DateTime(2026, 10, 7));
   });
 
-  test('Calendar day elapsedDays and power-law retrievability accuracy', () {
-    final yesterdayLate = DateTime(2026, 10, 5, 23, 50, 0);
-    final todayEarly = DateTime(2026, 10, 6, 0, 10, 0);
-    expect(FsrsEngine.getCalendarElapsedDays(yesterdayLate, todayEarly), 1.0);
+  test('Logical day elapsedDays (DayRolloverHour) and power-law retrievability accuracy', () {
+    final originalRollover = FsrsEngine.dayRolloverHour;
+    try {
+      FsrsEngine.dayRolloverHour = 4; // Default 04:00:00 rollover
 
-    final todayMorning = DateTime(2026, 10, 6, 8, 0, 0);
-    final todayNight = DateTime(2026, 10, 6, 22, 0, 0);
-    expect(FsrsEngine.getCalendarElapsedDays(todayMorning, todayNight), 0.0);
+      // Late-night session before 04:00 belongs to the same logical day (0.0 days)
+      final yesterdayLate = DateTime(2026, 10, 5, 23, 50, 0);
+      final beforeRollover = DateTime(2026, 10, 6, 3, 50, 0);
+      expect(FsrsEngine.getCalendarElapsedDays(yesterdayLate, beforeRollover), 0.0);
 
-    // Clock skew protection
-    expect(FsrsEngine.getCalendarElapsedDays(todayNight, yesterdayLate), 0.0);
+      // Crossing 04:00 rollover advances 1.0 logical day
+      final afterRollover = DateTime(2026, 10, 6, 4, 10, 0);
+      expect(FsrsEngine.getCalendarElapsedDays(beforeRollover, afterRollover), 1.0);
+      expect(FsrsEngine.getCalendarElapsedDays(yesterdayLate, afterRollover), 1.0);
 
-    // Same calendar day retrievability is 1.0
-    expect(
-      FsrsEngine.calculateRetrievability(10.0, todayMorning, todayNight),
-      closeTo(1.0, 1e-6),
-    );
+      // Custom rollover at 00:00
+      FsrsEngine.dayRolloverHour = 0;
+      final todayEarly = DateTime(2026, 10, 6, 0, 10, 0);
+      expect(FsrsEngine.getCalendarElapsedDays(yesterdayLate, todayEarly), 1.0);
 
-    // Cross calendar day (1.0 day) retrievability matches power-law curve
-    final expectedDay1 = pow(1.0 + (19.0 / 81.0) * (1.0 / 10.0), -0.5).toDouble();
-    expect(
-      FsrsEngine.calculateRetrievability(10.0, yesterdayLate, todayEarly),
-      closeTo(expectedDay1, 1e-6),
-    );
+      FsrsEngine.dayRolloverHour = 4;
+      final todayMorning = DateTime(2026, 10, 6, 8, 0, 0);
+      final todayNight = DateTime(2026, 10, 6, 22, 0, 0);
+      expect(FsrsEngine.getCalendarElapsedDays(todayMorning, todayNight), 0.0);
 
-    // Invalid stability fallback
-    expect(FsrsEngine.calculateRetrievability(0.0, yesterdayLate, todayEarly), 0.0);
-    expect(FsrsEngine.calculateRetrievability(-5.0, yesterdayLate, todayEarly), 0.0);
-    expect(FsrsEngine.calculateRetrievability(double.nan, yesterdayLate, todayEarly), 0.0);
-    expect(FsrsEngine.calculateRetrievability(double.infinity, yesterdayLate, todayEarly), 0.0);
+      // Clock skew protection
+      expect(FsrsEngine.getCalendarElapsedDays(todayNight, yesterdayLate), 0.0);
+
+      // Same logical day retrievability is 1.0
+      expect(
+        FsrsEngine.calculateRetrievability(10.0, yesterdayLate, beforeRollover),
+        closeTo(1.0, 1e-6),
+      );
+
+      // Cross logical day (1.0 day) retrievability matches power-law curve
+      final expectedDay1 = pow(1.0 + (19.0 / 81.0) * (1.0 / 10.0), -0.5).toDouble();
+      expect(
+        FsrsEngine.calculateRetrievability(10.0, yesterdayLate, afterRollover),
+        closeTo(expectedDay1, 1e-6),
+      );
+
+      // Invalid stability fallback
+      expect(FsrsEngine.calculateRetrievability(0.0, yesterdayLate, afterRollover), 0.0);
+      expect(FsrsEngine.calculateRetrievability(-5.0, yesterdayLate, afterRollover), 0.0);
+      expect(FsrsEngine.calculateRetrievability(double.nan, yesterdayLate, afterRollover), 0.0);
+      expect(FsrsEngine.calculateRetrievability(double.infinity, yesterdayLate, afterRollover), 0.0);
+    } finally {
+      FsrsEngine.dayRolloverHour = originalRollover;
+    }
   });
 
   test('Binary rating (Again=1 / Good=3) difficulty balance and same-day stability protection', () {

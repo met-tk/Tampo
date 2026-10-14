@@ -186,10 +186,6 @@ class TtsService {
     await _db.setSetting('auto_clear_audio_cache_on_exit', val ? 'true' : 'false');
   }
 
-  Future<void> toggleAutoClearOnExit() async {
-    await setAutoClearOnExit(!_autoClearOnExit);
-  }
-
   Future<int> getCacheSizeBytes() async {
     try {
       final dir = await _getCacheDir();
@@ -256,8 +252,6 @@ class TtsService {
     await _saveApis();
   }
 
-  Future<void> addCustomApi(String name, String urlTemplate) => addApi(name, urlTemplate);
-
   Future<void> updateApi(String id, String newName, String newUrlTemplate) async {
     final index = _apis.indexWhere((a) => a.id == id);
     if (index >= 0) {
@@ -272,12 +266,12 @@ class TtsService {
     await _saveApis();
   }
 
-  Future<void> deleteApi(String id) => removeApi(id);
-
   Future<void> toggleApiEnabled(String id, bool val) async {
-    final item = _apis.firstWhere((a) => a.id == id, orElse: () => _apis.first);
-    item.isEnabled = val;
-    await _saveApis();
+    final index = _apis.indexWhere((a) => a.id == id);
+    if (index != -1) {
+      _apis[index].isEnabled = val;
+      await _saveApis();
+    }
   }
 
   Future<void> movePriority(int oldIndex, int newIndex) async {
@@ -391,9 +385,9 @@ class TtsService {
     final cacheDir = await _getCacheDir();
     final hexKey = _toHexKey(clean);
 
-    // 1. 本地音频缓存优先（0 毫秒极速播放）
+    // 1. 本地音频缓存优先（0 毫秒极速播放，写入前已校验过音频有效性）
     final cachedFile = File('${cacheDir.path}/word_$hexKey.mp3');
-    if (cachedFile.existsSync() && _isValidAudio(cachedFile.readAsBytesSync())) {
+    if (cachedFile.existsSync() && cachedFile.lengthSync() > 512) {
       try {
         final res = await _audioChannel.invokeMethod<bool>('playUrl', {'url': cachedFile.path});
         if (res == true) return true;

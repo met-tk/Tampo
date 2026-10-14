@@ -111,7 +111,7 @@ class SyncService {
   }
 
   String _formatDayKey(DateTime dt) {
-    final d = dt.toLocal();
+    final d = FsrsEngine.getLogicalDate(dt);
     return '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
   }
 
@@ -148,65 +148,78 @@ class SyncService {
     }
 
     final incomingTombstones = data['tombstones'] as List? ?? [];
-    for (var item in incomingTombstones) {
-      if (item is Map<String, dynamic>) {
-        final entityType = (item['entityType'] ?? item['EntityType'])?.toString() ?? '';
-        final entityKey = ((item['entityKey'] ?? item['EntityKey'])?.toString() ?? '').trim().toLowerCase();
-        if (entityKey.isEmpty) continue;
-        final tombDeletedAt = DateTime.tryParse((item['deletedAt'] ?? item['DeletedAt'])?.toString() ?? '')?.toLocal();
+    if (incomingTombstones.isNotEmpty) {
+      final tombWords = await _db.getAllWords();
+      final tombWordsByKey = <String, List<Word>>{};
+      for (final w in tombWords) {
+        tombWordsByKey.putIfAbsent(w.text.trim().toLowerCase(), () => []).add(w);
+      }
 
-        if (entityType == 'word') {
-          final localWords = await _db.getAllWords();
-          final match = localWords.where((w) => w.text.trim().toLowerCase() == entityKey).toList();
-          final matchTime = match.isNotEmpty
-              ? (match.first.metaUpdatedAt.isAfter(match.first.createdAt) ? match.first.metaUpdatedAt : match.first.createdAt)
-              : null;
+      final tombLists = await _db.getAllWordLists();
+      final tombListsByKey = <String, List<WordList>>{};
+      for (final l in tombLists) {
+        tombListsByKey.putIfAbsent(l.name.trim().toLowerCase(), () => []).add(l);
+      }
 
-          if (matchTime == null || tombDeletedAt == null || !tombDeletedAt.isBefore(matchTime.subtract(const Duration(seconds: 1)))) {
-            deletedWordTimes[entityKey] = tombDeletedAt;
-            await _db.addTombstone('word', entityKey, deletedAt: tombDeletedAt);
-            for (var w in match) {
-              await _db.deleteWord(w.id);
+      for (var item in incomingTombstones) {
+        if (item is Map<String, dynamic>) {
+          final entityType = (item['entityType'] ?? item['EntityType'])?.toString() ?? '';
+          final entityKey = ((item['entityKey'] ?? item['EntityKey'])?.toString() ?? '').trim().toLowerCase();
+          if (entityKey.isEmpty) continue;
+          final tombDeletedAt = DateTime.tryParse((item['deletedAt'] ?? item['DeletedAt'])?.toString() ?? '')?.toLocal();
+
+          if (entityType == 'word') {
+            final match = tombWordsByKey[entityKey] ?? const <Word>[];
+            final matchTime = match.isNotEmpty
+                ? (match.first.metaUpdatedAt.isAfter(match.first.createdAt) ? match.first.metaUpdatedAt : match.first.createdAt)
+                : null;
+
+            if (matchTime == null || tombDeletedAt == null || !tombDeletedAt.isBefore(matchTime.subtract(const Duration(seconds: 1)))) {
+              deletedWordTimes[entityKey] = tombDeletedAt;
+              await _db.addTombstone('word', entityKey, deletedAt: tombDeletedAt);
+              for (var w in match) {
+                await _db.deleteWord(w.id);
+              }
+              tombWordsByKey.remove(entityKey);
+            } else {
+              deletedWordTimes.remove(entityKey);
+              await _db.removeTombstone('word', entityKey);
             }
-          } else {
-            deletedWordTimes.remove(entityKey);
-            await _db.removeTombstone('word', entityKey);
-          }
-        } else if (entityType == 'word_list') {
-          final localLists = await _db.getAllWordLists();
-          final match = localLists.where((l) => l.name.trim().toLowerCase() == entityKey).toList();
-          final matchTime = match.isNotEmpty
-              ? (match.first.updatedAt.isAfter(match.first.createdAt) ? match.first.updatedAt : match.first.createdAt)
-              : null;
+          } else if (entityType == 'word_list') {
+            final match = tombListsByKey[entityKey] ?? const <WordList>[];
+            final matchTime = match.isNotEmpty
+                ? (match.first.updatedAt.isAfter(match.first.createdAt) ? match.first.updatedAt : match.first.createdAt)
+                : null;
 
-          if (matchTime == null || tombDeletedAt == null || !tombDeletedAt.isBefore(matchTime.subtract(const Duration(seconds: 1)))) {
-            deletedListTimes[entityKey] = tombDeletedAt;
-            await _db.addTombstone('word_list', entityKey, deletedAt: tombDeletedAt);
-            for (var l in match) {
-              await _db.deleteWordList(l.id);
+            if (matchTime == null || tombDeletedAt == null || !tombDeletedAt.isBefore(matchTime.subtract(const Duration(seconds: 1)))) {
+              deletedListTimes[entityKey] = tombDeletedAt;
+              await _db.addTombstone('word_list', entityKey, deletedAt: tombDeletedAt);
+              for (var l in match) {
+                await _db.deleteWordList(l.id);
+              }
+              tombListsByKey.remove(entityKey);
+            } else {
+              deletedListTimes.remove(entityKey);
+              await _db.removeTombstone('word_list', entityKey);
             }
-          } else {
-            deletedListTimes.remove(entityKey);
-            await _db.removeTombstone('word_list', entityKey);
-          }
-        } else if (entityType == 'review_log') {
-          deletedLogKeys.add(entityKey);
-          await _db.addTombstone('review_log', entityKey, deletedAt: tombDeletedAt);
-          // cleanKey 格式为 wordText_yyyyMMddHHmmss
-          final lastUnderscore = entityKey.lastIndexOf('_');
-          if (lastUnderscore > 0) {
-            final wText = entityKey.substring(0, lastUnderscore);
-            final timePart = entityKey.substring(lastUnderscore + 1);
-            final localWords = await _db.getAllWords();
-            final wMatch = localWords.where((w) => w.text.trim().toLowerCase() == wText).toList();
-            if (wMatch.isNotEmpty) {
-              final word = wMatch.first;
-              final logs = await _db.getReviewLogs(word.id);
-              for (var l in logs) {
-                final lTime = _formatTimeKey(l.reviewDate);
-                if (lTime == timePart) {
-                  await _db.revertTodayReview(l.id, isSyncRevert: true);
-                  break;
+          } else if (entityType == 'review_log') {
+            deletedLogKeys.add(entityKey);
+            await _db.addTombstone('review_log', entityKey, deletedAt: tombDeletedAt);
+            // cleanKey 格式为 wordText_yyyyMMddHHmmss
+            final lastUnderscore = entityKey.lastIndexOf('_');
+            if (lastUnderscore > 0) {
+              final wText = entityKey.substring(0, lastUnderscore);
+              final timePart = entityKey.substring(lastUnderscore + 1);
+              final wMatch = tombWordsByKey[wText] ?? const <Word>[];
+              if (wMatch.isNotEmpty) {
+                final word = wMatch.first;
+                final logs = await _db.getReviewLogs(word.id);
+                for (var l in logs) {
+                  final lTime = _formatTimeKey(l.reviewDate);
+                  if (lTime == timePart) {
+                    await _db.revertTodayReview(l.id, isSyncRevert: true);
+                    break;
+                  }
                 }
               }
             }

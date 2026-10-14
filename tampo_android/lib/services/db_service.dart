@@ -90,6 +90,13 @@ class DatabaseService {
           )
         ''');
 
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          )
+        ''');
+
         // 平滑迁移增列 (stateUpdatedAt, metaUpdatedAt, updatedAt, stabilityBefore, difficultyBefore)
         try {
           final wordCols = await db.rawQuery('PRAGMA table_info(words)');
@@ -119,6 +126,11 @@ class DatabaseService {
             await db.execute('ALTER TABLE review_logs ADD COLUMN difficultyBefore REAL NOT NULL DEFAULT 0.0');
           }
         } catch (_) {}
+
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_words_list_id ON words(wordListId)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_words_state_due ON words(state, nextReviewDate)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_review_logs_word_id ON review_logs(wordId)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_review_logs_date ON review_logs(reviewDate)');
 
         // 自动将历史版本中误设为 4 的已掌握状态平滑迁移为 3，并确保已掌握词汇脱离复习调度 (nextReviewDate = NULL)
         await db.execute('UPDATE words SET state = 3 WHERE state = 4');
@@ -220,13 +232,8 @@ class DatabaseService {
     }
 
     if (stateFilter != null && stateFilter >= 0) {
-      if (stateFilter == WordLearningState.mastered.value) {
-        where += ' AND (state = ? OR state = 4)';
-        args.add(stateFilter);
-      } else {
-        where += ' AND state = ?';
-        args.add(stateFilter);
-      }
+      where += ' AND state = ?';
+      args.add(stateFilter);
     }
 
     if (archivedFilter != null) {
@@ -249,12 +256,14 @@ class DatabaseService {
   Future<List<Word>> getStudyQueue({int? listId}) async {
     final db = await database;
     final now = DateTime.now();
-    final todayStartIso = DateTime(now.year, now.month, now.day).toIso8601String();
-    final endOfTodayIso = DateTime(now.year, now.month, now.day, 23, 59, 59, 999).toIso8601String();
+    final range = FsrsEngine.getLogicalDayRange(now);
+    final logicalToday = FsrsEngine.getLogicalToday(now);
+    final dayStartIso = range.start.toIso8601String();
+    final endOfTodayIso = DateTime(logicalToday.year, logicalToday.month, logicalToday.day, 23, 59, 59, 999).toIso8601String();
     
-    // 到期条件：不是已掌握(3/4)，且排除今日已复习过的词汇 (lastReviewDate >= todayStart)，并且 (从未学过 reps == 0 或 nextReviewDate 为空 或 nextReviewDate <= 今日结束)
-    String where = 'state != 3 AND state != 4 AND (lastReviewDate IS NULL OR lastReviewDate < ?) AND (reps = 0 OR nextReviewDate IS NULL OR nextReviewDate <= ?)';
-    List<dynamic> args = [todayStartIso, endOfTodayIso];
+    // 到期条件：不是已掌握(3)，且排除今日逻辑日内已复习过的词汇 (lastReviewDate >= dayStartIso)，并且 (从未学过 reps == 0 或 nextReviewDate 为空 或 nextReviewDate <= 今日结束)
+    String where = 'state != 3 AND (lastReviewDate IS NULL OR lastReviewDate < ?) AND (reps = 0 OR nextReviewDate IS NULL OR nextReviewDate <= ?)';
+    List<dynamic> args = [dayStartIso, endOfTodayIso];
 
     if (listId != null) {
       where += ' AND wordListId = ?';
@@ -449,7 +458,7 @@ class DatabaseService {
     });
   }
 
-  /// 获取指定词单/搜索条件下，各个分类胶囊的单词统计数
+  /// 获取指定词单/搜索条件下，各个分类胶囊的单词统计数（单次聚合查询）
   Future<Map<String, int>> getCategoryCounts({int? listId, String query = ''}) async {
     try {
       final db = await database;
@@ -464,48 +473,42 @@ class DatabaseService {
         baseArgs.add('%${_escapeLikePattern(query.trim())}%');
       }
 
-      final total = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM words WHERE $baseWhere', baseArgs),
-      ) ?? 0;
+      final rows = await db.rawQuery('''
+        SELECT
+          COUNT(*) AS total,
+          COALESCE(SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END), 0) AS newWord,
+          COALESCE(SUM(CASE WHEN state = 1 THEN 1 ELSE 0 END), 0) AS learning,
+          COALESCE(SUM(CASE WHEN state = 2 THEN 1 ELSE 0 END), 0) AS review,
+          COALESCE(SUM(CASE WHEN state = 3 THEN 1 ELSE 0 END), 0) AS mastered,
+          COALESCE(SUM(CASE WHEN (isInList = 0 OR isInList IS NULL) AND wordListId IS NULL THEN 1 ELSE 0 END), 0) AS unarchived,
+          COALESCE(SUM(CASE WHEN isInList = 1 OR wordListId IS NOT NULL THEN 1 ELSE 0 END), 0) AS archived
+        FROM words
+        WHERE $baseWhere
+      ''', baseArgs);
 
-      final newWords = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM words WHERE $baseWhere AND state = 0', baseArgs),
-      ) ?? 0;
+      if (rows.isEmpty) {
+        return {
+          'all': 0,
+          'newWord': 0,
+          'learning': 0,
+          'review': 0,
+          'mastered': 0,
+          'unarchived': 0,
+          'archived': 0,
+        };
+      }
 
-      final learning = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM words WHERE $baseWhere AND state = 1', baseArgs),
-      ) ?? 0;
-
-      final review = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM words WHERE $baseWhere AND state = 2', baseArgs),
-      ) ?? 0;
-
-      final mastered = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM words WHERE $baseWhere AND (state = 3 OR state = 4)', baseArgs),
-      ) ?? 0;
-
-      final unarchived = Sqflite.firstIntValue(
-        await db.rawQuery(
-          'SELECT COUNT(*) FROM words WHERE $baseWhere AND (isInList = 0 OR isInList IS NULL) AND wordListId IS NULL',
-          baseArgs,
-        ),
-      ) ?? 0;
-
-      final archived = Sqflite.firstIntValue(
-        await db.rawQuery(
-          'SELECT COUNT(*) FROM words WHERE $baseWhere AND (isInList = 1 OR wordListId IS NOT NULL)',
-          baseArgs,
-        ),
-      ) ?? 0;
+      final row = rows.first;
+      int parseCount(dynamic val) => val is int ? val : (val is num ? val.toInt() : int.tryParse(val?.toString() ?? '') ?? 0);
 
       return {
-        'all': total,
-        'newWord': newWords,
-        'learning': learning,
-        'review': review,
-        'mastered': mastered,
-        'unarchived': unarchived,
-        'archived': archived,
+        'all': parseCount(row['total']),
+        'newWord': parseCount(row['newWord']),
+        'learning': parseCount(row['learning']),
+        'review': parseCount(row['review']),
+        'mastered': parseCount(row['mastered']),
+        'unarchived': parseCount(row['unarchived']),
+        'archived': parseCount(row['archived']),
       };
     } catch (_) {
       return {
@@ -571,8 +574,9 @@ class DatabaseService {
 
   Future<void> reviewWordFSRS(Word word, int rating, {DateTime? now}) async {
     final effectiveNow = (now ?? DateTime.now()).toLocal();
-    final dayStart = DateTime(effectiveNow.year, effectiveNow.month, effectiveNow.day).toIso8601String();
-    final dayEnd = DateTime(effectiveNow.year, effectiveNow.month, effectiveNow.day, 23, 59, 59, 999).toIso8601String();
+    final range = FsrsEngine.getLogicalDayRange(effectiveNow);
+    final dayStart = range.start.toIso8601String();
+    final dayEnd = range.end.toIso8601String();
     final db = await database;
 
     final sameDayMaps = await db.query(
@@ -725,21 +729,20 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getTodayReviewItems() async {
     final db = await database;
-    final now = DateTime.now();
-    final todayPrefix = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final startOfDay = DateTime(now.year, now.month, now.day).toIso8601String();
-    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59, 999).toIso8601String();
+    final range = FsrsEngine.getLogicalDayRange(DateTime.now());
+    final startOfDay = range.start.toIso8601String();
+    final endOfDay = range.end.toIso8601String();
 
-    final sql = '''
+    const sql = '''
       SELECT r.id as logId, r.wordId, w.text as wordText, r.rating, r.reviewDate,
              w.state, w.stability, w.difficulty, w.reps, w.lastReviewDate
       FROM review_logs r
       JOIN words w ON r.wordId = w.id
-      WHERE (r.reviewDate LIKE ? OR (r.reviewDate >= ? AND r.reviewDate <= ?))
+      WHERE r.reviewDate >= ? AND r.reviewDate <= ?
       ORDER BY r.reviewDate DESC
     ''';
 
-    return await db.rawQuery(sql, ['$todayPrefix%', startOfDay, endOfDay]);
+    return await db.rawQuery(sql, [startOfDay, endOfDay]);
   }
 
   Future<void> changeTodayReviewRating(int logId, int newRating) async {
@@ -967,7 +970,7 @@ class DatabaseService {
         } else {
           // 主动撤销今日打卡时，允许该词今日重新进入学习队列
           word.state = simWord.state;
-          word.nextReviewDate = isSyncRevert ? simWord.nextReviewDate : DateTime.now();
+          word.nextReviewDate = isSyncRevert ? simWord.nextReviewDate : FsrsEngine.getLogicalToday();
         }
       }
 
@@ -1097,12 +1100,6 @@ class DatabaseService {
 
   Future<String?> getSetting(String key) async {
     final db = await database;
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    ''');
     final maps = await db.query('app_settings', where: 'key = ?', whereArgs: [key]);
     if (maps.isNotEmpty) {
       return maps.first['value']?.toString();
@@ -1112,12 +1109,6 @@ class DatabaseService {
 
   Future<void> setSetting(String key, String value) async {
     final db = await database;
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    ''');
     await db.insert(
       'app_settings',
       {'key': key, 'value': value},

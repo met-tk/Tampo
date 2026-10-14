@@ -16,7 +16,6 @@ namespace NihongoVocab
         public App()
         {
             CrashLogger.LogInfo("App ctor start");
-            SQLitePCL.Batteries_V2.Init();
 
             // 模块一：全局异常捕获与持久化日志
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
@@ -66,7 +65,6 @@ namespace NihongoVocab
             Services[typeof(StudyViewModel)] = new StudyViewModel(dbService);
             Services[typeof(TodayStudyViewModel)] = new TodayStudyViewModel(dbService);
             Services[typeof(RecentStudyViewModel)] = new RecentStudyViewModel(dbService);
-            Services[typeof(StatisticsViewModel)] = new StatisticsViewModel(dbService);
             Services[typeof(ActivityCalendarViewModel)] = new ActivityCalendarViewModel(dbService);
             Services[typeof(MemoryAnalyticsViewModel)] = new MemoryAnalyticsViewModel(dbService);
             Services[typeof(SettingsViewModel)] = new SettingsViewModel();
@@ -121,6 +119,7 @@ namespace NihongoVocab
 
                         var pref = GetService<UserPreferenceService>();
                         await pref.LoadAllAsync();
+                        FsrsEngine.DayRolloverHour = Math.Clamp(pref.GetInt("App_DayRolloverHour", 4), 0, 6);
                         CrashLogger.LogInfo("UserPreferenceService.LoadAllAsync completed");
 
                         string savedLang = pref.Get("App_Language", "zh-CN");
@@ -132,10 +131,11 @@ namespace NihongoVocab
                             });
                         }
 
-                        // 数据加载完毕后，回到UI线程重新应用真实的窗口几何（因为构造时Pref尚未加载）
+                        // 数据加载完毕后，回到UI线程重新应用真实的窗口几何（因为构造时Pref尚未加载）并刷新逻辑日依赖视图
                         UIThreadDispatcher?.TryEnqueue(() =>
                         {
                             MainWindowInstance?.ApplyRestoredGeometry();
+                            DatabaseService.NotifyDataChanged();
                         });
                     }
                     catch (Exception ex)

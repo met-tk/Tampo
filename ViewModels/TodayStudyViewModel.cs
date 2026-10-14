@@ -43,24 +43,24 @@ namespace NihongoVocab.ViewModels
             ? LocalizationService.Instance.GetString("RememberText", "记得")
             : LocalizationService.Instance.GetString("ForgetText", "遗忘");
 
+        private static readonly Brush RememberCardBackgroundBrush = new SolidColorBrush(Color.FromArgb(210, 22, 101, 52));     // 绿意底色 (#166534)
+        private static readonly Brush ForgetCardBackgroundBrush = new SolidColorBrush(Color.FromArgb(210, 153, 27, 27));      // 红润底色 (#991B1B)
+        private static readonly Brush RememberCardBorderBrush = new SolidColorBrush(Color.FromArgb(255, 34, 197, 94));        // 高亮翠绿边框 (#22C55E)
+        private static readonly Brush ForgetCardBorderBrush = new SolidColorBrush(Color.FromArgb(255, 239, 68, 68));          // 高亮绯红边框 (#EF4444)
+        private static readonly Brush WhiteForegroundBrush = new SolidColorBrush(Colors.White);
+        private static readonly Brush RememberPillBackgroundBrush = new SolidColorBrush(Color.FromArgb(40, 34, 197, 94));
+        private static readonly Brush ForgetPillBackgroundBrush = new SolidColorBrush(Color.FromArgb(40, 239, 68, 68));
+
         // 网格卡片背景色：绿色代表记得，红色代表遗忘（用户明确要求）
-        public Brush CardBackground => Rating == 3
-            ? new SolidColorBrush(Color.FromArgb(210, 22, 101, 52))     // 绿意底色 (#166534)
-            : new SolidColorBrush(Color.FromArgb(210, 153, 27, 27));    // 红润底色 (#991B1B)
+        public Brush CardBackground => Rating == 3 ? RememberCardBackgroundBrush : ForgetCardBackgroundBrush;
 
-        public Brush CardBorderBrush => Rating == 3
-            ? new SolidColorBrush(Color.FromArgb(255, 34, 197, 94))     // 高亮翠绿边框 (#22C55E)
-            : new SolidColorBrush(Color.FromArgb(255, 239, 68, 68));    // 高亮绯红边框 (#EF4444)
+        public Brush CardBorderBrush => Rating == 3 ? RememberCardBorderBrush : ForgetCardBorderBrush;
 
-        public Brush CardForeground => new SolidColorBrush(Colors.White);
+        public Brush CardForeground => WhiteForegroundBrush;
 
-        public Brush StatusPillBackground => Rating == 3
-            ? new SolidColorBrush(Color.FromArgb(40, 34, 197, 94))
-            : new SolidColorBrush(Color.FromArgb(40, 239, 68, 68));
+        public Brush StatusPillBackground => Rating == 3 ? RememberPillBackgroundBrush : ForgetPillBackgroundBrush;
 
-        public Brush StatusPillForeground => Rating == 3
-            ? new SolidColorBrush(Color.FromArgb(255, 34, 197, 94))
-            : new SolidColorBrush(Color.FromArgb(255, 239, 68, 68));
+        public Brush StatusPillForeground => Rating == 3 ? RememberCardBorderBrush : ForgetCardBorderBrush;
 
         public string ClickToggleRatingTip => LocalizationService.Instance.GetString("ClickToggleRatingTip", "左键单击直接在「记得」与「遗忘」之间切换");
         public string ClickToggleOppositeTip => LocalizationService.Instance.GetString("ClickToggleOppositeTip", "点击切换为相反状态");
@@ -70,7 +70,6 @@ namespace NihongoVocab.ViewModels
         {
             RawItem = rawItem;
             _rating = rawItem.Rating;
-            LocalizationService.Instance.LanguageChanged += (s, e) => OnPropertyChanged(string.Empty);
         }
     }
 
@@ -100,41 +99,17 @@ namespace NihongoVocab.ViewModels
         [ObservableProperty]
         private string _statusMessage = string.Empty;
 
-        public string TodayStudyTitle => LocalizationService.Instance.GetString("TodayStudyTitle", "今日学习");
-        public string StatusTierLabel => LocalizationService.Instance.GetString("StatusTierLabel", "状态层级：");
-        public string StatusTierAll => LocalizationService.Instance.GetString("StatusTierAll", "全部打卡");
-        public string StatusTierRemember => LocalizationService.Instance.GetString("StatusTierRemember", "记得 (Good)");
-        public string StatusTierForget => LocalizationService.Instance.GetString("StatusTierForget", "遗忘 (Again)");
-        public string TodayLearnedLabel => LocalizationService.Instance.GetString("TodayLearnedLabel", "今日已学:");
-        public string RememberLabel => LocalizationService.Instance.GetString("RememberLabel", "记得:");
-        public string ForgetLabel => LocalizationService.Instance.GetString("ForgetLabel", "遗忘:");
-        public string GridViewText => LocalizationService.Instance.GetString("GridViewText", "网格显示");
         public string GridViewToolTip => LocalizationService.Instance.GetString("GridViewToolTip", "网格视图（红绿卡片，点击直接切换状态）");
-        public string ListViewText => LocalizationService.Instance.GetString("ListViewText", "列表显示");
         public string ListViewToolTip => LocalizationService.Instance.GetString("ListViewToolTip", "列表视图（条目清晰，右侧提供状态切换按钮）");
-        public string ButtonRefresh => LocalizationService.Instance.GetString("ButtonRefresh", "刷新");
-        public string ClickToggleRatingTip => LocalizationService.Instance.GetString("ClickToggleRatingTip", "左键单击直接在「记得」与「遗忘」之间切换");
-        public string ClickToggleOppositeTip => LocalizationService.Instance.GetString("ClickToggleOppositeTip", "点击切换为相反状态");
-        public string RevertTodayRecordTip => LocalizationService.Instance.GetString("RevertTodayRecordTip", "撤销此单词的今日记录");
 
         public TodayStudyViewModel(DatabaseService databaseService)
         {
             _databaseService = databaseService;
-            LocalizationService.Instance.LanguageChanged += (s, e) => OnPropertyChanged(string.Empty);
-            DatabaseService.DataChanged += OnDatabaseDataChanged;
-        }
-
-        private void OnDatabaseDataChanged()
-        {
-            var dispatcher = App.UIThreadDispatcher ?? App.MainWindowInstance?.DispatcherQueue;
-            if (dispatcher != null)
+            LocalizationService.Instance.LanguageChanged += (s, e) =>
             {
-                dispatcher.TryEnqueue(async () => await LoadDataAsync());
-            }
-            else
-            {
-                _ = LoadDataAsync();
-            }
+                OnPropertyChanged(string.Empty);
+                ApplyFilter();
+            };
         }
 
         public async Task LoadDataAsync()

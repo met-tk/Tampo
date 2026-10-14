@@ -332,7 +332,7 @@ namespace NihongoVocab.Tests
             var (sForget, _, nextDue) = FsrsEngine.Review(reviewWord, 1, now);
             Assert.True(sForget <= reviewWord.Stability, $"遗忘后稳定性 {sForget} 不得超过原稳定性 {reviewWord.Stability}");
             Assert.True(sForget >= 0.1);
-            Assert.Equal(1, (int)Math.Round((nextDue - now).TotalDays));
+            Assert.Equal(1, (int)Math.Round((nextDue - FsrsEngine.GetLogicalDate(now)).TotalDays));
         }
 
         [Fact]
@@ -436,46 +436,76 @@ namespace NihongoVocab.Tests
         }
 
         [Fact]
-        public void GetCalendarElapsedDays_CrossMidnightAndSameDay_CalculatesExactNaturalDays()
+        public void GetCalendarElapsedDays_CrossRolloverAndSameLogicalDay_CalculatesExactLogicalDays()
         {
-            // 跨自然日：昨天 23:50 到今天 00:10 尽管仅差 20 分钟，按自然日必须计为 1.0 天
-            var yesterdayLate = new DateTime(2026, 10, 5, 23, 50, 0, DateTimeKind.Local);
-            var todayEarly = new DateTime(2026, 10, 6, 0, 10, 0, DateTimeKind.Local);
-            Assert.Equal(1.0, FsrsEngine.GetCalendarElapsedDays(yesterdayLate, todayEarly));
+            int originalRollover = FsrsEngine.DayRolloverHour;
+            try
+            {
+                FsrsEngine.DayRolloverHour = 4; // 默认 04:00:00 结算
 
-            // 同自然日：今天 08:00 到今天 22:00 间隔 14 小时，按自然日必须计为 0.0 天
-            var todayMorning = new DateTime(2026, 10, 6, 8, 0, 0, DateTimeKind.Local);
-            var todayNight = new DateTime(2026, 10, 6, 22, 0, 0, DateTimeKind.Local);
-            Assert.Equal(0.0, FsrsEngine.GetCalendarElapsedDays(todayMorning, todayNight));
+                // 跨午夜但未过 04:00 结算点：昨天 23:50 到今天凌晨 03:50 属于同一逻辑日 (0.0 天)
+                var yesterdayLate = new DateTime(2026, 10, 5, 23, 50, 0, DateTimeKind.Local);
+                var beforeRollover = new DateTime(2026, 10, 6, 3, 50, 0, DateTimeKind.Local);
+                Assert.Equal(0.0, FsrsEngine.GetCalendarElapsedDays(yesterdayLate, beforeRollover));
 
-            // 异常时钟回拨防御：未来时间不产生负数天数
-            Assert.Equal(0.0, FsrsEngine.GetCalendarElapsedDays(todayNight, yesterdayLate));
+                // 跨过 04:00 结算点：凌晨 03:50 到 04:10 尽管仅差 20 分钟，按逻辑日计为 1.0 天
+                var afterRollover = new DateTime(2026, 10, 6, 4, 10, 0, DateTimeKind.Local);
+                Assert.Equal(1.0, FsrsEngine.GetCalendarElapsedDays(beforeRollover, afterRollover));
+                Assert.Equal(1.0, FsrsEngine.GetCalendarElapsedDays(yesterdayLate, afterRollover));
 
-            // UTC 自动转本地自然日对齐验证
-            Assert.Equal(1.0, FsrsEngine.GetCalendarElapsedDays(yesterdayLate.ToUniversalTime(), todayEarly.ToUniversalTime()));
+                // 自定义结算时刻为 00:00 时，昨天 23:50 到今天 00:10 计为 1.0 天
+                FsrsEngine.DayRolloverHour = 0;
+                var todayEarly = new DateTime(2026, 10, 6, 0, 10, 0, DateTimeKind.Local);
+                Assert.Equal(1.0, FsrsEngine.GetCalendarElapsedDays(yesterdayLate, todayEarly));
+
+                // 自定义结算时刻边界钳制 (0 ~ 6)
+                FsrsEngine.DayRolloverHour = 99;
+                Assert.Equal(6, FsrsEngine.DayRolloverHour);
+                FsrsEngine.DayRolloverHour = -5;
+                Assert.Equal(0, FsrsEngine.DayRolloverHour);
+
+                FsrsEngine.DayRolloverHour = 4;
+                // 异常时钟回拨防御：未来时间不产生负数天数
+                Assert.Equal(0.0, FsrsEngine.GetCalendarElapsedDays(afterRollover, yesterdayLate));
+
+                // UTC 自动转本地逻辑日对齐验证
+                Assert.Equal(1.0, FsrsEngine.GetCalendarElapsedDays(yesterdayLate.ToUniversalTime(), afterRollover.ToUniversalTime()));
+            }
+            finally
+            {
+                FsrsEngine.DayRolloverHour = originalRollover;
+            }
         }
 
         [Fact]
-        public void CalculateRetrievability_UsesCalendarDay_AndHandlesInvalidStability()
+        public void CalculateRetrievability_UsesLogicalDay_AndHandlesInvalidStability()
         {
-            double stability = 10.0;
-            var todayMorning = new DateTime(2026, 10, 6, 8, 0, 0, DateTimeKind.Local);
-            var todayNight = new DateTime(2026, 10, 6, 23, 30, 0, DateTimeKind.Local);
-            var yesterdayLate = new DateTime(2026, 10, 5, 23, 55, 0, DateTimeKind.Local);
-            var todayEarly = new DateTime(2026, 10, 6, 0, 5, 0, DateTimeKind.Local);
+            int originalRollover = FsrsEngine.DayRolloverHour;
+            try
+            {
+                FsrsEngine.DayRolloverHour = 4;
+                double stability = 10.0;
+                var todayMorning = new DateTime(2026, 10, 6, 8, 0, 0, DateTimeKind.Local);
+                var lateNightSameLogicalDay = new DateTime(2026, 10, 7, 2, 30, 0, DateTimeKind.Local);
+                var nextLogicalDayMorning = new DateTime(2026, 10, 7, 4, 5, 0, DateTimeKind.Local);
 
-            // 同自然日内留存率恒为 1.0
-            Assert.Equal(1.0, FsrsEngine.CalculateRetrievability(stability, todayMorning, todayNight), 6);
+                // 同逻辑日内（含凌晨 02:30）留存率恒为 1.0
+                Assert.Equal(1.0, FsrsEngine.CalculateRetrievability(stability, todayMorning, lateNightSameLogicalDay), 6);
 
-            // 跨自然日按整 1.0 天幂律衰减：R(1, 10) = (1 + (19/81)*(1/10))^(-0.5)
-            double expectedDay1 = Math.Pow(1.0 + (19.0 / 81.0) * (1.0 / stability), -0.5);
-            Assert.Equal(expectedDay1, FsrsEngine.CalculateRetrievability(stability, yesterdayLate, todayEarly), 6);
+                // 跨过 04:00 结算点进入下一逻辑日，按整 1.0 天幂律衰减：R(1, 10) = (1 + (19/81)*(1/10))^(-0.5)
+                double expectedDay1 = Math.Pow(1.0 + (19.0 / 81.0) * (1.0 / stability), -0.5);
+                Assert.Equal(expectedDay1, FsrsEngine.CalculateRetrievability(stability, todayMorning, nextLogicalDayMorning), 6);
 
-            // 脏数据防御
-            Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(0.0, yesterdayLate, todayEarly));
-            Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(-5.0, yesterdayLate, todayEarly));
-            Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(double.NaN, yesterdayLate, todayEarly));
-            Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(double.PositiveInfinity, yesterdayLate, todayEarly));
+                // 脏数据防御
+                Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(0.0, todayMorning, nextLogicalDayMorning));
+                Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(-5.0, todayMorning, nextLogicalDayMorning));
+                Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(double.NaN, todayMorning, nextLogicalDayMorning));
+                Assert.Equal(0.0, FsrsEngine.CalculateRetrievability(double.PositiveInfinity, todayMorning, nextLogicalDayMorning));
+            }
+            finally
+            {
+                FsrsEngine.DayRolloverHour = originalRollover;
+            }
         }
 
         [Fact]
@@ -686,22 +716,23 @@ namespace NihongoVocab.Tests
                 await db.AddWordsAsync(new[] { "冪等重放" });
                 var word = (await db.GetAllWordsAsync())[0];
 
+                var logicalToday = FsrsEngine.GetLogicalToday();
                 // 第 1 天：Good(3)
-                var day1 = DateTime.Today.AddDays(-5).AddHours(9);
+                var day1 = logicalToday.AddDays(-5).AddHours(9);
                 await db.UpdateWordFSRSAsync(word, 3, day1);
                 word = (await db.GetAllWordsAsync())[0];
                 Assert.Equal(1, word.Reps);
                 double day1Stability = word.Stability;
 
                 // 今天上午：首次打卡 Again(1)
-                var todayMorning = DateTime.Today.AddHours(9);
+                var todayMorning = logicalToday.AddHours(9);
                 await db.UpdateWordFSRSAsync(word, 1, todayMorning);
                 word = (await db.GetAllWordsAsync())[0];
                 Assert.Equal(2, word.Reps);
                 Assert.Equal(1, word.Lapses);
 
-                // 今天下午：同自然日再次调用 UpdateWordFSRSAsync 评为 Good(3) -> 必须原地幂等重算，不新增日志、不虚增 Reps
-                var todayAfternoon = DateTime.Today.AddHours(15);
+                // 今天下午：同逻辑日再次调用 UpdateWordFSRSAsync 评为 Good(3) -> 必须原地幂等重算，不新增日志、不虚增 Reps
+                var todayAfternoon = logicalToday.AddHours(15);
                 await db.UpdateWordFSRSAsync(word, 3, todayAfternoon);
                 word = (await db.GetAllWordsAsync())[0];
                 var logs = await db.GetWordReviewLogsAsync(word.Id);

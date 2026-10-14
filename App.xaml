@@ -48,11 +48,8 @@
             <!-- 全局通用转换器 -->
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
-            <converters:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
             <converters:WordStateToColorConverter x:Key="WordStateToColorConverter" />
             <converters:WordStateToNameConverter x:Key="WordStateToNameConverter" />
-            <converters:CardStateToBorderBrushConverter x:Key="CardStateToBorderBrushConverter" />
-            <converters:CardStateToBackgroundBrushConverter x:Key="CardStateToBackgroundBrushConverter" />
             <converters:PercentageConverter x:Key="PercentageConverter" />
             <converters:DateToStringConverter x:Key="DateToStringConverter" />
             <converters:WordCountSuffixConverter x:Key="WordCountSuffixConverter" />

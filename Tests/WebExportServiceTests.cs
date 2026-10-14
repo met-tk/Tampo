@@ -21,16 +21,26 @@ namespace NihongoVocab.Tests
             };
 
             string htmlPath = await service.ExportLibraryToHtmlAsync(words);
+            try
+            {
+                Assert.True(File.Exists(htmlPath));
+                string html = await File.ReadAllTextAsync(htmlPath);
 
-            Assert.True(File.Exists(htmlPath));
-            string html = await File.ReadAllTextAsync(htmlPath);
-
-            Assert.Contains("Tampo · 离线全景词单", html);
-            Assert.Contains("桜", html);
-            Assert.Contains("青空", html);
-            Assert.Contains("Zero-Definition 纯单词模式", html);
-            Assert.Contains("searchInput", html);
-            Assert.Contains("timeFilter", html);
+                Assert.Contains("Tampo · 离线全景词单", html);
+                Assert.Contains("桜", html);
+                Assert.Contains("青空", html);
+                Assert.Contains("Zero-Definition 纯单词模式", html);
+                Assert.Contains("searchInput", html);
+                Assert.Contains("timeFilter", html);
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(htmlPath)) File.Delete(htmlPath);
+                }
+                catch { }
+            }
         }
     }
 }

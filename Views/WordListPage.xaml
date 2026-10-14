@@ -189,6 +189,11 @@
                                             <FontIcon Glyph="&#xE74D;"/>
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
+                                    <MenuFlyoutItem x:Name="MenuDeleteListCompletely" Text="彻底删除词单及全部单词" Foreground="{ThemeResource SystemFillColorCriticalBrush}">
+                                        <MenuFlyoutItem.Icon>
+                                            <FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
                                 </MenuFlyout>
                             </ListView.ContextFlyout>
                             <ListView.ItemTemplate>
@@ -322,7 +327,11 @@
                                                     <FontIcon Glyph="&#xE74D;"/>
                                                 </MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
-
+                                            <MenuFlyoutItem x:Name="TopMenuDeleteListCompletely" Text="彻底删除词单及全部单词" Click="MenuDeleteListCompletely_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE74D;" Foreground="#EF4444"/>
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
                                         </MenuFlyout>
                                     </DropDownButton.Flyout>
                                 </DropDownButton>
@@ -336,35 +345,6 @@
                                         <TextBlock Text="{x:Bind ViewModel.RemoveFromListText, Mode=OneWay}"/>
                                     </StackPanel>
                                 </Button>
-
-                                <!-- 词单管理：解散/删除（仅在选中自定义词单时展示） -->
-                                <DropDownButton x:Name="ManageListDropDownButton" Style="{ThemeResource SubtleButtonStyle}"
-                                                Visibility="{x:Bind GetListSelectedVisibility(ViewModel.IsCustomListSelected), Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <FontIcon Glyph="&#xE712;" FontSize="12"/>
-                                        <TextBlock Text="词单管理"/>
-                                    </StackPanel>
-                                    <DropDownButton.Flyout>
-                                        <MenuFlyout>
-                                            <MenuFlyoutItem x:Name="MenuTopDissolveList" Text="解散词单（单词恢复未归档）">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE74D;"/>
-                                                </MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutItem x:Name="MenuTopRenameList" Text="重命名此词单">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE8AC;"/>
-                                                </MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutSeparator/>
-                                            <MenuFlyoutItem x:Name="MenuTopDeleteListCompletely" Text="彻底删除词单及全部单词">
-                                                <MenuFlyoutItem.Icon>
-                                                    <FontIcon Glyph="&#xE74D;" Foreground="#EF4444"/>
-                                                </MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                        </MenuFlyout>
-                                    </DropDownButton.Flyout>
-                                </DropDownButton>
                             </StackPanel>
                         </Grid>
                     </Border>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -125,7 +126,9 @@ namespace NihongoVocab.Installer
                 // 1. 关闭任何可能还在运行的 Tampo / NihongoVocab 进程
                 try
                 {
-                    var procs = Process.GetProcessesByName("NihongoVocab");
+                    var procs = new List<Process>();
+                    procs.AddRange(Process.GetProcessesByName("Tampo"));
+                    procs.AddRange(Process.GetProcessesByName("NihongoVocab"));
                     foreach (var p in procs)
                     {
                         try { p.Kill(); p.WaitForExit(3000); } catch { }
@@ -274,11 +277,12 @@ namespace NihongoVocab.Installer
                     {
                         string tempBat = Path.Combine(Path.GetTempPath(), $"clean_{Guid.NewGuid():N}.bat");
                         string script = $@"@echo off
+chcp 65001 >nul
 ping 127.0.0.1 -n 2 >nul
 rd /s /q ""{currentTempDir}""
 del ""%~f0""
 ";
-                        File.WriteAllText(tempBat, script, System.Text.Encoding.ASCII);
+                        File.WriteAllText(tempBat, script, new System.Text.UTF8Encoding(false));
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = "cmd.exe",

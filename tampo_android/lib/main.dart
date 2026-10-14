@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'services/event_service.dart';
 import 'theme/app_theme.dart';
 import 'views/words_page.dart';
@@ -9,18 +8,16 @@ import 'views/import_sync_page.dart';
 
 import 'services/theme_service.dart';
 import 'services/tts_service.dart';
+import 'services/db_service.dart';
+import 'services/fsrs_engine.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeService.instance.init();
   await TtsService.instance.init();
+  final savedRollover = await DatabaseService.instance.getSetting('day_rollover_hour');
+  FsrsEngine.dayRolloverHour = (int.tryParse(savedRollover ?? '') ?? 4).clamp(0, 6);
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
   runApp(const TampoApp());
 }
 
@@ -93,8 +90,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (idx) {
+          if (idx == _currentIndex) return;
           setState(() => _currentIndex = idx);
-          DataEventService.instance.notify('tab_switch');
         },
         items: const [
           BottomNavigationBarItem(

@@ -28,7 +28,7 @@ class _TodayPageState extends State<TodayPage> {
 
   int _calculateRetention(Map<String, dynamic> item) {
     final state = item['state'] as int? ?? 0;
-    if (state == WordLearningState.mastered.value || state == 4) return 100;
+    if (state == WordLearningState.mastered.value) return 100;
     final reps = item['reps'] as int? ?? 0;
     if (state == WordLearningState.newWord.value || reps == 0) return 0;
     final stability = (item['stability'] as num?)?.toDouble() ?? 0.0;
@@ -58,6 +58,7 @@ class _TodayPageState extends State<TodayPage> {
   Future<void> _loadTodayData() async {
     setState(() => _isLoading = true);
     final logs = await _db.getTodayReviewItems();
+    if (!mounted) return;
     setState(() {
       _todayLogs = logs;
       _isLoading = false;
@@ -74,7 +75,6 @@ class _TodayPageState extends State<TodayPage> {
       if (currentRating < 3) {
         await _db.changeTodayReviewRating(logId, 3);
         DataEventService.instance.notify('correction');
-        _loadTodayData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -89,7 +89,6 @@ class _TodayPageState extends State<TodayPage> {
       if (currentRating >= 3) {
         await _db.changeTodayReviewRating(logId, 1);
         DataEventService.instance.notify('correction');
-        _loadTodayData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -103,7 +102,6 @@ class _TodayPageState extends State<TodayPage> {
     } else if (action == 'master') {
       await _db.updateWordState(wordId, WordLearningState.mastered);
       DataEventService.instance.notify('words_changed');
-      _loadTodayData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -145,7 +143,6 @@ class _TodayPageState extends State<TodayPage> {
     if (confirm == true) {
       await _db.revertTodayReview(logId);
       DataEventService.instance.notify('review_reverted');
-      _loadTodayData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

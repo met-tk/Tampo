@@ -8,8 +8,6 @@ class ThemeService {
   final DatabaseService _db = DatabaseService.instance;
   final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.light);
 
-  ThemeMode get currentThemeMode => themeModeNotifier.value;
-
   Future<void> init() async {
     final saved = await _db.getSetting('app_theme_mode');
     if (saved == 'dark') {

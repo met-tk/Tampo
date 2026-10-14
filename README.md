@@ -85,13 +85,13 @@ cd Tampo
 
 ### 2. 运行单元测试
 ```powershell
-dotnet test Tests/NihongoVocab.Tests.csproj
+dotnet test Tests/Tampo.Tests.csproj
 ```
 *(包含 FSRS 调度计算、记忆曲线与词库模型的 35 项单元测试将全部通过)*
 
 ### 3. 本地启动调试
 ```powershell
-dotnet run --project NihongoVocab.csproj
+dotnet run --project Tampo.csproj
 ```
 
 ### 4. 编译单文件安装包 (Release)

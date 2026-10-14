@@ -1,9 +1,9 @@
 {
   "profiles": {
-    "NihongoVocab (Package)": {
+    "Tampo (Package)": {
       "commandName": "MsixPackage"
     },
-    "NihongoVocab (Unpackaged)": {
+    "Tampo (Unpackaged)": {
       "commandName": "Project"
     }
   }

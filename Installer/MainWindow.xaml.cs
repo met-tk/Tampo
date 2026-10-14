@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -28,7 +29,7 @@ namespace NihongoVocab.Installer
     public partial class MainWindow : Window
     {
         // ─── 常量 ────────────────────────────────────────────────────────────────
-        private const string NewVersion = "1.2.5";
+        private const string NewVersion = "1.2.8";
         private const string RegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tampo";
 
         // ─── 字段 ────────────────────────────────────────────────────────────────
@@ -70,7 +71,8 @@ namespace NihongoVocab.Installer
         {
             try
             {
-                using var key = Registry.CurrentUser.OpenSubKey(RegistryKey);
+                using var key = Registry.CurrentUser.OpenSubKey(RegistryKey)
+                             ?? Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\NihongoVocab");
                 if (key == null) return;
 
                 _existingVersion = key.GetValue("DisplayVersion") as string;
@@ -237,8 +239,10 @@ namespace NihongoVocab.Installer
 
         private async Task<bool> PromptAndKillRunningProcess()
         {
-            var procs = Process.GetProcessesByName("NihongoVocab");
-            if (procs.Length == 0) return true;
+            var procs = new List<Process>();
+            procs.AddRange(Process.GetProcessesByName("Tampo"));
+            procs.AddRange(Process.GetProcessesByName("NihongoVocab"));
+            if (procs.Count == 0) return true;
 
             string msg = _installState == InstallState.Upgrade
                 ? $"Tampo (v{_existingVersion}) is running. Close it to continue?"
@@ -328,7 +332,12 @@ namespace NihongoVocab.Installer
 
                 // ⑥ 创建快捷方式
                 UpdateProgress(88, _loc.StatusConfiguring);
-                string mainExe = Path.Combine(_targetDirectory, "NihongoVocab.exe");
+                string mainExe = Path.Combine(_targetDirectory, "Tampo.exe");
+                if (!File.Exists(mainExe))
+                {
+                    string legacyExe = Path.Combine(_targetDirectory, "NihongoVocab.exe");
+                    if (File.Exists(legacyExe)) mainExe = legacyExe;
+                }
                 string iconPath = Path.Combine(_targetDirectory, "Assets", "AppIcon.ico");
                 if (!File.Exists(iconPath)) iconPath = mainExe;
 
@@ -438,7 +447,12 @@ namespace NihongoVocab.Installer
         {
             if (LaunchAppCheckBox.IsChecked == true)
             {
-                string mainExe = Path.Combine(_targetDirectory, "NihongoVocab.exe");
+                string mainExe = Path.Combine(_targetDirectory, "Tampo.exe");
+                if (!File.Exists(mainExe))
+                {
+                    string legacyExe = Path.Combine(_targetDirectory, "NihongoVocab.exe");
+                    if (File.Exists(legacyExe)) mainExe = legacyExe;
+                }
                 if (File.Exists(mainExe))
                 {
                     Process.Start(new ProcessStartInfo

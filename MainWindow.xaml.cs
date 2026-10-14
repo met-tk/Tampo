@@ -131,10 +131,9 @@ namespace NihongoVocab
 
         private void RestoreWindowGeometry()
         {
-            // 第一阶段：仅注册 AppWindow 事件，真正的几何恢复在数据加载后由 ApplyRestoredGeometry() 完成
+            // 第一阶段：仅注册 AppWindow 关闭事件，真正的几何恢复在数据加载后由 ApplyRestoredGeometry() 完成
             try
             {
-                this.AppWindow.Changed += AppWindow_Changed;
                 this.AppWindow.Closing += AppWindow_Closing;
             }
             catch (Exception ex)
@@ -194,14 +193,6 @@ namespace NihongoVocab
             catch (Exception ex)
             {
                 CrashLogger.LogException(ex, "MainWindow.ApplyRestoredGeometry");
-            }
-        }
-
-        private void AppWindow_Changed(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
-        {
-            if (args.DidPositionChange || args.DidSizeChange || args.DidPresenterChange)
-            {
-                SaveWindowGeometry();
             }
         }
 

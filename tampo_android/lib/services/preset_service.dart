@@ -148,16 +148,6 @@ class PresetService {
     await DatabaseService.instance.setSetting('custom_cleansing_presets', jsonStr);
   }
 
-  static List<String> executeCleaning(String sourceText, CleansingPreset preset) {
-    return executeCleaningCustom(
-      sourceText: sourceText,
-      pattern: preset.pattern,
-      captureGroupIndex: preset.captureGroupIndex,
-      isInverseFilter: preset.isInverseFilter,
-      matchWholeLine: preset.matchWholeLine,
-    );
-  }
-
   static List<String> executeCleaningCustom({
     required String sourceText,
     required String pattern,

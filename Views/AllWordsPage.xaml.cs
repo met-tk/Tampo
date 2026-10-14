@@ -104,13 +104,10 @@ namespace NihongoVocab.Views
 
             // --- 词汇列表 ---
             WordsListView.SelectionChanged += WordsListView_SelectionChanged;
-            WordsListView.PointerReleased += WordsListView_PointerReleased;
 
             // --- 右键菜单 ---
             MenuEditWordText.Click += MenuEditWordText_Click;
             MenuBatchCreateNewList.Click += BatchCreateNewList_Click;
-            MenuCopyLines.Click += MenuCopyLines_Click;
-            MenuFormatExport.Click += MenuFormatExport_Click;
             MenuSetStateNew.Click += MenuSetStateNew_Click;
             MenuSetStateMastered.Click += MenuSetStateMastered_Click;
             MenuReimportToday.Click += MenuReimportToday_Click;
@@ -670,11 +667,7 @@ namespace NihongoVocab.Views
             string text = sb.ToString().TrimEnd('\r', '\n');
             if (string.IsNullOrEmpty(text)) return;
 
-            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
-            dp.SetText(text);
-            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
-
-            SoundService.Instance.PlayCopySound();
+            ClipboardHelper.CopyText(text);
         }
 
         private async void MenuFormatExport_Click(object sender, RoutedEventArgs e)

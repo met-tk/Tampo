@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-dotnet run --project NihongoVocab.csproj
+dotnet run --project Tampo.csproj
 pause

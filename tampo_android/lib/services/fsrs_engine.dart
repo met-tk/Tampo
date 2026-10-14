@@ -16,12 +16,39 @@ class FsrsEngine {
   static const double factor = 19.0 / 81.0;
   static const double defaultDesiredRetention = 0.90;
 
-  /// 按本地自然日（Calendar Day）计算经过的天数（整数天差，严禁亚日级小时/分钟折算）
+  static int _dayRolloverHour = 4;
+
+  /// 每日结算时刻（0 ~ 6 点，默认 4 点即 04:00:00）
+  static int get dayRolloverHour => _dayRolloverHour;
+  static set dayRolloverHour(int value) {
+    _dayRolloverHour = value.clamp(0, 6);
+  }
+
+  /// 将物理时间转换为逻辑自然日（零点 00:00:00）
+  static DateTime getLogicalDate(DateTime dt) {
+    final local = dt.toLocal();
+    final shifted = local.subtract(Duration(hours: _dayRolloverHour));
+    return DateTime(shifted.year, shifted.month, shifted.day);
+  }
+
+  /// 获取当前（或指定时刻）对应的逻辑今日零点（00:00:00）
+  static DateTime getLogicalToday([DateTime? now]) {
+    return getLogicalDate(now ?? DateTime.now());
+  }
+
+  /// 获取指定时刻所属逻辑日的物理起止时间区间 [start, end]
+  static ({DateTime start, DateTime end}) getLogicalDayRange([DateTime? now]) {
+    final logicalDay = getLogicalToday(now);
+    final start = DateTime(logicalDay.year, logicalDay.month, logicalDay.day, _dayRolloverHour);
+    final end = DateTime(logicalDay.year, logicalDay.month, logicalDay.day + 1, _dayRolloverHour)
+        .subtract(const Duration(milliseconds: 1));
+    return (start: start, end: end);
+  }
+
+  /// 按逻辑自然日（Logical Calendar Day）计算经过的天数（整数天差，严禁亚日级小时/分钟折算）
   static double getCalendarElapsedDays(DateTime lastReview, DateTime now) {
-    final l = lastReview.toLocal();
-    final n = now.toLocal();
-    final lastDay = DateTime(l.year, l.month, l.day);
-    final nowDay = DateTime(n.year, n.month, n.day);
+    final lastDay = getLogicalDate(lastReview);
+    final nowDay = getLogicalDate(now);
     return max(0.0, nowDay.difference(lastDay).inDays.toDouble());
   }
 
@@ -94,7 +121,7 @@ class FsrsEngine {
     newD = newD.clamp(1.0, 10.0);
 
     int intervalDays = (g == 1) ? 1 : nextIntervalDays(newS, defaultDesiredRetention);
-    DateTime nextReview = DateTime(now.year, now.month, now.day).add(Duration(days: intervalDays));
+    DateTime nextReview = getLogicalDate(now).add(Duration(days: intervalDays));
     return FsrsReviewResult(newS, newD, nextReview, intervalDays);
   }
 

@@ -28,7 +28,6 @@ namespace NihongoVocab.Views
             SelectAllCheckBox.Checked += SelectAllCheckBox_Checked;
             SelectAllCheckBox.Unchecked += SelectAllCheckBox_Unchecked;
             RecentWordsListView.SelectionChanged += RecentWordsListView_SelectionChanged;
-            RecentWordsListView.PointerReleased += RecentWordsListView_PointerReleased;
             MenuSetStateNewItem.Click += MenuSetStateNew_Click;
             MenuSetStateMasteredItem.Click += MenuSetStateMastered_Click;
             MenuReimportTodayItem.Click += MenuReimportToday_Click;

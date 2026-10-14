@@ -94,13 +94,6 @@ namespace NihongoVocab.Models
             return result;
         }
 
-        public IEnumerable<int> GetAllContainedWordIds()
-        {
-            var result = new HashSet<int>();
-            CollectAllIds(this, result);
-            return result;
-        }
-
         private static void CollectSelectedIds(DateHierarchyNode node, HashSet<int> set)
         {
             if (node.IsChecked == true)
@@ -109,18 +102,19 @@ namespace NihongoVocab.Models
                 {
                     set.Add(id);
                 }
-                foreach (var child in node.Children)
-                {
-                    CollectAllIds(child, set);
-                }
             }
-            else
+
+            foreach (var child in node.Children)
             {
-                foreach (var child in node.Children)
-                {
-                    CollectSelectedIds(child, set);
-                }
+                CollectSelectedIds(child, set);
             }
+        }
+
+        public IEnumerable<int> GetAllContainedWordIds()
+        {
+            var result = new HashSet<int>();
+            CollectAllIds(this, result);
+            return result;
         }
 
         private static void CollectAllIds(DateHierarchyNode node, HashSet<int> set)

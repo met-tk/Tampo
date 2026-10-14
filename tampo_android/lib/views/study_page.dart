@@ -65,11 +65,6 @@ class StudyPageState extends State<StudyPage> {
     }
   }
 
-  /// 公开的刷新方法供父组件切换 Tab 时调用
-  void refresh() {
-    _loadData();
-  }
-
   /// 首次点击未标记的单词卡任意区域：标记为【记得】
   /// 优化：点击列表中第1个单词时（index == 0）不触发下滑，点击其他（index > 0）正常平滑下滑
   void _onInitialCardTap(Word word, int index) {
@@ -125,7 +120,6 @@ class StudyPageState extends State<StudyPage> {
       final count = _pendingRatings.length;
       _pendingRatings.clear();
       DataEventService.instance.notify('review_submitted');
-      await _loadData();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

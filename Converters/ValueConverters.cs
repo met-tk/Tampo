@@ -43,36 +43,28 @@ namespace NihongoVocab.Converters
         }
     }
 
-    public class BoolToOpacityConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            if (value is bool b && b)
-            {
-                return 0.55; // 已归档项稍微半透明，与未归档项形成清晰视觉差异
-            }
-            return 1.0;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => false;
-    }
-
     public class WordStateToColorConverter : IValueConverter
     {
+        private static readonly SolidColorBrush NewBrush = new(Color.FromArgb(255, 59, 130, 246));
+        private static readonly SolidColorBrush LearningBrush = new(Color.FromArgb(255, 234, 179, 8));
+        private static readonly SolidColorBrush ReviewBrush = new(Color.FromArgb(255, 168, 85, 247));
+        private static readonly SolidColorBrush MasteredBrush = new(Color.FromArgb(255, 34, 197, 94));
+        private static readonly SolidColorBrush GrayBrush = new(Colors.Gray);
+
         public object Convert(object value, Type targetType, object parameter, string language)
         {
             if (value is int state)
             {
                 return (WordLearningState)state switch
                 {
-                    WordLearningState.New => new SolidColorBrush(Color.FromArgb(255, 59, 130, 246)),      // 蓝
-                    WordLearningState.Learning => new SolidColorBrush(Color.FromArgb(255, 234, 179, 8)),  // 黄
-                    WordLearningState.Review => new SolidColorBrush(Color.FromArgb(255, 168, 85, 247)),   // 紫
-                    WordLearningState.Mastered => new SolidColorBrush(Color.FromArgb(255, 34, 197, 94)),  // 绿
-                    _ => new SolidColorBrush(Colors.Gray)
+                    WordLearningState.New => NewBrush,
+                    WordLearningState.Learning => LearningBrush,
+                    WordLearningState.Review => ReviewBrush,
+                    WordLearningState.Mastered => MasteredBrush,
+                    _ => GrayBrush
                 };
             }
-            return new SolidColorBrush(Colors.Gray);
+            return GrayBrush;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => 0;
@@ -138,46 +130,6 @@ namespace NihongoVocab.Converters
         {
             return IsCurrentDarkTheme() ? ElementTheme.Dark : ElementTheme.Light;
         }
-    }
-
-    public class CardStateToBorderBrushConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            bool isDark = ThemeHelper.IsCurrentDarkTheme();
-            if (value is CardInteractionState state)
-            {
-                return state switch
-                {
-                    CardInteractionState.PendingRemember => new SolidColorBrush(Color.FromArgb(255, 34, 197, 94)), // 墨绿高亮边框
-                    CardInteractionState.PendingForget => new SolidColorBrush(Color.FromArgb(255, 239, 68, 68)),   // 砖红高亮边框
-                    _ => isDark ? new SolidColorBrush(Color.FromArgb(35, 255, 255, 255)) : new SolidColorBrush(Color.FromArgb(20, 0, 0, 0))
-                };
-            }
-            return isDark ? new SolidColorBrush(Color.FromArgb(35, 255, 255, 255)) : new SolidColorBrush(Color.FromArgb(20, 0, 0, 0));
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => CardInteractionState.Normal;
-    }
-
-    public class CardStateToBackgroundBrushConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            bool isDark = ThemeHelper.IsCurrentDarkTheme();
-            if (value is CardInteractionState state)
-            {
-                return state switch
-                {
-                    CardInteractionState.PendingRemember => new SolidColorBrush(isDark ? Color.FromArgb(60, 34, 197, 94) : Color.FromArgb(40, 34, 197, 94)), // 墨绿淡底
-                    CardInteractionState.PendingForget => new SolidColorBrush(isDark ? Color.FromArgb(60, 239, 68, 68) : Color.FromArgb(40, 239, 68, 68)),   // 砖红淡底
-                    _ => isDark ? new SolidColorBrush(Color.FromArgb(255, 43, 43, 43)) : new SolidColorBrush(Colors.White)
-                };
-            }
-            return isDark ? new SolidColorBrush(Color.FromArgb(255, 43, 43, 43)) : new SolidColorBrush(Colors.White);
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => CardInteractionState.Normal;
     }
 
     public class PercentageConverter : IValueConverter
@@ -248,30 +200,37 @@ namespace NihongoVocab.Converters
 
     public class RetentionToColorConverter : IValueConverter
     {
+        private static readonly SolidColorBrush DarkNeutralBrush = new(Color.FromArgb(255, 156, 163, 175));
+        private static readonly SolidColorBrush LightNeutralBrush = new(Color.FromArgb(255, 107, 114, 128));
+        private static readonly SolidColorBrush DarkGreenBrush = new(Color.FromArgb(255, 74, 222, 128));
+        private static readonly SolidColorBrush LightGreenBrush = new(Color.FromArgb(255, 21, 128, 61));
+        private static readonly SolidColorBrush DarkAmberBrush = new(Color.FromArgb(255, 251, 191, 36));
+        private static readonly SolidColorBrush LightAmberBrush = new(Color.FromArgb(255, 180, 83, 9));
+        private static readonly SolidColorBrush DarkRedBrush = new(Color.FromArgb(255, 248, 113, 113));
+        private static readonly SolidColorBrush LightRedBrush = new(Color.FromArgb(255, 220, 38, 38));
+        private static readonly SolidColorBrush DefaultGrayBrush = new(Colors.Gray);
+
         public object Convert(object value, Type targetType, object parameter, string language)
         {
             bool isDark = ThemeHelper.IsCurrentDarkTheme();
             if (value is double ret)
             {
-                if (ret <= 0.0) return new SolidColorBrush(isDark ? Color.FromArgb(255, 156, 163, 175) : Color.FromArgb(255, 107, 114, 128)); // 中性灰
+                if (ret <= 0.0) return isDark ? DarkNeutralBrush : LightNeutralBrush;
                 double pct = ret * 100.0;
                 if (pct >= 85)
                 {
-                    // 绿色系：深色模式使用高亮亮绿，浅色模式使用深翠绿
-                    return new SolidColorBrush(isDark ? Color.FromArgb(255, 74, 222, 128) : Color.FromArgb(255, 21, 128, 61));
+                    return isDark ? DarkGreenBrush : LightGreenBrush;
                 }
                 if (pct >= 65)
                 {
-                    // 黄/琥珀系：深色模式使用亮金黄，浅色模式使用深琥珀金棕 (告别白底黄字发虚)
-                    return new SolidColorBrush(isDark ? Color.FromArgb(255, 251, 191, 36) : Color.FromArgb(255, 180, 83, 9));
+                    return isDark ? DarkAmberBrush : LightAmberBrush;
                 }
-                // 红色系：深色模式使用亮红，浅色模式使用深红
-                return new SolidColorBrush(isDark ? Color.FromArgb(255, 248, 113, 113) : Color.FromArgb(255, 220, 38, 38));
+                return isDark ? DarkRedBrush : LightRedBrush;
             }
-            return new SolidColorBrush(Colors.Gray);
+            return DefaultGrayBrush;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => new SolidColorBrush(Colors.Gray);
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => DefaultGrayBrush;
     }
 
     public class StabilityToHalfLifeConverter : IValueConverter

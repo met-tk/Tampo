@@ -96,7 +96,7 @@ class _WordsPageState extends State<WordsPage> {
   }
 
   int _calculateRetentionPercent(Word word) {
-    if (word.state == WordLearningState.mastered.value || word.state == 4) return 100;
+    if (word.state == WordLearningState.mastered.value) return 100;
     if (word.state == WordLearningState.newWord.value || word.reps == 0) return 0;
     if (word.stability <= 0) return 0;
 
@@ -128,12 +128,11 @@ class _WordsPageState extends State<WordsPage> {
     if (_selectedWordIds.isEmpty) return;
     final count = _selectedWordIds.length;
     await _db.updateWordsStateBatch(_selectedWordIds.toList(), WordLearningState.mastered);
-    DataEventService.instance.notify('words_changed');
     setState(() {
       _isSelectionMode = false;
       _selectedWordIds.clear();
     });
-    _loadData();
+    DataEventService.instance.notify('words_changed');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -164,12 +163,11 @@ class _WordsPageState extends State<WordsPage> {
     );
     if (confirmed == true) {
       await _db.relearnWordsBatch(_selectedWordIds.toList());
-      DataEventService.instance.notify('words_changed');
       setState(() {
         _isSelectionMode = false;
         _selectedWordIds.clear();
       });
-      _loadData();
+      DataEventService.instance.notify('words_changed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -185,7 +183,6 @@ class _WordsPageState extends State<WordsPage> {
     if (action == 'mastered') {
       await _db.updateWordState(word.id, WordLearningState.mastered);
       DataEventService.instance.notify('words_changed');
-      _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -198,7 +195,6 @@ class _WordsPageState extends State<WordsPage> {
     } else if (action == 'relearn') {
       await _db.relearnWordsBatch([word.id]);
       DataEventService.instance.notify('words_changed');
-      _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -233,7 +229,6 @@ class _WordsPageState extends State<WordsPage> {
       if (confirmed == true) {
         await _db.deleteWord(word.id);
         DataEventService.instance.notify('words_changed');
-        _loadData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -326,12 +321,11 @@ class _WordsPageState extends State<WordsPage> {
       final listName = targetList['name'] as String;
       final addedCount = _selectedWordIds.length;
       await _db.addWordsToList(_selectedWordIds.toList(), listId, listName);
-      DataEventService.instance.notify('words_changed');
       setState(() {
         _isSelectionMode = false;
         _selectedWordIds.clear();
       });
-      _loadData();
+      DataEventService.instance.notify('words_changed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -347,12 +341,11 @@ class _WordsPageState extends State<WordsPage> {
   Future<void> _handleBatchRemoveFromList() async {
     if (_selectedWordIds.isEmpty) return;
     await _db.removeWordsFromList(_selectedWordIds.toList());
-    DataEventService.instance.notify('words_changed');
     setState(() {
       _isSelectionMode = false;
       _selectedWordIds.clear();
     });
-    _loadData();
+    DataEventService.instance.notify('words_changed');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -386,12 +379,11 @@ class _WordsPageState extends State<WordsPage> {
 
     if (confirmed == true) {
       await _db.deleteWordsBatch(_selectedWordIds.toList());
-      DataEventService.instance.notify('words_changed');
       setState(() {
         _isSelectionMode = false;
         _selectedWordIds.clear();
       });
-      _loadData();
+      DataEventService.instance.notify('words_changed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
