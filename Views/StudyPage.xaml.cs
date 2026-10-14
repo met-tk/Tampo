@@ -56,6 +56,8 @@ namespace NihongoVocab.Views
 
             try
             {
+                await ViewModel.EnsureAvailableListsAsync();
+
                 if (ViewModel.Cards.Count > 0 || ViewModel.CompletedCount > 0 || ViewModel.LapsedCount > 0)
                 {
                     await ViewModel.SyncSessionQueueAsync();
@@ -76,12 +78,17 @@ namespace NihongoVocab.Views
             _isPageLoaded = true;
         }
 
-        private async void ListFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ListFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_isPageLoaded) return;
             try
             {
-                await ViewModel.LoadSessionAsync(ViewModel.SelectedList?.Id);
+                var newlySelected = (e.AddedItems?.Count > 0 ? e.AddedItems[0] as WordList : null)
+                                    ?? ListFilterComboBox.SelectedItem as WordList;
+                if (newlySelected != null && ViewModel.SelectedList?.Id != newlySelected.Id)
+                {
+                    ViewModel.SelectedList = newlySelected;
+                }
             }
             catch (Exception ex)
             {

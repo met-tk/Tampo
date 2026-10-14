@@ -37,6 +37,14 @@ namespace NihongoVocab.ViewModels
 
         public string AllDueWordsPlaceholder => LocalizationService.Instance.GetString("AllDueWordsPlaceholder", "全部到期词汇");
 
+        private bool _isUpdatingLists = false;
+
+        partial void OnSelectedListChanged(WordList? value)
+        {
+            if (_isUpdatingLists) return;
+            _ = LoadSessionAsync(value?.Id);
+        }
+
         public StudyViewModel(DatabaseService databaseService)
         {
             _databaseService = databaseService;
@@ -61,9 +69,51 @@ namespace NihongoVocab.ViewModels
             {
                 dispatcher.TryEnqueue(async () =>
                 {
+                    await EnsureAvailableListsAsync();
                     // 实时智能同步待学队列（无缝追加新导入词汇，同步更新卡片数与完成状态）
                     await SyncSessionQueueAsync();
                 });
+            }
+        }
+
+        public async Task EnsureAvailableListsAsync()
+        {
+            try
+            {
+                var lists = await _databaseService.GetAllWordListsAsync();
+                var allLists = new List<WordList> { _allDueWordsOption };
+                allLists.AddRange(lists);
+
+                var currentIds = AvailableLists.Select(l => l.Id).ToHashSet();
+                var newIds = allLists.Select(l => l.Id).ToHashSet();
+
+                if (!currentIds.SetEquals(newIds))
+                {
+                    _isUpdatingLists = true;
+                    try
+                    {
+                        var prevSelectedId = SelectedList?.Id ?? -1;
+                        AvailableLists.Clear();
+                        foreach (var l in allLists)
+                        {
+                            AvailableLists.Add(l);
+                        }
+
+                        SelectedList = AvailableLists.FirstOrDefault(l => l.Id == prevSelectedId) ?? _allDueWordsOption;
+                    }
+                    finally
+                    {
+                        _isUpdatingLists = false;
+                    }
+                }
+                else if (SelectedList == null)
+                {
+                    SelectedList = _allDueWordsOption;
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "StudyViewModel.EnsureAvailableListsAsync");
             }
         }
 
@@ -115,30 +165,7 @@ namespace NihongoVocab.ViewModels
 
             try
             {
-                var lists = await _databaseService.GetAllWordListsAsync();
-                
-                var allLists = new List<WordList> { _allDueWordsOption };
-                allLists.AddRange(lists);
-
-                // 智能更新 AvailableLists，避免暴力 Clear 导致 ComboBox SelectedItem 丢失并引发死循环 SelectionChanged
-                var currentIds = AvailableLists.Select(l => l.Id).ToHashSet();
-                var newIds = allLists.Select(l => l.Id).ToHashSet();
-
-                if (!currentIds.SetEquals(newIds))
-                {
-                    var prevSelectedId = SelectedList?.Id ?? -1;
-                    AvailableLists.Clear();
-                    foreach (var l in allLists)
-                    {
-                        AvailableLists.Add(l);
-                    }
-
-                    SelectedList = AvailableLists.FirstOrDefault(l => l.Id == prevSelectedId) ?? _allDueWordsOption;
-                }
-                else if (SelectedList == null)
-                {
-                    SelectedList = _allDueWordsOption;
-                }
+                await EnsureAvailableListsAsync();
 
                 int? targetId = (listId.HasValue && listId.Value != -1) ? listId.Value : (SelectedList?.Id != -1 ? SelectedList?.Id : null);
                 var words = await _databaseService.GetStudyQueueAsync(targetId);
