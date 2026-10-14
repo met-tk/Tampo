@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.2.8</value>
+    <value>v1.3.0</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>日次更新時刻</value>

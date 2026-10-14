@@ -48,8 +48,8 @@ Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
 
 # ---- Prepare Setup output directory ----------------------------------------
 $setupDir       = "$root\Setup"
-$setupExeFinal  = "$setupDir\Tampo_Setup_v1.2.8.exe"
-$updateExeFinal = "$setupDir\Tampo_Update_v1.2.8.exe"
+$setupExeFinal  = "$setupDir\Tampo_Setup_v1.3.0.exe"
+$updateExeFinal = "$setupDir\Tampo_Update_v1.3.0.exe"
 
 if (Test-Path $setupDir) {
     Remove-Item $setupDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -70,7 +70,7 @@ dotnet publish "$root\Installer\Tampo.Installer.csproj" `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:AssemblyName=Tampo_Setup_v1.2.8 `
+    -p:AssemblyName=Tampo_Setup_v1.3.0 `
     -o $setupDir | Out-Null
 
 # ---- Clean intermediate artifacts ------------------------------------------
