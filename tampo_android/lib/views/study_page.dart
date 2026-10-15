@@ -68,29 +68,35 @@ class StudyPageState extends State<StudyPage> {
     }
   }
 
-  /// 首次点击未标记的单词卡任意区域：标记为【记得】
-  /// 优化：点击列表中第1个单词时（index == 0）不触发下滑，点击其他（index > 0）正常平滑下滑
-  void _onInitialCardTap(Word word, int index) {
-    setState(() {
-      _pendingRatings[word.id] = 3; // 默认为记得
-    });
-
+  /// 点击单词卡任意区域：切换标记状态（未标记 -> 标记为记得；已标记 -> 取消标记移除暂存）
+  /// 无论未标记还是已标记：均统一触发轻触震动反馈与自动发音
+  void _onCardTap(Word word, int index, bool isMarked) {
     HapticFeedback.lightImpact();
-    // 首次点击标记时触发一次发音（受自动发音开关控制）
+
     if (TtsService.instance.isAutoEnabled) {
       TtsService.instance.speak(word.text);
     }
 
-    // 仅当点击非首个单词时，自动平滑往下滚动一个卡片高度
-    if (index > 0 && _scrollController.hasClients) {
-      const cardHeight = 98.0;
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final target = (_scrollController.offset + cardHeight).clamp(0.0, maxScroll);
-      _scrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-      );
+    if (!isMarked) {
+      setState(() {
+        _pendingRatings[word.id] = 3; // 默认为记得
+      });
+
+      // 仅当点击非首个单词时，自动平滑往下滚动一个卡片高度
+      if (index > 0 && _scrollController.hasClients) {
+        const cardHeight = 98.0;
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        final target = (_scrollController.offset + cardHeight).clamp(0.0, maxScroll);
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    } else {
+      setState(() {
+        _pendingRatings.remove(word.id);
+      });
     }
   }
 
@@ -368,16 +374,8 @@ class StudyPageState extends State<StudyPage> {
 
     return InkWell(
       borderRadius: BorderRadius.circular(10),
-      // 未标记时点击：标记为记得并触发发音；已标记时点击：触发发音
-      onTap: () {
-        if (!isMarked) {
-          _onInitialCardTap(word, index);
-        } else {
-          if (TtsService.instance.isAutoEnabled) {
-            TtsService.instance.speak(word.text);
-          }
-        }
-      },
+      // 切换标记状态（未标记 -> 标记为记得；已标记 -> 取消标记移除），并统一触发发音与触觉反馈
+      onTap: () => _onCardTap(word, index, isMarked),
       onLongPress: () => _copyWord(word),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
