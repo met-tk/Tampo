@@ -94,10 +94,11 @@ namespace NihongoVocab.Views
             if (PullFromMobileTitleTextBlock != null) PullFromMobileTitleTextBlock.Text = loc.GetString("PullFromMobileTitle", "从手机端主动拉取全量数据");
             if (PullFromMobileDescTextBlock != null) PullFromMobileDescTextBlock.Text = loc.GetString("PullFromMobileDesc", "电脑端数据异常或丢失时，向已连接手机发送指令，将手机完整词库与进度推回电脑并安全合并");
             if (PullFromMobileButtonText != null) PullFromMobileButtonText.Text = loc.GetString("ButtonPullFromMobile", "从手机主动拉取");
+            if (SyncOnStudyLabelTextBlock != null) SyncOnStudyLabelTextBlock.Text = loc.GetString("SyncOnStudyLabel", "本地打卡后自动同步");
+            if (SyncOnStudyDescTextBlock != null) SyncOnStudyDescTextBlock.Text = loc.GetString("SyncOnStudyDesc", "在电脑端完成单词打卡后，自动向局域网已连接的移动端广播数据变动；关闭后仅本地记录，不向手机广播");
             if (LocalBackupsTitleTextBlock != null) LocalBackupsTitleTextBlock.Text = loc.GetString("LocalBackupsTitle", "本地自动快照一键还原");
-            if (LocalBackupsDescTextBlock != null) LocalBackupsDescTextBlock.Text = loc.GetString("LocalBackupsDesc", "系统在同步与数据变更前自动保存快照。选择历史快照可一键安全还原");
-            if (RestoreSnapshotButtonText != null) RestoreSnapshotButtonText.Text = loc.GetString("ButtonRestoreBackup", "还原此快照");
-            if (DeleteSnapshotButtonText != null) DeleteSnapshotButtonText.Text = loc.GetString("ButtonDelete", "删除");
+            if (LocalBackupsDescTextBlock != null) LocalBackupsDescTextBlock.Text = loc.GetString("LocalBackupsDesc", "系统在同步与数据变更前自动保存快照。在下方列表中可对任意历史快照一键安全还原或快速删除");
+            if (NoSnapshotsTextBlock != null) NoSnapshotsTextBlock.Text = loc.GetString("NoSnapshotsText", "暂无可用备份快照。点击上方【创建快照】可立即生成本地备份。");
             if (CreateSnapshotButtonText != null) CreateSnapshotButtonText.Text = loc.GetString("ButtonCreateBackup", "创建快照");
             if (RestoreFromFileTitleTextBlock != null) RestoreFromFileTitleTextBlock.Text = loc.GetString("RestoreFromFileTitle", "从外部备份文件还原");
             if (RestoreFromFileDescTextBlock != null) RestoreFromFileDescTextBlock.Text = loc.GetString("RestoreFromFileDesc", "选择自定义位置的 Tampo SQLite 数据库备份文件 (.db) 恢复本地数据");
@@ -442,76 +443,81 @@ namespace NihongoVocab.Views
             }
         }
 
-        private async void RestoreSnapshot_Click(object sender, RoutedEventArgs e)
+        private async void RestoreSnapshotItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string backupPath && File.Exists(backupPath))
+            {
+                await RestoreSpecificSnapshotAsync(backupPath);
+            }
+        }
+
+        private async Task RestoreSpecificSnapshotAsync(string backupPath)
         {
             try
             {
-                if (BackupSnapshotComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string backupPath && File.Exists(backupPath))
+                var loc = LocalizationService.Instance;
+                var confirmDialog = new ContentDialog
                 {
-                    var loc = LocalizationService.Instance;
-                    var confirmDialog = new ContentDialog
-                    {
-                        Title = loc.GetString("RestoreConfirmTitle", "确认还原此数据库快照？"),
-                        Content = DialogHelper.CreateTextBlockContent(string.Format(loc.GetString("RestoreConfirmContent", "即将还原备份文件：\n{0}\n\n当前数据库将被此快照覆盖（系统会在还原前自动生成一份 pre_restore 紧急恢复文件，并生成新同步纪元防止手机反向覆写）。\n\n是否确认还原？"), Path.GetFileName(backupPath))),
-                        PrimaryButtonText = loc.GetString("ButtonConfirmRestore", "确认还原"),
-                        CloseButtonText = loc.GetString("ButtonCancel", "取消"),
-                        DefaultButton = ContentDialogButton.Close,
-                        XamlRoot = this.XamlRoot,
-                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                    };
+                    Title = loc.GetString("RestoreConfirmTitle", "确认还原此数据库快照？"),
+                    Content = DialogHelper.CreateTextBlockContent(string.Format(loc.GetString("RestoreConfirmContent", "即将还原备份文件：\n{0}\n\n当前数据库将被此快照覆盖（系统会在还原前自动生成一份 pre_restore 紧急恢复文件，并生成新同步纪元防止手机反向覆写）。\n\n是否确认还原？"), Path.GetFileName(backupPath))),
+                    PrimaryButtonText = loc.GetString("ButtonConfirmRestore", "确认还原"),
+                    CloseButtonText = loc.GetString("ButtonCancel", "取消"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
+                };
 
-                    MainWindow.RegisterActiveDialog(confirmDialog);
-                    var res = await confirmDialog.ShowAsync();
-                    MainWindow.UnregisterActiveDialog(confirmDialog);
+                MainWindow.RegisterActiveDialog(confirmDialog);
+                var res = await confirmDialog.ShowAsync();
+                MainWindow.UnregisterActiveDialog(confirmDialog);
 
-                    if (res == ContentDialogResult.Primary)
+                if (res == ContentDialogResult.Primary)
+                {
+                    await SyncServiceController.Instance.SetMaintenanceModeAsync(true);
+                    bool wasRunning = await SyncServiceController.Instance.IsServiceRunningAsync();
+                    if (wasRunning)
                     {
-                        await SyncServiceController.Instance.SetMaintenanceModeAsync(true);
-                        bool wasRunning = await SyncServiceController.Instance.IsServiceRunningAsync();
+                        await SyncServiceController.Instance.StopServiceAsync();
+                    }
+
+                    try
+                    {
+                        bool success = await _dbService.RestoreFromBackupFileAsync(backupPath);
+                        if (success)
+                        {
+                            DateTime fileTime = File.GetCreationTime(backupPath);
+                            await _dbService.ApplyMaintenanceRestoredEpochAndPromoteTimestampsAsync(fileTime);
+                        }
+
+                        var tip = new ContentDialog
+                        {
+                            Title = success ? loc.GetString("RestoreSuccessTitle", "快照还原成功") : loc.GetString("RestoreFailedTitle", "还原失败"),
+                            Content = DialogHelper.CreateTextBlockContent(success
+                                ? loc.GetString("RestoreSuccessMsg", "数据库已成功还原，所有词单、生词与学习进度已刷新，并已建立全新权威纪元锁定防覆盖。")
+                                : loc.GetString("RestoreFailedMsg", "还原快照时发生错误，请查看运行日志。")),
+                            CloseButtonText = loc.GetString("ButtonClose", "关闭"),
+                            XamlRoot = this.XamlRoot,
+                            RequestedTheme = Converters.ThemeHelper.GetActualTheme()
+                        };
+                        MainWindow.RegisterActiveDialog(tip);
+                        await tip.ShowAsync();
+                        MainWindow.UnregisterActiveDialog(tip);
+
+                        await RefreshBackupsListAsync();
+                    }
+                    finally
+                    {
                         if (wasRunning)
                         {
-                            await SyncServiceController.Instance.StopServiceAsync();
+                            await SyncServiceController.Instance.StartServiceAsync();
                         }
-
-                        try
-                        {
-                            bool success = await _dbService.RestoreFromBackupFileAsync(backupPath);
-                            if (success)
-                            {
-                                DateTime fileTime = File.GetCreationTime(backupPath);
-                                await _dbService.ApplyMaintenanceRestoredEpochAndPromoteTimestampsAsync(fileTime);
-                            }
-
-                            var tip = new ContentDialog
-                            {
-                                Title = success ? loc.GetString("RestoreSuccessTitle", "快照还原成功") : loc.GetString("RestoreFailedTitle", "还原失败"),
-                                Content = DialogHelper.CreateTextBlockContent(success
-                                    ? loc.GetString("RestoreSuccessMsg", "数据库已成功还原，所有词单、生词与学习进度已刷新，并已建立全新权威纪元锁定防覆盖。")
-                                    : loc.GetString("RestoreFailedMsg", "还原快照时发生错误，请查看运行日志。")),
-                                CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                                XamlRoot = this.XamlRoot,
-                                RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                            };
-                            MainWindow.RegisterActiveDialog(tip);
-                            await tip.ShowAsync();
-                            MainWindow.UnregisterActiveDialog(tip);
-
-                            await RefreshBackupsListAsync();
-                        }
-                        finally
-                        {
-                            if (wasRunning)
-                            {
-                                await SyncServiceController.Instance.StartServiceAsync();
-                            }
-                            await SyncServiceController.Instance.SetMaintenanceModeAsync(false);
-                        }
+                        await SyncServiceController.Instance.SetMaintenanceModeAsync(false);
                     }
                 }
             }
             catch (Exception ex)
             {
-                CrashLogger.LogException(ex, "SettingsPage.RestoreSnapshot_Click");
+                CrashLogger.LogException(ex, "SettingsPage.RestoreSpecificSnapshotAsync");
             }
         }
 
@@ -629,21 +635,21 @@ namespace NihongoVocab.Views
             try
             {
                 var backups = _dbService.GetAvailableBackups();
+                var loc = LocalizationService.Instance;
+
                 DispatcherQueue.TryEnqueue(() =>
                 {
-                    if (BackupSnapshotComboBox == null) return;
-                    BackupSnapshotComboBox.Items.Clear();
+                    if (BackupSnapshotsListView == null || NoSnapshotsPanel == null) return;
 
                     if (backups.Count == 0)
                     {
-                        var emptyItem = new ComboBoxItem { Content = "暂无可用备份快照", IsEnabled = false };
-                        BackupSnapshotComboBox.Items.Add(emptyItem);
-                        BackupSnapshotComboBox.SelectedIndex = 0;
-                        if (RestoreSnapshotButton != null) RestoreSnapshotButton.IsEnabled = false;
-                        if (DeleteSnapshotButton != null) DeleteSnapshotButton.IsEnabled = false;
+                        BackupSnapshotsListView.ItemsSource = null;
+                        BackupSnapshotsListView.Visibility = Visibility.Collapsed;
+                        NoSnapshotsPanel.Visibility = Visibility.Visible;
                     }
                     else
                     {
+                        var items = new List<BackupSnapshotItem>();
                         foreach (var bPath in backups)
                         {
                             try
@@ -652,19 +658,34 @@ namespace NihongoVocab.Views
                                 string sizeStr = fi.Length >= 1024 * 1024
                                     ? $"{(fi.Length / (1024.0 * 1024.0)):F2} MB"
                                     : $"{(fi.Length / 1024.0):F1} KB";
-                                string label = $"{fi.CreationTime:yyyy-MM-dd HH:mm:ss} ({sizeStr})";
-                                var item = new ComboBoxItem
+
+                                string fn = fi.Name;
+                                string badge;
+                                if (fn.StartsWith("vocab_auto_"))
+                                    badge = loc.GetString("SnapshotTypeAuto", "自动快照");
+                                else if (fn.Contains("pre_pull"))
+                                    badge = loc.GetString("SnapshotTypePrePull", "拉取前镜像");
+                                else if (fn.Contains("pre_restore"))
+                                    badge = loc.GetString("SnapshotTypePreRestore", "还原前镜像");
+                                else
+                                    badge = loc.GetString("SnapshotTypeManual", "手动快照");
+
+                                items.Add(new BackupSnapshotItem
                                 {
-                                    Content = label,
-                                    Tag = bPath
-                                };
-                                BackupSnapshotComboBox.Items.Add(item);
+                                    FilePath = bPath,
+                                    FileName = fn,
+                                    FormattedTime = fi.CreationTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                                    FormattedSize = sizeStr,
+                                    BadgeText = badge,
+                                    CreationTime = fi.CreationTime
+                                });
                             }
                             catch { }
                         }
-                        BackupSnapshotComboBox.SelectedIndex = 0;
-                        if (RestoreSnapshotButton != null) RestoreSnapshotButton.IsEnabled = true;
-                        if (DeleteSnapshotButton != null) DeleteSnapshotButton.IsEnabled = true;
+
+                        BackupSnapshotsListView.ItemsSource = items;
+                        BackupSnapshotsListView.Visibility = Visibility.Visible;
+                        NoSnapshotsPanel.Visibility = Visibility.Collapsed;
                     }
                 });
             }
@@ -675,18 +696,19 @@ namespace NihongoVocab.Views
             return Task.CompletedTask;
         }
 
-        private async void DeleteSnapshot_Click(object sender, RoutedEventArgs e)
+        private async void DeleteSnapshotItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string backupPath && File.Exists(backupPath))
+            {
+                await DeleteSpecificSnapshotAsync(backupPath);
+            }
+        }
+
+        private async Task DeleteSpecificSnapshotAsync(string backupPath)
         {
             var loc = LocalizationService.Instance;
             try
             {
-                if (BackupSnapshotComboBox?.SelectedItem is not ComboBoxItem selectedItem ||
-                    selectedItem.Tag is not string backupPath ||
-                    !File.Exists(backupPath))
-                {
-                    return;
-                }
-
                 string fileName = Path.GetFileName(backupPath);
                 var confirmDialog = new ContentDialog
                 {
@@ -730,7 +752,7 @@ namespace NihongoVocab.Views
             }
             catch (Exception ex)
             {
-                CrashLogger.LogException(ex, "SettingsPage.DeleteSnapshot_Click");
+                CrashLogger.LogException(ex, "SettingsPage.DeleteSpecificSnapshotAsync");
             }
         }
 
@@ -941,6 +963,10 @@ namespace NihongoVocab.Views
             {
                 SyncAutostartToggleSwitch.IsOn = SyncServiceController.Instance.IsAutostartEnabled();
             }
+            if (SyncOnStudyToggleSwitch != null)
+            {
+                SyncOnStudyToggleSwitch.IsOn = UserPreferenceService.Instance.GetBool("Sync_AutoSyncOnStudy", true);
+            }
         }
 
         private void UpdateSyncStatusUI(bool isRunning)
@@ -987,6 +1013,15 @@ namespace NihongoVocab.Views
             if (sender is ToggleSwitch ts)
             {
                 SyncServiceController.Instance.SetAutostart(ts.IsOn);
+            }
+        }
+
+        private void SyncOnStudyToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleSwitch ts)
+            {
+                DatabaseService.IsAutoSyncOnStudyEnabled = ts.IsOn;
+                UserPreferenceService.Instance.SetBool("Sync_AutoSyncOnStudy", ts.IsOn);
             }
         }
 
@@ -1245,5 +1280,15 @@ namespace NihongoVocab.Views
         }
 
         #endregion
+    }
+
+    public class BackupSnapshotItem
+    {
+        public string FilePath { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string FormattedTime { get; set; } = string.Empty;
+        public string FormattedSize { get; set; } = string.Empty;
+        public string BadgeText { get; set; } = string.Empty;
+        public DateTime CreationTime { get; set; }
     }
 }

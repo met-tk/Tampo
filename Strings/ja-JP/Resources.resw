@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.4.7</value>
+    <value>v1.4.8</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>日次更新時刻</value>
@@ -1720,5 +1720,26 @@
   </data>
   <data name="DeviceAliasPlaceholder" xml:space="preserve">
     <value>例：メインスマホ、Pixel 7...</value>
+  </data>
+  <data name="SyncOnStudyLabel" xml:space="preserve">
+    <value>学習完了時の自動同期</value>
+  </data>
+  <data name="SyncOnStudyDesc" xml:space="preserve">
+    <value>PC側で復習完了時に接続中のスマホへ自動で変更を通知します。オフにするとPC内のみ記録されます。</value>
+  </data>
+  <data name="NoSnapshotsText" xml:space="preserve">
+    <value>利用可能なバックアップがありません。上の【スナップショット作成】から作成できます。</value>
+  </data>
+  <data name="SnapshotTypeAuto" xml:space="preserve">
+    <value>自動スナップショット</value>
+  </data>
+  <data name="SnapshotTypePrePull" xml:space="preserve">
+    <value>プル前ミラー</value>
+  </data>
+  <data name="SnapshotTypePreRestore" xml:space="preserve">
+    <value>復元前ミラー</value>
+  </data>
+  <data name="SnapshotTypeManual" xml:space="preserve">
+    <value>手動スナップショット</value>
   </data>
 </root>

@@ -79,9 +79,20 @@ class SyncService {
     isPairedNotifier.value = _pairedToken != null && _pairedToken!.isNotEmpty;
     isAutoSyncEnabledNotifier.value = autoSync;
 
-    // 监听全局数据变动，实现打卡/生词操作防抖自动推送
+    // 严格约束自动推送条件：仅当发生真实数据写入（打卡、撤销打卡、生词增删改、纠错、导入）时才触发自动同步推送
+    // 坚决杜绝 app_resumed、页面导航等无数据变更动作造成的无端网络推送与对端刷新抽动
+    const autoPushAllowedReasons = {
+      'review_submitted',
+      'review_reverted',
+      'words_changed',
+      'correction',
+      'import_finished',
+    };
+
     _dataEventSub = DataEventService.instance.onDataChanged.listen((reason) {
-      if (reason != 'sync_finished' && isAutoSyncEnabledNotifier.value && isPairedNotifier.value) {
+      if (autoPushAllowedReasons.contains(reason) &&
+          isAutoSyncEnabledNotifier.value &&
+          isPairedNotifier.value) {
         triggerAutoSyncDebounced(reason);
       }
     });
@@ -147,7 +158,7 @@ class SyncService {
                 'port': 52080,
                 'host': hostParts,
                 'name': name,
-                'version': (pingData['version'] ?? '1.4.7').toString(),
+                'version': (pingData['version'] ?? '1.4.8').toString(),
               };
               completer.complete(info);
             } catch (_) {}
@@ -211,7 +222,7 @@ class SyncService {
                   'port': port,
                   'host': '$ip:$port',
                   'name': pcName,
-                  'version': json['version']?.toString() ?? '1.4.7',
+                  'version': json['version']?.toString() ?? '1.4.8',
                 };
                 if (!completer.isCompleted) {
                   completer.complete(info);
@@ -248,7 +259,7 @@ class SyncService {
                             'port': 52080,
                             'host': '$targetIp:52080',
                             'name': name,
-                            'version': (pingData['version'] ?? '1.4.7').toString(),
+                            'version': (pingData['version'] ?? '1.4.8').toString(),
                           };
                           completer.complete(info);
                         }
@@ -850,7 +861,9 @@ class SyncService {
       statusNotifier.value = SyncStatus.success;
 
       addLog('实时同步成功！(${report.summary})');
-      DataEventService.instance.notify('sync_finished');
+      if (report.hasChanges) {
+        DataEventService.instance.notify('sync_finished');
+      }
 
       return report;
     } catch (e) {
@@ -1530,6 +1543,8 @@ class SyncReport {
     required this.updatedWords,
     required this.syncedLogs,
   });
+
+  bool get hasChanges => syncedLists > 0 || insertedWords > 0 || updatedWords > 0 || syncedLogs > 0;
 
   String get summary =>
       '同步完成！词单: $syncedLists 个，新词: $insertedWords 个，更新进度: $updatedWords 个，打卡日志: $syncedLogs 条';

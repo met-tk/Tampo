@@ -51,6 +51,7 @@ namespace NihongoVocab
 
             LocalizationService.LanguageLoader = () => prefService.Get("App_Language", "zh-CN");
             LocalizationService.LanguagePersister = (lang) => prefService.Set("App_Language", lang);
+            DatabaseService.IsAutoSyncOnStudyEnabled = prefService.GetBool("Sync_AutoSyncOnStudy", true);
 
             Services[typeof(DatabaseService)] = dbService;
             Services[typeof(UserPreferenceService)] = prefService;

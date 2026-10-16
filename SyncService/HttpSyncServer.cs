@@ -46,7 +46,7 @@ namespace NihongoVocab.SyncService
     public sealed class HttpSyncServer : IAsyncDisposable, IDisposable
     {
         public const int DefaultPort = 52080;
-        public const string ServerVersion = "1.4.7";
+        public const string ServerVersion = "1.4.8";
         public int Port { get; }
 
         private TcpListener? _tcpListener;
@@ -746,23 +746,29 @@ namespace NihongoVocab.SyncService
 
                         var result = await MergeSyncPayloadAsync(incomingPayload);
 
-                        // 发送跨进程命名事件信号，通知主程序 UI 刷新
-                        if (OperatingSystem.IsWindows())
-                        {
-                            CrossProcessEventHelper.Signal(CrossProcessEventHelper.ToAppEventName);
-                            CrossProcessEventHelper.Signal(CrossProcessEventHelper.EventName);
-                        }
+                        bool hasActualChanges = (result.SyncedWords > 0 || result.SyncedLogs > 0 || result.SyncedLists > 0);
 
-                        // 向已连接的移动端 SSE 广播数据变动（排除当前推送设备，切断乒乓回音）
-                        _ = Task.Run(async () =>
+                        // 仅当实际合并了数据变动时，才发送跨进程信号通知主程序 UI 刷新
+                        // 严禁在 0 变动的空请求时误发信号，彻底根除桌面端 UI 抽动
+                        if (hasActualChanges)
                         {
-                            try
+                            if (OperatingSystem.IsWindows())
                             {
-                                long ver = await _dbService.GetDataVersionAsync();
-                                await BroadcastDataChangedAsync(ver, excludeToken: token);
+                                CrossProcessEventHelper.Signal(CrossProcessEventHelper.ToAppEventName);
+                                CrossProcessEventHelper.Signal(CrossProcessEventHelper.EventName);
                             }
-                            catch { }
-                        });
+
+                            // 向已连接的移动端 SSE 广播数据变动（排除当前推送设备，切断乒乓回音）
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    long ver = await _dbService.GetDataVersionAsync();
+                                    await BroadcastDataChangedAsync(ver, excludeToken: token);
+                                }
+                                catch { }
+                            });
+                        }
 
                         // 立即修剪工作集内存，保证常驻 <30MB
                         MemoryOptimizer.TrimWorkingSet();

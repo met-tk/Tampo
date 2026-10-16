@@ -7,7 +7,7 @@
     mc:Ignorable="d">
 
     <ScrollViewer Padding="24">
-        <StackPanel Spacing="20" MaxWidth="800" HorizontalAlignment="Left">
+        <StackPanel Spacing="20" MaxWidth="960" HorizontalAlignment="Stretch">
             <!-- 顶部标题 -->
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                 <FontIcon Glyph="&#xE713;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
@@ -22,12 +22,12 @@
                     <TextBlock x:Name="SectionAppearanceTextBlock" Text="外观与语言" FontWeight="SemiBold" FontSize="14"/>
 
                     <!-- 主题切换 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="ThemeLabelTextBlock" Text="深浅主题" FontSize="13" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ThemeLabelTextBlock" Text="深浅主题" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"/>
                         <ComboBox x:Name="ThemeComboBox" Grid.Column="1" Width="180"
                                   SelectionChanged="ThemeComboBox_SelectionChanged">
                             <ComboBoxItem Content="跟随系统" Tag="Default"/>
@@ -37,12 +37,12 @@
                     </Grid>
 
                     <!-- 语言设置 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="LanguageLabelTextBlock" Text="语言" FontSize="13" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="LanguageLabelTextBlock" Text="语言" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"/>
                         <ComboBox x:Name="LanguageComboBox" Grid.Column="1" Width="180"
                                   SelectionChanged="LanguageComboBox_SelectionChanged">
                             <ComboBoxItem Content="简体中文 (zh-CN)" Tag="zh-CN"/>
@@ -52,14 +52,14 @@
                     </Grid>
 
                     <!-- 每日结算时刻 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="DayRolloverLabelTextBlock" Text="每日结算时刻" FontSize="13"/>
-                            <TextBlock x:Name="DayRolloverSubTextBlock" Text="跨零点熬夜学习时，在此时间前仍计入前一天（默认 04:00）" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="DayRolloverLabelTextBlock" Text="每日结算时刻" FontSize="13" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="DayRolloverSubTextBlock" Text="跨零点熬夜学习时，在此时间前仍计入前一天（默认 04:00）" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                         </StackPanel>
                         <ComboBox x:Name="DayRolloverComboBox" Grid.Column="1" Width="180" VerticalAlignment="Center"
                                   SelectionChanged="DayRolloverComboBox_SelectionChanged">
@@ -80,14 +80,14 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                     CornerRadius="8" Padding="16">
                 <StackPanel Spacing="16">
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
                             <TextBlock x:Name="SectionSoundTextBlock" Text="音效与提示" FontWeight="SemiBold" FontSize="14"/>
-                            <TextBlock x:Name="SoundToggleSubTextBlock" Text="开启打卡标记与中键复制时的音频反馈提示" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="SoundToggleSubTextBlock" Text="开启打卡标记与中键复制时的音频反馈提示" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                         </StackPanel>
                         <ToggleSwitch x:Name="SoundToggleSwitch" Grid.Column="1" IsOn="True"
                                       Toggled="SoundToggleSwitch_Toggled"/>
@@ -96,16 +96,16 @@
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
                     <!-- 学习标记音效 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="StudyMarkSoundLabelTextBlock" Text="【学习】单词打卡标记音效" FontSize="13" FontWeight="Medium"/>
+                            <TextBlock x:Name="StudyMarkSoundLabelTextBlock" Text="【学习】单词打卡标记音效" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
                             <TextBlock x:Name="StudyMarkSoundDescTextBlock" Text="当前音效：Windows 默认通知音效" FontSize="11" Opacity="0.6"
-                                       IsTextSelectionEnabled="True"/>
+                                       IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -130,16 +130,16 @@
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
                     <!-- 鼠标中键复制音效 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="CopySoundLabelTextBlock" Text="鼠标中键复制单词音效" FontSize="13" FontWeight="Medium"/>
+                            <TextBlock x:Name="CopySoundLabelTextBlock" Text="鼠标中键复制单词音效" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
                             <TextBlock x:Name="CopySoundDescTextBlock" Text="当前音效：Windows 默认提示音效" FontSize="11" Opacity="0.6"
-                                       IsTextSelectionEnabled="True"/>
+                                       IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -170,15 +170,15 @@
                 <StackPanel Spacing="16">
                     <TextBlock x:Name="SectionLogsTextBlock" Text="运行日志" FontWeight="SemiBold" FontSize="14"/>
 
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="LogPathLabelTextBlock" Text="日志存储路径" FontSize="13"/>
+                            <TextBlock x:Name="LogPathLabelTextBlock" Text="日志存储路径" FontSize="13" TextWrapping="Wrap"/>
                             <TextBlock x:Name="LogPathTextBlock" FontSize="11" Opacity="0.5"
-                                       IsTextSelectionEnabled="True"/>
+                                       IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
                         </StackPanel>
                         <Button x:Name="OpenLogButton" Grid.Column="1" Content="打开日志目录" Click="OpenLogDirectory_Click">
                             <Button.KeyboardAccelerators>
@@ -195,7 +195,7 @@
                     CornerRadius="8" Padding="16">
                 <StackPanel Spacing="16">
                     <!-- 标题栏与守护服务运行状态主开关 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -215,7 +215,7 @@
                             </StackPanel>
                             <TextBlock x:Name="LanSyncDescTextBlock" 
                                        Text="后台静默常驻运行，支持移动端在局域网内自动互联与无感双向合并同步" 
-                                       FontSize="11" Opacity="0.5"/>
+                                       FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                         </StackPanel>
                         <ToggleSwitch x:Name="SyncServiceToggleSwitch" Grid.Column="1" IsOn="False"
                                       Toggled="SyncServiceToggleSwitch_Toggled"/>
@@ -224,17 +224,33 @@
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
                     <!-- 开机自启动守护服务 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="SyncAutostartLabelTextBlock" Text="开机自启动守护服务" FontSize="13" FontWeight="Medium"/>
-                            <TextBlock x:Name="SyncAutostartDescTextBlock" Text="Windows 开机后自动在后台静默运行同步服务，手机端可随时即刻同步，无需先手动打开电脑主程序" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="SyncAutostartLabelTextBlock" Text="开机自启动守护服务" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="SyncAutostartDescTextBlock" Text="Windows 开机后自动在后台静默运行同步服务，手机端可随时即刻同步，无需先手动打开电脑主程序" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                         </StackPanel>
                         <ToggleSwitch x:Name="SyncAutostartToggleSwitch" Grid.Column="1" IsOn="False"
                                       Toggled="SyncAutostartToggleSwitch_Toggled"/>
+                    </Grid>
+
+                    <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+
+                    <!-- 本地打卡后自动同步 -->
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="SyncOnStudyLabelTextBlock" Text="本地打卡后自动同步" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="SyncOnStudyDescTextBlock" Text="在电脑端完成单词打卡后，自动向局域网已连接的移动端广播数据变动；关闭后仅本地记录，不向手机广播" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ToggleSwitch x:Name="SyncOnStudyToggleSwitch" Grid.Column="1" IsOn="True"
+                                      Toggled="SyncOnStudyToggleSwitch_Toggled"/>
                     </Grid>
 
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
@@ -244,14 +260,14 @@
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             CornerRadius="6" Padding="14">
                         <StackPanel Spacing="12">
-                            <Grid>
+                            <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock x:Name="PairingCodeSectionTitle" Text="绑定新移动设备" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="PairingCodeDescTextBlock" Text="在手机端输入此 6 位配对码即可建立长效免密绑定，后续无需再手动配置 IP 或配对码" FontSize="11" Opacity="0.5"/>
+                                    <TextBlock x:Name="PairingCodeSectionTitle" Text="绑定新移动设备" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="PairingCodeDescTextBlock" Text="在手机端输入此 6 位配对码即可建立长效免密绑定，后续无需再手动配置 IP 或配对码" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <Button x:Name="GeneratePairingCodeButton" Grid.Column="1" Click="GeneratePairingCode_Click" Style="{ThemeResource AccentButtonStyle}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -265,7 +281,7 @@
                             <Grid x:Name="PairingCodeDisplayPanel" Visibility="Collapsed"
                                   Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                  CornerRadius="6" Padding="16,14">
+                                  CornerRadius="6" Padding="16,14" ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -275,7 +291,7 @@
                                     <TextBlock x:Name="PairingCodeTextBlock" Text="--- ---" FontSize="32" FontWeight="Bold"
                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" 
                                                FontFamily="Consolas, Cascadia Code, Courier New" CharacterSpacing="60"/>
-                                    <TextBlock x:Name="PairingServerEndpointTextBlock" Text="服务地址: 获取中..." FontSize="12" Opacity="0.6"/>
+                                    <TextBlock x:Name="PairingServerEndpointTextBlock" Text="服务地址: 获取中..." FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -300,14 +316,14 @@
 
                     <!-- 已绑定设备管理 -->
                     <StackPanel Spacing="8">
-                        <Grid>
+                        <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="2" VerticalAlignment="Center">
-                                <TextBlock x:Name="PairedDevicesTitleTextBlock" Text="已绑定设备管理" FontSize="13" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="PairedDevicesDescTextBlock" Text="已获得长期同步授权的移动设备。解除绑定后，该设备将失去同步权限并需重新配对" FontSize="11" Opacity="0.5"/>
+                                <TextBlock x:Name="PairedDevicesTitleTextBlock" Text="已绑定设备管理" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="PairedDevicesDescTextBlock" Text="已获得长期同步授权的移动设备。解除绑定后，该设备将失去同步权限并需重新配对" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                             </StackPanel>
                             <Button x:Name="RefreshDevicesButton" Grid.Column="1" Click="RefreshDevices_Click" Style="{ThemeResource SubtleButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
@@ -321,7 +337,7 @@
                         <Border x:Name="NoDevicesPanel" Visibility="Visible" Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 CornerRadius="6" Padding="20" HorizontalAlignment="Stretch">
                             <TextBlock x:Name="NoDevicesTextBlock" Text="暂无已绑定设备。请点击上方【生成 6 位配对码】并在手机端输入完成首次绑定。" 
-                                       FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
+                                       FontSize="12" Opacity="0.6" HorizontalAlignment="Center" TextWrapping="Wrap"/>
                         </Border>
 
                         <!-- 设备列表 -->
@@ -329,7 +345,7 @@
                                   BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" CornerRadius="6">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Padding="12,10">
+                                    <Grid Padding="12,10" ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
@@ -408,18 +424,18 @@
                             <FontIcon Glyph="&#xEA35;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                             <TextBlock x:Name="SectionDataTextBlock" Text="数据安全与灾备恢复" FontWeight="SemiBold" FontSize="14"/>
                         </StackPanel>
-                        <TextBlock x:Name="DataSafetyDescTextBlock" Text="多重灾备保护：支持从手机主动拉取全量词库、本地安全快照秒级还原与外部备份管理" FontSize="11" Opacity="0.5"/>
+                        <TextBlock x:Name="DataSafetyDescTextBlock" Text="多重灾备保护：支持从手机主动拉取全量词库、本地安全快照秒级还原与外部备份管理" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                     </StackPanel>
 
                     <!-- 1. 从手机端主动拉取全量数据 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="PullFromMobileTitleTextBlock" Text="从手机端主动拉取全量数据" FontSize="13" FontWeight="Medium"/>
-                            <TextBlock x:Name="PullFromMobileDescTextBlock" Text="电脑端数据异常或丢失时，向已连接手机发送指令，将手机完整词库与进度推回电脑并安全合并" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="PullFromMobileTitleTextBlock" Text="从手机端主动拉取全量数据" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="PullFromMobileDescTextBlock" Text="电脑端数据异常或丢失时，向已连接手机发送指令，将手机完整词库与进度推回电脑并安全合并" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                         </StackPanel>
                         <Button x:Name="PullFromMobileButton" Grid.Column="1" Click="PullFromMobile_Click" Style="{ThemeResource AccentButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -431,54 +447,104 @@
 
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
-                    <!-- 2. 本地自动快照一键还原 -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="LocalBackupsTitleTextBlock" Text="本地自动快照一键还原" FontSize="13" FontWeight="Medium"/>
-                            <TextBlock x:Name="LocalBackupsDescTextBlock" Text="系统在同步与数据变更前自动保存快照。选择历史快照可一键安全还原" FontSize="11" Opacity="0.5"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <ComboBox x:Name="BackupSnapshotComboBox" Width="200" PlaceholderText="选择备份快照..."/>
-                            <Button x:Name="RestoreSnapshotButton" Click="RestoreSnapshot_Click" Style="{ThemeResource DefaultButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <FontIcon Glyph="&#xE777;" FontSize="11"/>
-                                    <TextBlock x:Name="RestoreSnapshotButtonText" Text="还原此快照"/>
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="DeleteSnapshotButton" Click="DeleteSnapshot_Click" Style="{ThemeResource SubtleButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <FontIcon Glyph="&#xE74D;" FontSize="11" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
-                                    <TextBlock x:Name="DeleteSnapshotButtonText" Text="删除" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="CreateSnapshotButton" Click="CreateSnapshot_Click" Style="{ThemeResource SubtleButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <FontIcon Glyph="&#xE72C;" FontSize="11"/>
-                                    <TextBlock x:Name="CreateSnapshotButtonText" Text="创建快照"/>
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="OpenBackupsFolderButton" Click="OpenBackupsFolder_Click" Style="{ThemeResource SubtleButtonStyle}"
-                                    ToolTipService.ToolTip="打开快照目录">
-                                <FontIcon Glyph="&#xED25;" FontSize="12"/>
-                            </Button>
-                        </StackPanel>
-                    </Grid>
+                    <!-- 2. 本地自动快照一键还原 (组件化列表) -->
+                    <StackPanel Spacing="10">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock x:Name="LocalBackupsTitleTextBlock" Text="本地自动快照一键还原" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="LocalBackupsDescTextBlock" Text="系统在同步与数据变更前自动保存快照。在下方列表中可对任意历史快照一键安全还原或快速删除" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Button x:Name="CreateSnapshotButton" Click="CreateSnapshot_Click" Style="{ThemeResource SubtleButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <FontIcon Glyph="&#xE72C;" FontSize="11"/>
+                                        <TextBlock x:Name="CreateSnapshotButtonText" Text="创建快照"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="OpenBackupsFolderButton" Click="OpenBackupsFolder_Click" Style="{ThemeResource SubtleButtonStyle}"
+                                        ToolTipService.ToolTip="打开快照目录">
+                                    <FontIcon Glyph="&#xED25;" FontSize="12"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- 空快照占位 -->
+                        <Border x:Name="NoSnapshotsPanel" Visibility="Visible" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                CornerRadius="6" Padding="16" HorizontalAlignment="Stretch">
+                            <TextBlock x:Name="NoSnapshotsTextBlock" Text="暂无可用备份快照。点击上方【创建快照】可立即生成本地备份。" 
+                                       FontSize="12" Opacity="0.6" HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- 快照组件列表 -->
+                        <ListView x:Name="BackupSnapshotsListView" SelectionMode="None" MaxHeight="260" Visibility="Collapsed"
+                                  BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" CornerRadius="6">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="12,10" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- 快照图标 -->
+                                        <FontIcon Glyph="&#xEA35;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+
+                                        <!-- 快照信息 -->
+                                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding FormattedTime}" FontSize="13" FontWeight="SemiBold"/>
+                                                
+                                                <!-- 类型徽章 -->
+                                                <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="3" Padding="5,1">
+                                                    <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="Medium" Opacity="0.8"/>
+                                                </Border>
+
+                                                <!-- 大小标签 -->
+                                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="3" Padding="4,1">
+                                                    <TextBlock Text="{Binding FormattedSize}" FontSize="10" Opacity="0.7"/>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding FileName}" FontSize="11" Opacity="0.45" IsTextSelectionEnabled="True"/>
+                                        </StackPanel>
+
+                                        <!-- 操作按钮组：还原与删除 -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <Button Tag="{Binding FilePath}" Click="RestoreSnapshotItem_Click" Style="{ThemeResource DefaultButtonStyle}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <FontIcon Glyph="&#xE777;" FontSize="11"/>
+                                                    <TextBlock Text="还原" FontSize="12"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Tag="{Binding FilePath}" Click="DeleteSnapshotItem_Click" Style="{ThemeResource SubtleButtonStyle}"
+                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="11"/>
+                                                    <TextBlock Text="删除" FontSize="12"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
 
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
                     <!-- 3. 从外部备份文件还原 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="RestoreFromFileTitleTextBlock" Text="从外部备份文件还原" FontSize="13" FontWeight="Medium"/>
-                            <TextBlock x:Name="RestoreFromFileDescTextBlock" Text="选择自定义位置的 Tampo SQLite 数据库备份文件 (.db) 恢复本地数据" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="RestoreFromFileTitleTextBlock" Text="从外部备份文件还原" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="RestoreFromFileDescTextBlock" Text="选择自定义位置的 Tampo SQLite 数据库备份文件 (.db) 恢复本地数据" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                         </StackPanel>
                         <Button x:Name="BrowseAndRestoreButton" Grid.Column="1" Click="BrowseAndRestore_Click" Style="{ThemeResource DefaultButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -491,14 +557,14 @@
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
                     <!-- 4. 清空所有词库与学习数据 -->
-                    <Grid>
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="ClearDataTitleTextBlock" Text="清空所有词库与学习数据" FontSize="13" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
-                            <TextBlock x:Name="ClearDataSubTextBlock" Text="重置本地 SQLite 数据库，将移除所有已导入词汇与复习进度。" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="ClearDataTitleTextBlock" Text="清空所有词库与学习数据" FontSize="13" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="ClearDataSubTextBlock" Text="重置本地 SQLite 数据库，将移除所有已导入词汇与复习进度。" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                         </StackPanel>
                         <Button Grid.Column="1" Click="ClearAllData_Click" Style="{ThemeResource AccentButtonStyle}"
                                 Background="{ThemeResource SystemFillColorCriticalBrush}">
@@ -518,7 +584,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="SectionAboutTextBlock" Text="关于 Tampo" FontWeight="SemiBold" FontSize="14"/>
                     <StackPanel Spacing="4" Margin="0,2,0,0">
-                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.4.7 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
+                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.4.8 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutArchTextBlock" Text="架构: x64 Self-Contained 独立部署" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutEngineTextBlock" Text="算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)" FontSize="12" Opacity="0.7"/>
                         

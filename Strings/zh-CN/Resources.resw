@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.4.7</value>
+    <value>v1.4.8</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>每日结算时刻</value>
@@ -1720,5 +1720,26 @@
   </data>
   <data name="DeviceAliasPlaceholder" xml:space="preserve">
     <value>例如：我的主力机、小米 13...</value>
+  </data>
+  <data name="SyncOnStudyLabel" xml:space="preserve">
+    <value>本地打卡后自动同步</value>
+  </data>
+  <data name="SyncOnStudyDesc" xml:space="preserve">
+    <value>在电脑端完成单词打卡后，自动向局域网已连接的移动端广播数据变动；关闭后仅本地记录，不向手机广播</value>
+  </data>
+  <data name="NoSnapshotsText" xml:space="preserve">
+    <value>暂无可用备份快照。点击上方【创建快照】可立即生成本地备份。</value>
+  </data>
+  <data name="SnapshotTypeAuto" xml:space="preserve">
+    <value>自动快照</value>
+  </data>
+  <data name="SnapshotTypePrePull" xml:space="preserve">
+    <value>拉取前镜像</value>
+  </data>
+  <data name="SnapshotTypePreRestore" xml:space="preserve">
+    <value>还原前镜像</value>
+  </data>
+  <data name="SnapshotTypeManual" xml:space="preserve">
+    <value>手动快照</value>
   </data>
 </root>

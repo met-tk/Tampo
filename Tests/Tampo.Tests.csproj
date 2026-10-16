@@ -9,7 +9,7 @@
     <IsTestProject>true</IsTestProject>
     <TargetName>Tampo.Tests2</TargetName>
     <AssemblyName>Tampo.Tests2</AssemblyName>
-    <Version>1.4.7</Version>
+    <Version>1.4.8</Version>
     <!-- 启用 TAMPO_SYNC_SERVICE 条件编译宏 -->
     <DefineConstants>$(DefineConstants);TAMPO_SYNC_SERVICE</DefineConstants>
   </PropertyGroup>

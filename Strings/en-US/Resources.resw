@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.4.7</value>
+    <value>v1.4.8</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>Daily Rollover Time</value>
@@ -1720,5 +1720,26 @@ Editing text will not affect study state or review logs.</value>
   </data>
   <data name="DeviceAliasPlaceholder" xml:space="preserve">
     <value>e.g., My Pixel 7, Primary Phone...</value>
+  </data>
+  <data name="SyncOnStudyLabel" xml:space="preserve">
+    <value>Auto Sync After Study</value>
+  </data>
+  <data name="SyncOnStudyDesc" xml:space="preserve">
+    <value>Automatically broadcast data changes to connected mobile devices upon reviewing words; when disabled, review is saved locally without broadcasting.</value>
+  </data>
+  <data name="NoSnapshotsText" xml:space="preserve">
+    <value>No backup snapshots available. Click [Create Snapshot] above to create one.</value>
+  </data>
+  <data name="SnapshotTypeAuto" xml:space="preserve">
+    <value>Auto Snapshot</value>
+  </data>
+  <data name="SnapshotTypePrePull" xml:space="preserve">
+    <value>Pre-Pull Mirror</value>
+  </data>
+  <data name="SnapshotTypePreRestore" xml:space="preserve">
+    <value>Pre-Restore Mirror</value>
+  </data>
+  <data name="SnapshotTypeManual" xml:space="preserve">
+    <value>Manual Snapshot</value>
   </data>
 </root>

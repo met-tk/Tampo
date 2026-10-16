@@ -73,6 +73,7 @@ namespace NihongoVocab.Services
     public class DatabaseService
     {
         public static event Action? DataChanged;
+        public static bool IsAutoSyncOnStudyEnabled { get; set; } = true;
         private static int _suppressNotificationsCount = 0;
         private static int _pendingNotifications = 0;
 
@@ -86,8 +87,12 @@ namespace NihongoVocab.Services
             DataChanged?.Invoke();
             if (OperatingSystem.IsWindows())
             {
-                CrossProcessEventHelper.Signal(CrossProcessEventHelper.ToServiceEventName);
-                CrossProcessEventHelper.Signal(CrossProcessEventHelper.EventName);
+                // 检查用户偏好：本地打卡后是否向局域网同步守护服务发送通知广播（默认开启）
+                if (IsAutoSyncOnStudyEnabled)
+                {
+                    CrossProcessEventHelper.Signal(CrossProcessEventHelper.ToServiceEventName);
+                    CrossProcessEventHelper.Signal(CrossProcessEventHelper.EventName);
+                }
             }
         }
 
@@ -2750,7 +2755,7 @@ namespace NihongoVocab.Services
                 if (string.IsNullOrWhiteSpace(backupPath) || !File.Exists(backupPath)) return false;
 
                 // 深度防御：严格校验文件归属于快照备份目录，杜绝误传或路径逃逸
-                string expectedDir = Path.GetFullPath(GetBackupsDirectoryPath());
+                string expectedDir = Path.GetFullPath(GetBackupsDirectoryPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
                 string fullPath = Path.GetFullPath(backupPath);
                 if (!fullPath.StartsWith(expectedDir, StringComparison.OrdinalIgnoreCase))
                 {
