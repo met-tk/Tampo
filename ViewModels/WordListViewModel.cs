@@ -89,18 +89,6 @@ namespace NihongoVocab.ViewModels
 
         }
 
-        private void OnDatabaseDataChanged()
-        {
-            var dispatcher = App.UIThreadDispatcher ?? App.MainWindowInstance?.DispatcherQueue;
-            if (dispatcher != null)
-            {
-                dispatcher.TryEnqueue(async () => await LoadDataAsync());
-            }
-            else
-            {
-                _ = LoadDataAsync();
-            }
-        }
 
         public void UpdateCurrentViewTitle()
         {

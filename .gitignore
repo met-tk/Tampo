@@ -69,3 +69,4 @@ tampo_android/build/
 tampo_android/.dart_tool/
 *.apk
 scratch_gh_code.txt
+.agents/

@@ -71,13 +71,6 @@ namespace NihongoVocab.ViewModels
             };
         }
 
-        private void OnDatabaseDataChanged()
-        {
-            App.RunOnUIThread(async () =>
-            {
-                await RefreshStatsAsync();
-            });
-        }
 
         private bool _isLoadingOptions;
 

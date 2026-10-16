@@ -1,7 +1,5 @@
 #if TAMPO_SYNC_SERVICE
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;

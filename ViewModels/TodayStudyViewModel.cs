@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
-using NihongoVocab.Models;
 using NihongoVocab.Services;
 using Windows.UI;
 
