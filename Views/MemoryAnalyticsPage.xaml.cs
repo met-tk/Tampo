@@ -46,11 +46,19 @@ namespace NihongoVocab.Views
             if (SearchWordCurveBox != null) SearchWordCurveBox.PlaceholderText = loc.GetString("MemoryAnalytics_SearchPlaceholder", "搜索单词分析记忆曲线...");
         }
 
+        private bool _isDataLoaded = false;
+        private bool _isDataDirty = false;
+
         private void OnDatabaseDataChanged()
         {
+            _isDataDirty = true;
             DispatcherQueue.TryEnqueue(async () =>
             {
-                await ViewModel.RefreshStatsAsync();
+                if (ReferenceEquals(this.Frame?.Content, this))
+                {
+                    _isDataDirty = false;
+                    await ViewModel.RefreshStatsAsync();
+                }
             });
         }
 
@@ -62,7 +70,17 @@ namespace NihongoVocab.Views
 
             try
             {
-                await ViewModel.LoadDataAsync();
+                if (!_isDataLoaded)
+                {
+                    _isDataLoaded = true;
+                    _isDataDirty = false;
+                    await ViewModel.LoadDataAsync();
+                }
+                else if (_isDataDirty)
+                {
+                    _isDataDirty = false;
+                    await ViewModel.RefreshStatsAsync();
+                }
             }
             catch (Exception ex)
             {

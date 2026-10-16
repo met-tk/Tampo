@@ -1742,4 +1742,217 @@
   <data name="SnapshotTypeManual" xml:space="preserve">
     <value>手動スナップショット</value>
   </data>
+  <data name="ButtonPullFromDevice" xml:space="preserve">
+    <value>このデバイスから取得</value>
+  </data>
+  <data name="ButtonRenameDevice" xml:space="preserve">
+    <value>名前を変更</value>
+  </data>
+  <data name="ButtonUnbindDevice" xml:space="preserve">
+    <value>連携解除</value>
+  </data>
+  <data name="DeviceStatusOnline" xml:space="preserve">
+    <value>オンライン (接続中)</value>
+  </data>
+  <data name="DeviceStatusOffline" xml:space="preserve">
+    <value>オフライン</value>
+  </data>
+  <data name="DeviceActivePrefix" xml:space="preserve">
+    <value>最終アクティブ: {0}</value>
+  </data>
+  <data name="DeviceBoundPrefix" xml:space="preserve">
+    <value>連携日時: {0}</value>
+  </data>
+  <data name="DeviceUnknownIp" xml:space="preserve">
+    <value>不明なIP</value>
+  </data>
+  <data name="ButtonRestore" xml:space="preserve">
+    <value>復元</value>
+  </data>
+  <data name="TooltipImmersiveMode" xml:space="preserve">
+    <value>没入モード</value>
+  </data>
+  <data name="TooltipExitImmersiveMode" xml:space="preserve">
+    <value>没入モードを終了</value>
+  </data>
+  <data name="ButtonRegeneratePairingCode" xml:space="preserve">
+    <value>別のコード</value>
+  </data>
+  <data name="TooltipOpenBackupsFolder" xml:space="preserve">
+    <value>スナップショットフォルダを開く</value>
+  </data>
+  <data name="TooltipAlwaysOnTop" xml:space="preserve">
+    <value>常に最前面に表示</value>
+  </data>
+  <data name="TooltipUnpinTop" xml:space="preserve">
+    <value>最前面表示を解除</value>
+  </data>
+  <data name="DataSafetyDesc" xml:space="preserve">
+    <value>多重バックアップ保護：ローカルスナップショットの即時復元と外部バックアップ管理</value>
+  </data>
+  <data name="LocalBackupsTitle" xml:space="preserve">
+    <value>ローカル自動スナップショット即時復元</value>
+  </data>
+  <data name="LocalBackupsDesc" xml:space="preserve">
+    <value>同期やデータ変更の直前にスナップショットを自動保存します。下のリストから任意の履歴スナップショットを安全に復元または削除できます</value>
+  </data>
+  <data name="ButtonCreateBackup" xml:space="preserve">
+    <value>スナップショット作成</value>
+  </data>
+  <data name="RestoreFromFileTitle" xml:space="preserve">
+    <value>外部バックアップファイルから復元</value>
+  </data>
+  <data name="RestoreFromFileDesc" xml:space="preserve">
+    <value>指定した場所にある Tampo SQLite データベースバックアップファイル (.db) からローカルデータを復元します</value>
+  </data>
+  <data name="ButtonRestoreFromFile" xml:space="preserve">
+    <value>ファイルを選択して復元...</value>
+  </data>
+  <data name="LanSyncDesc" xml:space="preserve">
+    <value>バックグラウンドで常駐し、同一LAN内のスマホ端末と自動接続してシームレスな双方向マージ同期を行います</value>
+  </data>
+  <data name="LanSyncStatusRunning" xml:space="preserve">
+    <value>実行中 (52080)</value>
+  </data>
+  <data name="LanSyncStatusStopped" xml:space="preserve">
+    <value>停止中</value>
+  </data>
+  <data name="SyncAutostartLabel" xml:space="preserve">
+    <value>PC起動時にサービスを自動開始</value>
+  </data>
+  <data name="SyncAutostartDesc" xml:space="preserve">
+    <value>Windows 起動時にバックグラウンドで同期サービスを常駐させます。PC側アプリを起動していなくてもスマホからいつでも同期できます</value>
+  </data>
+  <data name="PairingSectionTitle" xml:space="preserve">
+    <value>新しいモバイル端末を連携</value>
+  </data>
+  <data name="PairingSectionDesc" xml:space="preserve">
+    <value>スマホ側でこの6桁のペアリングコードを入力すると長期間の自動接続が確立され、以降はIPやコードの手動設定が不要になります</value>
+  </data>
+  <data name="ButtonGeneratePairingCode" xml:space="preserve">
+    <value>6桁ペアリングコードを生成</value>
+  </data>
+  <data name="PairedDevicesTitle" xml:space="preserve">
+    <value>連携済みデバイス管理</value>
+  </data>
+  <data name="PairedDevicesDesc" xml:space="preserve">
+    <value>長期間の同期を許可された端末です。連携を解除すると同期権限が無効になり、再ペアリングが必要になります</value>
+  </data>
+  <data name="ButtonRefreshList" xml:space="preserve">
+    <value>リスト更新</value>
+  </data>
+  <data name="NoDevicesText" xml:space="preserve">
+    <value>連携済みの端末はありません。上の【6桁ペアリングコードを生成】をクリックし、スマホ側に入力して初回連携を行ってください。</value>
+  </data>
+  <data name="ButtonCopy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="ButtonUnbind" xml:space="preserve">
+    <value>連携解除</value>
+  </data>
+  <data name="ButtonConfirmRestore" xml:space="preserve">
+    <value>復元を実行</value>
+  </data>
+  <data name="RestoreConfirmTitle" xml:space="preserve">
+    <value>履歴スナップショットを復元しますか？</value>
+  </data>
+  <data name="RestoreConfirmContent" xml:space="preserve">
+    <value>現在のデータベースを、選択したスナップショットの状態に置き換えます。上書き前に現在の緊急バックアップが自動作成されます。
+
+復元対象：{0}
+作成日時：{1}
+
+復元を続行しますか？</value>
+  </data>
+  <data name="RestoreExternalConfirmTitle" xml:space="preserve">
+    <value>外部ファイルからデータベースを復元しますか？</value>
+  </data>
+  <data name="RestoreExternalConfirmMsg" xml:space="preserve">
+    <value>外部ファイルで現在のローカルデータベースを上書きします。上書き前に現在の緊急バックアップが自動作成されます。
+
+外部バックアップファイル：
+{0}
+
+復元を続行しますか？</value>
+  </data>
+  <data name="RestoreSuccessTitle" xml:space="preserve">
+    <value>復元完了</value>
+  </data>
+  <data name="RestoreSuccessMsg" xml:space="preserve">
+    <value>バックアップスナップショットからデータベースが正常に復元されました！</value>
+  </data>
+  <data name="RestoreFailedTitle" xml:space="preserve">
+    <value>復元失敗</value>
+  </data>
+  <data name="RestoreFailedMsg" xml:space="preserve">
+    <value>データベースの復元に失敗しました: {0}</value>
+  </data>
+  <data name="BackupSuccessTitle" xml:space="preserve">
+    <value>スナップショット作成完了</value>
+  </data>
+  <data name="BackupSuccessMsg" xml:space="preserve">
+    <value>ローカル安全バックアップスナップショットが正常に作成されました！</value>
+  </data>
+  <data name="BackupFailedTitle" xml:space="preserve">
+    <value>スナップショット作成失敗</value>
+  </data>
+  <data name="BackupFailedMsg" xml:space="preserve">
+    <value>バックアップスナップショットの作成に失敗しました: {0}</value>
+  </data>
+  <data name="DeleteSnapshotFailedTitle" xml:space="preserve">
+    <value>スナップショット削除失敗</value>
+  </data>
+  <data name="DeleteSnapshotFailedMsg" xml:space="preserve">
+    <value>指定されたバックアップスナップショットファイルを削除できませんでした。</value>
+  </data>
+  <data name="MsgClearDataSuccess" xml:space="preserve">
+    <value>単語帳および学習履歴データがすべて初期化されました！</value>
+  </data>
+  <data name="PullRequestSuccessTitle" xml:space="preserve">
+    <value>データ取得リクエスト送信完了</value>
+  </data>
+  <data name="PullRequestFailedTitle" xml:space="preserve">
+    <value>データ取得失敗</value>
+  </data>
+  <data name="PullRequestFailedMsg" xml:space="preserve">
+    <value>データ取得リクエストに失敗しました: {0}</value>
+  </data>
+  <data name="SyncServiceNotRunningTitle" xml:space="preserve">
+    <value>同期サービスが停止中</value>
+  </data>
+  <data name="SyncServiceNotRunningMsg" xml:space="preserve">
+    <value>デバイス管理とデータ取得を行うには、まず上で「LANマルチデバイス同期」を有効にしてください。</value>
+  </data>
+  <data name="UnbindDialogTitle" xml:space="preserve">
+    <value>端末の連携を解除しますか？</value>
+  </data>
+  <data name="UnbindDialogContent" xml:space="preserve">
+    <value>連携を解除すると端末の同期権限が無効になり、PCとの双方向同期ができなくなります。再度同期を行うには再ペアリングが必要です。
+
+連携を解除しますか？</value>
+  </data>
+  <data name="ToggleOn" xml:space="preserve">
+    <value>オン</value>
+  </data>
+  <data name="ToggleOff" xml:space="preserve">
+    <value>オフ</value>
+  </data>
+  <data name="PairingServerEndpointFormat" xml:space="preserve">
+    <value>PC側サービスアドレス: {0}:52080</value>
+  </data>
+  <data name="PairingServerEndpointFetching" xml:space="preserve">
+    <value>サービスアドレス: 取得中...</value>
+  </data>
+  <data name="MsgAddSingleWordDuplicateFormat" xml:space="preserve">
+    <value>単語「{0}」は既に登録されています</value>
+  </data>
+  <data name="RatingForget" xml:space="preserve">
+    <value>忘れた</value>
+  </data>
+  <data name="RatingRemember" xml:space="preserve">
+    <value>覚えた</value>
+  </data>
+  <data name="TipWordClickDetailAndMiddleCopy" xml:space="preserve">
+    <value>ヒント：クリックで詳細表示、中クリックで高速コピー</value>
+  </data>
 </root>

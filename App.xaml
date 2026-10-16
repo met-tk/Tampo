@@ -63,6 +63,11 @@
             <converters:BoolToBadgeBackgroundConverter x:Key="BoolToBadgeBackgroundConverter" />
             <converters:BoolToOnlineStatusTextConverter x:Key="BoolToOnlineStatusTextConverter" />
             <converters:BoolToOnlineStatusForegroundConverter x:Key="BoolToOnlineStatusForegroundConverter" />
+            <converters:RetentionToStarGridLengthConverter x:Key="RetentionToStarGridLengthConverter" />
+            <converters:RetentionRemainingStarGridLengthConverter x:Key="RetentionRemainingStarGridLengthConverter" />
+            <converters:RetentionToSubtleBackgroundBrushConverter x:Key="RetentionToSubtleBackgroundBrushConverter" />
+            <converters:RetentionToEdgeBrushConverter x:Key="RetentionToEdgeBrushConverter" />
+            <converters:RetentionToPercentDoubleConverter x:Key="RetentionToPercentDoubleConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

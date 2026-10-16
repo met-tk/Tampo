@@ -342,4 +342,92 @@ namespace NihongoVocab.Converters
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => false;
     }
+
+    public class RetentionToStarGridLengthConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            double ret = (value is double d && !double.IsNaN(d) && !double.IsInfinity(d)) ? Math.Clamp(d, 0.0, 1.0) : 0.0;
+            return new GridLength(Math.Max(0.001, ret * 100.0), GridUnitType.Star);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => 0.0;
+    }
+
+    public class RetentionRemainingStarGridLengthConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            double ret = (value is double d && !double.IsNaN(d) && !double.IsInfinity(d)) ? Math.Clamp(d, 0.0, 1.0) : 0.0;
+            return new GridLength(Math.Max(0.001, (1.0 - ret) * 100.0), GridUnitType.Star);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => 0.0;
+    }
+
+    public class RetentionToSubtleBackgroundBrushConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush DarkGreenSubtle = new(Color.FromArgb(20, 34, 197, 94));
+        private static readonly SolidColorBrush LightGreenSubtle = new(Color.FromArgb(14, 22, 163, 74));
+        private static readonly SolidColorBrush DarkAmberSubtle = new(Color.FromArgb(18, 245, 158, 11));
+        private static readonly SolidColorBrush LightAmberSubtle = new(Color.FromArgb(12, 217, 119, 6));
+        private static readonly SolidColorBrush DarkRedSubtle = new(Color.FromArgb(16, 239, 68, 68));
+        private static readonly SolidColorBrush LightRedSubtle = new(Color.FromArgb(10, 220, 38, 38));
+        private static readonly SolidColorBrush TransparentBrush = new(Colors.Transparent);
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            bool isDark = ThemeHelper.IsCurrentDarkTheme();
+            if (value is double ret && !double.IsNaN(ret) && !double.IsInfinity(ret) && ret > 0.0)
+            {
+                double pct = ret * 100.0;
+                if (pct >= 85) return isDark ? DarkGreenSubtle : LightGreenSubtle;
+                if (pct >= 65) return isDark ? DarkAmberSubtle : LightAmberSubtle;
+                return isDark ? DarkRedSubtle : LightRedSubtle;
+            }
+            return TransparentBrush;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => TransparentBrush;
+    }
+
+    public class RetentionToEdgeBrushConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush DarkGreenEdge = new(Color.FromArgb(70, 74, 222, 128));
+        private static readonly SolidColorBrush LightGreenEdge = new(Color.FromArgb(60, 22, 163, 74));
+        private static readonly SolidColorBrush DarkAmberEdge = new(Color.FromArgb(65, 251, 191, 36));
+        private static readonly SolidColorBrush LightAmberEdge = new(Color.FromArgb(55, 217, 119, 6));
+        private static readonly SolidColorBrush DarkRedEdge = new(Color.FromArgb(60, 248, 113, 113));
+        private static readonly SolidColorBrush LightRedEdge = new(Color.FromArgb(50, 220, 38, 38));
+        private static readonly SolidColorBrush TransparentBrush = new(Colors.Transparent);
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            bool isDark = ThemeHelper.IsCurrentDarkTheme();
+            if (value is double ret && !double.IsNaN(ret) && !double.IsInfinity(ret) && ret > 0.0)
+            {
+                double pct = ret * 100.0;
+                if (pct >= 85) return isDark ? DarkGreenEdge : LightGreenEdge;
+                if (pct >= 65) return isDark ? DarkAmberEdge : LightAmberEdge;
+                return isDark ? DarkRedEdge : LightRedEdge;
+            }
+            return TransparentBrush;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => TransparentBrush;
+    }
+
+    public class RetentionToPercentDoubleConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is double ret && !double.IsNaN(ret) && !double.IsInfinity(ret))
+            {
+                return Math.Clamp(ret * 100.0, 0.0, 100.0);
+            }
+            return 0.0;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => 0.0;
+    }
 }

@@ -40,5 +40,29 @@ namespace NihongoVocab.Models
 
         [Ignore]
         public string CreatedAtDisplay => DateTimeOffset.FromUnixTimeSeconds(Math.Max(0, CreatedAt)).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+
+        [Ignore]
+        public string ClientIpDisplay => !string.IsNullOrWhiteSpace(ClientIp)
+            ? ClientIp
+            : Services.LocalizationService.Instance.GetString("DeviceUnknownIp", "未知 IP");
+
+        [Ignore]
+        public string LastSeenFullDisplay => string.Format(
+            Services.LocalizationService.Instance.GetString("DeviceActivePrefix", "最近活跃: {0}"),
+            LastSeenDisplay);
+
+        [Ignore]
+        public string CreatedAtFullDisplay => string.Format(
+            Services.LocalizationService.Instance.GetString("DeviceBoundPrefix", "绑定于: {0}"),
+            CreatedAtDisplay);
+
+        [Ignore]
+        public string ActionPullText => Services.LocalizationService.Instance.GetString("ButtonPullFromDevice", "从该设备拉取");
+
+        [Ignore]
+        public string ActionRenameText => Services.LocalizationService.Instance.GetString("ButtonRenameDevice", "重命名");
+
+        [Ignore]
+        public string ActionUnbindText => Services.LocalizationService.Instance.GetString("ButtonUnbindDevice", "解除绑定");
     }
 }

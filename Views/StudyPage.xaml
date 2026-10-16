@@ -22,26 +22,29 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                <FontIcon Glyph="&#xE7BE;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                <TextBlock x:Name="PageTitleTextBlock" Text="开始学习" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
-
-                <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="4,0"/>
+                <StackPanel x:Name="TopTitlePanel" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE7BE;" FontSize="20" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                    <TextBlock x:Name="PageTitleTextBlock" Text="开始学习" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
+                    <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="4,0"/>
+                </StackPanel>
 
                 <!-- 词单筛选切换 -->
-                <TextBlock x:Name="ListFilterLabelTextBlock" Text="学习范围:" VerticalAlignment="Center" Opacity="0.8"/>
-                <ComboBox x:Name="ListFilterComboBox" Width="180"
-                          ItemsSource="{x:Bind ViewModel.AvailableLists}"
-                          SelectedItem="{x:Bind ViewModel.SelectedList, Mode=TwoWay}"
-                          PlaceholderText="{x:Bind ViewModel.AllDueWordsPlaceholder, Mode=OneWay}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:WordList">
-                            <TextBlock Text="{x:Bind Name}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                <StackPanel x:Name="FilterControlPanel" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock x:Name="ListFilterLabelTextBlock" Text="学习范围:" VerticalAlignment="Center" Opacity="0.8"/>
+                    <ComboBox x:Name="ListFilterComboBox" Width="180"
+                              ItemsSource="{x:Bind ViewModel.AvailableLists}"
+                              SelectedItem="{x:Bind ViewModel.SelectedList, Mode=TwoWay}"
+                              PlaceholderText="{x:Bind ViewModel.AllDueWordsPlaceholder, Mode=OneWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:WordList">
+                                <TextBlock Text="{x:Bind Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
 
                 <!-- 会话统计指标（单色纯净标签） -->
-                <StackPanel Orientation="Horizontal" Spacing="12" Margin="12,0,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="12" Margin="4,0,0,0">
                     <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,4">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xE930;" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
@@ -66,6 +69,14 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
+            </StackPanel>
+
+            <!-- 顶部操作区：沉浸式模式切换按钮 (纯单色图标，严格无文字标签) -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button x:Name="ImmersiveButton" Click="ImmersiveButton_Click" Style="{ThemeResource SubtleButtonStyle}"
+                        Padding="8,8">
+                    <FontIcon x:Name="ImmersiveIcon" Glyph="&#xE740;" FontSize="14"/>
+                </Button>
             </StackPanel>
         </Grid>
 

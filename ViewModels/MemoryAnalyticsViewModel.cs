@@ -80,32 +80,60 @@ namespace NihongoVocab.ViewModels
             try
             {
                 var previousId = SelectedOption?.Id;
-                FilterOptions.Clear();
-                FilterOptions.Add(new WordListFilterOption { Id = null, DisplayName = LocalizationService.Instance.GetString("AllWordsOverviewOption", "全库总览（全部单词）") });
-
                 var lists = await _databaseService.GetAllWordListsAsync();
+
+                var newOptions = new System.Collections.Generic.List<WordListFilterOption>
+                {
+                    new WordListFilterOption { Id = null, DisplayName = LocalizationService.Instance.GetString("AllWordsOverviewOption", "全库总览（全部单词）") }
+                };
+
                 foreach (var l in lists)
                 {
-                    FilterOptions.Add(new WordListFilterOption { Id = l.Id, DisplayName = string.Format(LocalizationService.Instance.GetString("WordListOptionFormat", "词单：{0} ({1}词)"), l.Name, l.WordCount) });
+                    newOptions.Add(new WordListFilterOption
+                    {
+                        Id = l.Id,
+                        DisplayName = string.Format(LocalizationService.Instance.GetString("WordListOptionFormat", "词单：{0} ({1}词)"), l.Name, l.WordCount)
+                    });
                 }
 
-                if (previousId.HasValue)
+                bool isSame = FilterOptions.Count == newOptions.Count;
+                if (isSame)
                 {
-                    SelectedOption = FilterOptions.FirstOrDefault(o => o.Id == previousId.Value) ?? FilterOptions[0];
-                }
-                else
-                {
-                    int savedId = UserPreferenceService.Instance.GetInt("MemoryAnalytics_SelectedListId", -1);
-                    if (savedId >= 0)
+                    for (int i = 0; i < FilterOptions.Count; i++)
                     {
-                        SelectedOption = FilterOptions.FirstOrDefault(o => o.Id == savedId) ?? FilterOptions[0];
+                        if (FilterOptions[i].Id != newOptions[i].Id || FilterOptions[i].DisplayName != newOptions[i].DisplayName)
+                        {
+                            isSame = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isSame)
+                {
+                    FilterOptions.Clear();
+                    foreach (var opt in newOptions)
+                    {
+                        FilterOptions.Add(opt);
+                    }
+
+                    if (previousId.HasValue)
+                    {
+                        SelectedOption = FilterOptions.FirstOrDefault(o => o.Id == previousId.Value) ?? FilterOptions[0];
                     }
                     else
                     {
-                        SelectedOption = FilterOptions[0];
+                        int savedId = UserPreferenceService.Instance.GetInt("MemoryAnalytics_SelectedListId", -1);
+                        if (savedId >= 0)
+                        {
+                            SelectedOption = FilterOptions.FirstOrDefault(o => o.Id == savedId) ?? FilterOptions[0];
+                        }
+                        else
+                        {
+                            SelectedOption = FilterOptions[0];
+                        }
                     }
                 }
-
             }
             catch (Exception ex)
             {
@@ -155,10 +183,28 @@ namespace NihongoVocab.ViewModels
             {
                 int? listId = SelectedOption?.Id;
                 var words = await _databaseService.SearchWordsAsync(SearchQuery, listId);
-                SearchResults.Clear();
-                foreach (var w in words)
+
+                int commonCount = Math.Min(SearchResults.Count, words.Count);
+                for (int i = 0; i < commonCount; i++)
                 {
-                    SearchResults.Add(w);
+                    if (SearchResults[i].Id != words[i].Id ||
+                        SearchResults[i].State != words[i].State ||
+                        Math.Abs(SearchResults[i].Stability - words[i].Stability) > 0.001 ||
+                        Math.Abs(SearchResults[i].Difficulty - words[i].Difficulty) > 0.001 ||
+                        SearchResults[i].Reps != words[i].Reps)
+                    {
+                        SearchResults[i] = words[i];
+                    }
+                }
+
+                while (SearchResults.Count > words.Count)
+                {
+                    SearchResults.RemoveAt(SearchResults.Count - 1);
+                }
+
+                for (int i = commonCount; i < words.Count; i++)
+                {
+                    SearchResults.Add(words[i]);
                 }
             }
             catch (Exception ex)

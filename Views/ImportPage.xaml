@@ -7,65 +7,87 @@
     xmlns:models="using:NihongoVocab.Models"
     mc:Ignorable="d">
 
-    <Grid Padding="24" RowSpacing="16">
+    <Grid x:Name="PageRootGrid" Padding="24" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- 顶部控制条（极简设计） -->
-        <Grid>
+        <Grid x:Name="TopControlGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <FontIcon Glyph="&#xE8B7;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                <TextBlock x:Name="PageTitleTextBlock" Text="导入词汇" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
-
-                <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="8,0"/>
+                <StackPanel x:Name="TopTitlePanel" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE8B7;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                    <TextBlock x:Name="PageTitleTextBlock" Text="导入词汇" Style="{ThemeResource TitleTextBlockStyle}" FontSize="20"/>
+                    <Border Width="1" Height="18" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="8,0"/>
+                </StackPanel>
 
                 <!-- 预设选择器 -->
-                <TextBlock x:Name="PresetLabelTextBlock" Text="文本清洗预设:" VerticalAlignment="Center" Opacity="0.8"/>
-                <ComboBox x:Name="PresetComboBox" Width="200"
-                          ItemsSource="{x:Bind ViewModel.Presets}"
-                          SelectedItem="{x:Bind ViewModel.SelectedPreset, Mode=TwoWay}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:CleansingPreset">
-                            <TextBlock Text="{x:Bind Name}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                <StackPanel x:Name="PresetControlPanel" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock x:Name="PresetLabelTextBlock" Text="文本清洗预设:" VerticalAlignment="Center" Opacity="0.8"/>
+                    <ComboBox x:Name="PresetComboBox" Width="200"
+                              ItemsSource="{x:Bind ViewModel.Presets}"
+                              SelectedItem="{x:Bind ViewModel.SelectedPreset, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:CleansingPreset">
+                                <TextBlock Text="{x:Bind Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
-                <!-- 管理预设按钮（单色矢量图标） -->
-                <Button Click="ManagePresetsButton_Click" Style="{ThemeResource SubtleButtonStyle}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE710;" FontSize="12"/>
-                        <TextBlock x:Name="ManagePresetsButtonText" Text="管理清洗预设"/>
+                    <!-- 管理预设按钮（单色矢量图标） -->
+                    <Button Click="ManagePresetsButton_Click" Style="{ThemeResource SubtleButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE710;" FontSize="12"/>
+                            <TextBlock x:Name="ManagePresetsButtonText" Text="管理清洗预设"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 操作按钮组：置顶按钮(纯图标) + 沉浸式模式按钮(纯图标) + 批量导入按钮 -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <!-- 窗口置顶按钮 (纯单色图标，严格无文字标签) -->
+                <Button x:Name="PinTopButton" Click="PinTopButton_Click" Style="{ThemeResource SubtleButtonStyle}"
+                        Visibility="Collapsed" Padding="8,8">
+                    <FontIcon x:Name="PinTopIcon" Glyph="&#xE840;" FontSize="14"/>
+                </Button>
+
+                <!-- 沉浸式模式切换按钮 (纯单色图标，严格无文字标签) -->
+                <Button x:Name="ImmersiveButton" Click="ImmersiveButton_Click" Style="{ThemeResource SubtleButtonStyle}"
+                        Padding="8,8">
+                    <FontIcon x:Name="ImmersiveIcon" Glyph="&#xE740;" FontSize="14"/>
+                </Button>
+
+                <!-- 批量导入保存按钮 -->
+                <Button x:Name="ImportActionButton" Click="ImportButton_Click"
+                        Style="{ThemeResource AccentButtonStyle}" Padding="16,8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE898;" FontSize="14"/>
+                        <TextBlock x:Name="ImportButtonText" Text="导入至词库"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
-
-            <!-- 批量导入保存按钮 -->
-            <Button Grid.Column="1" Click="ImportButton_Click"
-                    Style="{ThemeResource AccentButtonStyle}" Padding="16,8">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE898;" FontSize="14"/>
-                    <TextBlock x:Name="ImportButtonText" Text="导入至词库"/>
-                </StackPanel>
-            </Button>
         </Grid>
 
-        <!-- 左右极简双栏布局 -->
-        <Grid Grid.Row="1" ColumnSpacing="16">
+        <!-- 左右极简双栏布局 (沉浸紧凑模式下动态切换为上下流式) -->
+        <Grid x:Name="MainContentGrid" Grid.Row="1" ColumnSpacing="16" RowSpacing="12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1*"/>
-                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition x:Name="Col0" Width="1*"/>
+                <ColumnDefinition x:Name="Col1" Width="1*"/>
             </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="Row0" Height="*"/>
+                <RowDefinition x:Name="Row1" Height="Auto"/>
+            </Grid.RowDefinitions>
 
             <!-- 左侧：原始文本输入区 -->
-            <Grid>
+            <Grid x:Name="RawTextContainer" Grid.Row="0" Grid.Column="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
@@ -80,7 +102,7 @@
             </Grid>
 
             <!-- 右侧：清洗候选词流式平铺预览 -->
-            <Grid Grid.Column="1">
+            <Grid x:Name="CandidatesContainer" Grid.Row="0" Grid.Column="1">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>

@@ -1742,4 +1742,217 @@ Editing text will not affect study state or review logs.</value>
   <data name="SnapshotTypeManual" xml:space="preserve">
     <value>Manual Snapshot</value>
   </data>
+  <data name="ButtonPullFromDevice" xml:space="preserve">
+    <value>Pull from This Device</value>
+  </data>
+  <data name="ButtonRenameDevice" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="ButtonUnbindDevice" xml:space="preserve">
+    <value>Unbind</value>
+  </data>
+  <data name="DeviceStatusOnline" xml:space="preserve">
+    <value>Online (Connected)</value>
+  </data>
+  <data name="DeviceStatusOffline" xml:space="preserve">
+    <value>Offline</value>
+  </data>
+  <data name="DeviceActivePrefix" xml:space="preserve">
+    <value>Last active: {0}</value>
+  </data>
+  <data name="DeviceBoundPrefix" xml:space="preserve">
+    <value>Paired on: {0}</value>
+  </data>
+  <data name="DeviceUnknownIp" xml:space="preserve">
+    <value>Unknown IP</value>
+  </data>
+  <data name="ButtonRestore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="TooltipImmersiveMode" xml:space="preserve">
+    <value>Immersive Mode</value>
+  </data>
+  <data name="TooltipExitImmersiveMode" xml:space="preserve">
+    <value>Exit Immersive Mode</value>
+  </data>
+  <data name="ButtonRegeneratePairingCode" xml:space="preserve">
+    <value>Change Code</value>
+  </data>
+  <data name="TooltipOpenBackupsFolder" xml:space="preserve">
+    <value>Open Snapshots Directory</value>
+  </data>
+  <data name="TooltipAlwaysOnTop" xml:space="preserve">
+    <value>Always on Top</value>
+  </data>
+  <data name="TooltipUnpinTop" xml:space="preserve">
+    <value>Unpin from Top</value>
+  </data>
+  <data name="DataSafetyDesc" xml:space="preserve">
+    <value>Multi-layered disaster recovery: instant local snapshot restoration and external backup management</value>
+  </data>
+  <data name="LocalBackupsTitle" xml:space="preserve">
+    <value>One-Click Local Snapshot Restore</value>
+  </data>
+  <data name="LocalBackupsDesc" xml:space="preserve">
+    <value>Snapshots are automatically saved before sync and data changes. Restore or delete any historical snapshot from the list below.</value>
+  </data>
+  <data name="ButtonCreateBackup" xml:space="preserve">
+    <value>Create Snapshot</value>
+  </data>
+  <data name="RestoreFromFileTitle" xml:space="preserve">
+    <value>Restore from External Backup File</value>
+  </data>
+  <data name="RestoreFromFileDesc" xml:space="preserve">
+    <value>Restore local data from a custom Tampo SQLite database backup file (.db)</value>
+  </data>
+  <data name="ButtonRestoreFromFile" xml:space="preserve">
+    <value>Browse File and Restore...</value>
+  </data>
+  <data name="LanSyncDesc" xml:space="preserve">
+    <value>Runs silently in the background, supporting seamless bidirectional merge-sync across devices on the same LAN.</value>
+  </data>
+  <data name="LanSyncStatusRunning" xml:space="preserve">
+    <value>Running (52080)</value>
+  </data>
+  <data name="LanSyncStatusStopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="SyncAutostartLabel" xml:space="preserve">
+    <value>Auto-start Daemon on Boot</value>
+  </data>
+  <data name="SyncAutostartDesc" xml:space="preserve">
+    <value>Automatically runs the sync daemon in background after Windows starts, enabling instant sync from mobile at any time.</value>
+  </data>
+  <data name="PairingSectionTitle" xml:space="preserve">
+    <value>Pair New Mobile Device</value>
+  </data>
+  <data name="PairingSectionDesc" xml:space="preserve">
+    <value>Enter this 6-digit pairing code on your mobile device to establish persistent pairing without needing manual IP configuration.</value>
+  </data>
+  <data name="ButtonGeneratePairingCode" xml:space="preserve">
+    <value>Generate 6-Digit Pairing Code</value>
+  </data>
+  <data name="PairedDevicesTitle" xml:space="preserve">
+    <value>Paired Devices Management</value>
+  </data>
+  <data name="PairedDevicesDesc" xml:space="preserve">
+    <value>Devices authorized for persistent sync. Unbinding removes sync permission and requires re-pairing.</value>
+  </data>
+  <data name="ButtonRefreshList" xml:space="preserve">
+    <value>Refresh List</value>
+  </data>
+  <data name="NoDevicesText" xml:space="preserve">
+    <value>No paired devices. Click [Generate 6-Digit Pairing Code] above and enter it on your mobile device for first-time pairing.</value>
+  </data>
+  <data name="ButtonCopy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="ButtonUnbind" xml:space="preserve">
+    <value>Unbind</value>
+  </data>
+  <data name="ButtonConfirmRestore" xml:space="preserve">
+    <value>Confirm Restore</value>
+  </data>
+  <data name="RestoreConfirmTitle" xml:space="preserve">
+    <value>Restore Historical Snapshot?</value>
+  </data>
+  <data name="RestoreConfirmContent" xml:space="preserve">
+    <value>This will replace the current database with the selected snapshot. An emergency mirror will be created automatically before overwriting.
+
+Target: {0}
+Timestamp: {1}
+
+Proceed with restoration?</value>
+  </data>
+  <data name="RestoreExternalConfirmTitle" xml:space="preserve">
+    <value>Restore Database from External File?</value>
+  </data>
+  <data name="RestoreExternalConfirmMsg" xml:space="preserve">
+    <value>This will overwrite current local database using the external file. An emergency backup will be created automatically before overwriting.
+
+External File:
+{0}
+
+Proceed with restoration?</value>
+  </data>
+  <data name="RestoreSuccessTitle" xml:space="preserve">
+    <value>Restore Complete</value>
+  </data>
+  <data name="RestoreSuccessMsg" xml:space="preserve">
+    <value>Database has been restored successfully from the backup snapshot!</value>
+  </data>
+  <data name="RestoreFailedTitle" xml:space="preserve">
+    <value>Restoration Failed</value>
+  </data>
+  <data name="RestoreFailedMsg" xml:space="preserve">
+    <value>Failed to restore database: {0}</value>
+  </data>
+  <data name="BackupSuccessTitle" xml:space="preserve">
+    <value>Snapshot Created</value>
+  </data>
+  <data name="BackupSuccessMsg" xml:space="preserve">
+    <value>Local security backup snapshot created successfully!</value>
+  </data>
+  <data name="BackupFailedTitle" xml:space="preserve">
+    <value>Snapshot Creation Failed</value>
+  </data>
+  <data name="BackupFailedMsg" xml:space="preserve">
+    <value>Failed to create backup snapshot: {0}</value>
+  </data>
+  <data name="DeleteSnapshotFailedTitle" xml:space="preserve">
+    <value>Delete Snapshot Failed</value>
+  </data>
+  <data name="DeleteSnapshotFailedMsg" xml:space="preserve">
+    <value>Unable to delete the specified backup snapshot file.</value>
+  </data>
+  <data name="MsgClearDataSuccess" xml:space="preserve">
+    <value>Vocabulary and review logs have been cleared and reset!</value>
+  </data>
+  <data name="PullRequestSuccessTitle" xml:space="preserve">
+    <value>Pull Request Sent</value>
+  </data>
+  <data name="PullRequestFailedTitle" xml:space="preserve">
+    <value>Data Pull Failed</value>
+  </data>
+  <data name="PullRequestFailedMsg" xml:space="preserve">
+    <value>Failed to request data pull: {0}</value>
+  </data>
+  <data name="SyncServiceNotRunningTitle" xml:space="preserve">
+    <value>Sync Daemon Not Running</value>
+  </data>
+  <data name="SyncServiceNotRunningMsg" xml:space="preserve">
+    <value>Please enable "LAN Multi-Device Sync" above before managing devices and pulling data.</value>
+  </data>
+  <data name="UnbindDialogTitle" xml:space="preserve">
+    <value>Unbind Device?</value>
+  </data>
+  <data name="UnbindDialogContent" xml:space="preserve">
+    <value>After unbinding, this device will lose sync authorization and cannot sync with PC. Re-pairing will be required.
+
+Confirm unbinding?</value>
+  </data>
+  <data name="ToggleOn" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ToggleOff" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="PairingServerEndpointFormat" xml:space="preserve">
+    <value>Server Address: {0}:52080</value>
+  </data>
+  <data name="PairingServerEndpointFetching" xml:space="preserve">
+    <value>Server Address: Fetching...</value>
+  </data>
+  <data name="MsgAddSingleWordDuplicateFormat" xml:space="preserve">
+    <value>Word "{0}" already exists</value>
+  </data>
+  <data name="RatingForget" xml:space="preserve">
+    <value>Forgot</value>
+  </data>
+  <data name="RatingRemember" xml:space="preserve">
+    <value>Remembered</value>
+  </data>
+  <data name="TipWordClickDetailAndMiddleCopy" xml:space="preserve">
+    <value>Tip: Click for details, middle-click to copy</value>
+  </data>
 </root>

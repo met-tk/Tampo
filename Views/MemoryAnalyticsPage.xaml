@@ -217,59 +217,84 @@
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                         BorderThickness="1"
                                         CornerRadius="6"
-                                        Padding="14,10"
                                         Margin="0,4"
                                         PointerPressed="WordItem_PointerPressed"
                                         ToolTipService.ToolTip="{x:Bind CurveItemToolTip, Mode=OneWay}">
-                                    <Grid ColumnSpacing="16">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="180"/>
-                                            <ColumnDefinition Width="180"/>
-                                            <ColumnDefinition Width="140"/>
-                                            <ColumnDefinition Width="140"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
+                                    <Grid>
+                                        <!-- 底层全卡片记忆度呼吸底板 (对标手机端动态比例填充 + Leading Edge 微光线) -->
+                                        <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToStarGridLengthConverter}}"/>
+                                                <ColumnDefinition Width="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionRemainingStarGridLengthConverter}}"/>
+                                            </Grid.ColumnDefinitions>
+                                            
+                                            <!-- 微光呼吸填充层 -->
+                                            <Border Grid.Column="0"
+                                                    Background="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToSubtleBackgroundBrushConverter}}"
+                                                    CornerRadius="5,0,0,5"/>
+                                            
+                                            <!-- Leading Edge 竖向微光边界线 -->
+                                            <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5"
+                                                    Background="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToEdgeBrushConverter}}"/>
+                                        </Grid>
 
-                                        <!-- 单词文本 -->
-                                        <TextBlock Text="{x:Bind Text}"
-                                                   FontWeight="SemiBold"
-                                                   FontSize="16"
-                                                   VerticalAlignment="Center"/>
+                                        <!-- 前台内容层 -->
+                                        <Grid Padding="14,10" ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="200"/>
+                                                <ColumnDefinition Width="130"/>
+                                                <ColumnDefinition Width="130"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
 
-                                        <!-- 通俗记忆留存率 (带色彩) -->
-                                        <Border Grid.Column="1" VerticalAlignment="Center">
-                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <Border Width="8" Height="8" CornerRadius="4"
-                                                        Background="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"/>
+                                            <!-- 单词文本 -->
+                                            <TextBlock Text="{x:Bind Text}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="16"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- 记忆留存率：胶囊微进度条 + 优雅百分比标签 -->
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <!-- 胶囊微进度条 -->
+                                                <Grid Width="48" Height="6" VerticalAlignment="Center">
+                                                    <Border Background="{ThemeResource CardStrokeColorDefaultBrush}" CornerRadius="3"/>
+                                                    <ProgressBar Value="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToPercentDoubleConverter}}"
+                                                                 Maximum="100" Minimum="0"
+                                                                 Foreground="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"
+                                                                 Height="6" CornerRadius="3"/>
+                                                </Grid>
+                                                
                                                 <TextBlock Text="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToTagConverter}}"
                                                            FontSize="12" FontWeight="SemiBold"
-                                                           Foreground="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"/>
+                                                           Foreground="{x:Bind CurrentRetrievability, Converter={StaticResource RetentionToColorConverter}}"
+                                                           VerticalAlignment="Center"/>
                                             </StackPanel>
-                                        </Border>
 
-                                        <!-- 记忆半衰期 (稳定性) -->
-                                        <TextBlock Grid.Column="2"
-                                                   Text="{x:Bind Stability, Converter={StaticResource StabilityToHalfLifeConverter}}"
-                                                   FontSize="12" Opacity="0.8"
-                                                   VerticalAlignment="Center"/>
+                                            <!-- 记忆半衰期 (稳定性) -->
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{x:Bind Stability, Converter={StaticResource StabilityToHalfLifeConverter}}"
+                                                       FontSize="12" Opacity="0.8"
+                                                       VerticalAlignment="Center"/>
 
-                                        <!-- 记忆难度评级 (Difficulty) -->
-                                        <TextBlock Grid.Column="3"
-                                                   Text="{x:Bind Difficulty, Converter={StaticResource DifficultyToRatingConverter}}"
-                                                   FontSize="12" Opacity="0.8"
-                                                   VerticalAlignment="Center"/>
+                                            <!-- 记忆难度评级 (Difficulty) -->
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{x:Bind Difficulty, Converter={StaticResource DifficultyToRatingConverter}}"
+                                                       FontSize="12" Opacity="0.8"
+                                                       VerticalAlignment="Center"/>
 
-                                        <!-- 复习频次与流转状态 -->
-                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
-                                            <Border Background="{x:Bind State, Converter={StaticResource WordStateToColorConverter}}"
-                                                    CornerRadius="4" Padding="6,2">
-                                                <TextBlock Text="{x:Bind State, Converter={StaticResource WordStateToNameConverter}}"
-                                                           FontSize="11" Foreground="White"/>
-                                            </Border>
-                                            <TextBlock Text="{x:Bind Reps, Converter={StaticResource RepsCountSuffixConverter}}"
-                                                       FontSize="11" Opacity="0.5" VerticalAlignment="Center"/>
-                                        </StackPanel>
+                                            <!-- 复习频次与流转状态 -->
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <Border Background="{x:Bind State, Converter={StaticResource WordStateToColorConverter}}"
+                                                        CornerRadius="4" Padding="6,2">
+                                                    <TextBlock Text="{x:Bind State, Converter={StaticResource WordStateToNameConverter}}"
+                                                               FontSize="11" Foreground="White"/>
+                                                </Border>
+                                                <TextBlock Text="{x:Bind Reps, Converter={StaticResource RepsCountSuffixConverter}}"
+                                                           FontSize="11" Opacity="0.5" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Grid>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

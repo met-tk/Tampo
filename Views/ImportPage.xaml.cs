@@ -44,6 +44,121 @@ namespace NihongoVocab.Views
             if (RawTextBox != null) RawTextBox.PlaceholderText = loc.GetString("Import_OriginalTextPlaceholder", "输入或粘贴文本...");
             if (CandidatesPromptTextBlock != null) CandidatesPromptTextBlock.Text = loc.GetString("PromptCandidates", "清洗并提取出的候选词（鼠标悬浮高亮在原文中的位置，点击可移除单个）：");
             if (ExtractedCountLabelTextBlock != null) ExtractedCountLabelTextBlock.Text = loc.GetString("LabelExtractedCount", "提取总数:");
+
+            if (ImmersiveButton != null)
+            {
+                ToolTipService.SetToolTip(ImmersiveButton, _isImmersive
+                    ? loc.GetString("TooltipExitImmersiveMode", "退出沉浸式模式")
+                    : loc.GetString("TooltipImmersiveMode", "沉浸式模式"));
+            }
+            UpdatePinTopUI();
+        }
+
+        private bool _isImmersive = false;
+
+        private void ImmersiveButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetImmersiveMode(!_isImmersive);
+        }
+
+        private void SetImmersiveMode(bool enable)
+        {
+            _isImmersive = enable;
+            var loc = LocalizationService.Instance;
+            var mainWindow = App.MainWindowInstance as MainWindow;
+
+            if (_isImmersive)
+            {
+                if (TopTitlePanel != null) TopTitlePanel.Visibility = Visibility.Collapsed;
+                if (PresetControlPanel != null) PresetControlPanel.Visibility = Visibility.Collapsed;
+                if (RawTextPromptTextBlock != null) RawTextPromptTextBlock.Visibility = Visibility.Collapsed;
+                if (CandidatesPromptTextBlock != null) CandidatesPromptTextBlock.Visibility = Visibility.Collapsed;
+                if (PinTopButton != null) PinTopButton.Visibility = Visibility.Visible;
+                if (PageRootGrid != null) PageRootGrid.Padding = new Thickness(14, 10, 14, 10);
+
+                if (ImmersiveIcon != null) ImmersiveIcon.Glyph = "\uE73F";
+                if (ImmersiveButton != null) ToolTipService.SetToolTip(ImmersiveButton, loc.GetString("TooltipExitImmersiveMode", "退出沉浸式模式"));
+
+                if (MainContentGrid != null && Col0 != null && Col1 != null && Row0 != null && Row1 != null)
+                {
+                    Col0.Width = new GridLength(1, GridUnitType.Star);
+                    Col1.Width = new GridLength(0);
+                    Row0.Height = new GridLength(160);
+                    Row1.Height = new GridLength(1, GridUnitType.Star);
+
+                    Grid.SetRow(RawTextContainer, 0);
+                    Grid.SetColumn(RawTextContainer, 0);
+
+                    Grid.SetRow(CandidatesContainer, 1);
+                    Grid.SetColumn(CandidatesContainer, 0);
+                }
+
+                mainWindow?.SetImmersiveMode(true, compactWindow: true);
+                UpdatePinTopUI();
+            }
+            else
+            {
+                if (TopTitlePanel != null) TopTitlePanel.Visibility = Visibility.Visible;
+                if (PresetControlPanel != null) PresetControlPanel.Visibility = Visibility.Visible;
+                if (RawTextPromptTextBlock != null) RawTextPromptTextBlock.Visibility = Visibility.Visible;
+                if (CandidatesPromptTextBlock != null) CandidatesPromptTextBlock.Visibility = Visibility.Visible;
+                if (PinTopButton != null) PinTopButton.Visibility = Visibility.Collapsed;
+                if (PageRootGrid != null) PageRootGrid.Padding = new Thickness(24);
+
+                if (ImmersiveIcon != null) ImmersiveIcon.Glyph = "\uE740";
+                if (ImmersiveButton != null) ToolTipService.SetToolTip(ImmersiveButton, loc.GetString("TooltipImmersiveMode", "沉浸式模式"));
+
+                if (MainContentGrid != null && Col0 != null && Col1 != null && Row0 != null && Row1 != null)
+                {
+                    Col0.Width = new GridLength(1, GridUnitType.Star);
+                    Col1.Width = new GridLength(1, GridUnitType.Star);
+                    Row0.Height = new GridLength(1, GridUnitType.Star);
+                    Row1.Height = GridLength.Auto;
+
+                    Grid.SetRow(RawTextContainer, 0);
+                    Grid.SetColumn(RawTextContainer, 0);
+
+                    Grid.SetRow(CandidatesContainer, 0);
+                    Grid.SetColumn(CandidatesContainer, 1);
+                }
+
+                mainWindow?.SetImmersiveMode(false);
+                mainWindow?.SetAlwaysOnTop(false);
+            }
+        }
+
+        private void PinTopButton_Click(object sender, RoutedEventArgs e)
+        {
+            var mainWindow = App.MainWindowInstance as MainWindow;
+            mainWindow?.ToggleAlwaysOnTop();
+            UpdatePinTopUI();
+        }
+
+        private void UpdatePinTopUI()
+        {
+            var loc = LocalizationService.Instance;
+            var mainWindow = App.MainWindowInstance as MainWindow;
+            bool isTop = mainWindow?.IsAlwaysOnTop ?? false;
+
+            if (PinTopIcon != null)
+            {
+                PinTopIcon.Glyph = isTop ? "\uE77A" : "\uE840";
+            }
+            if (PinTopButton != null)
+            {
+                ToolTipService.SetToolTip(PinTopButton, isTop
+                    ? loc.GetString("TooltipUnpinTop", "取消置顶")
+                    : loc.GetString("TooltipAlwaysOnTop", "窗口置顶"));
+            }
+        }
+
+        protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            if (_isImmersive)
+            {
+                SetImmersiveMode(false);
+            }
         }
 
         private async void ManagePresetsButton_Click(object sender, RoutedEventArgs e)

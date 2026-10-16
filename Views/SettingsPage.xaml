@@ -304,7 +304,7 @@
                                     <Button x:Name="RegeneratePairingCodeButton" Click="GeneratePairingCode_Click" Style="{ThemeResource SubtleButtonStyle}">
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <FontIcon Glyph="&#xE72C;" FontSize="12"/>
-                                            <TextBlock Text="换一个"/>
+                                            <TextBlock x:Name="RegeneratePairingCodeText" Text="换一个"/>
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -375,12 +375,12 @@
 
                                                 <!-- IP 标签 -->
                                                 <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="3" Padding="4,1">
-                                                    <TextBlock Text="{Binding ClientIp, TargetNullValue='未知 IP'}" FontSize="10" Opacity="0.7"/>
+                                                    <TextBlock Text="{Binding ClientIpDisplay}" FontSize="10" Opacity="0.7"/>
                                                 </Border>
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                                <TextBlock Text="{Binding LastSeenDisplay, Converter={StaticResource StringFormatConverter}, ConverterParameter='最近活跃: {0}'}" FontSize="11" Opacity="0.5"/>
-                                                <TextBlock Text="{Binding CreatedAtDisplay, Converter={StaticResource StringFormatConverter}, ConverterParameter='绑定于: {0}'}" FontSize="11" Opacity="0.5"/>
+                                                <TextBlock Text="{Binding LastSeenFullDisplay}" FontSize="11" Opacity="0.5"/>
+                                                <TextBlock Text="{Binding CreatedAtFullDisplay}" FontSize="11" Opacity="0.5"/>
                                             </StackPanel>
                                         </StackPanel>
 
@@ -389,20 +389,20 @@
                                             <Button Tag="{Binding Id}" Click="PullFromSpecificDevice_Click" Style="{ThemeResource DefaultButtonStyle}">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                                     <FontIcon Glyph="&#xE898;" FontSize="11"/>
-                                                    <TextBlock Text="从该设备拉取" FontSize="12"/>
+                                                    <TextBlock Text="{Binding ActionPullText}" FontSize="12"/>
                                                 </StackPanel>
                                             </Button>
                                             <Button Tag="{Binding Id}" Click="EditDeviceAlias_Click" Style="{ThemeResource SubtleButtonStyle}">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                                     <FontIcon Glyph="&#xE70F;" FontSize="11"/>
-                                                    <TextBlock Text="重命名" FontSize="12"/>
+                                                    <TextBlock Text="{Binding ActionRenameText}" FontSize="12"/>
                                                 </StackPanel>
                                             </Button>
                                             <Button Tag="{Binding Id}" Click="UnbindDevice_Click" 
                                                     Style="{ThemeResource SubtleButtonStyle}" Foreground="{ThemeResource SystemFillColorCriticalBrush}">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                                     <FontIcon Glyph="&#xE711;" FontSize="11"/>
-                                                    <TextBlock Text="解除绑定" FontSize="12"/>
+                                                    <TextBlock Text="{Binding ActionUnbindText}" FontSize="12"/>
                                                 </StackPanel>
                                             </Button>
                                         </StackPanel>
@@ -424,30 +424,10 @@
                             <FontIcon Glyph="&#xEA35;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                             <TextBlock x:Name="SectionDataTextBlock" Text="数据安全与灾备恢复" FontWeight="SemiBold" FontSize="14"/>
                         </StackPanel>
-                        <TextBlock x:Name="DataSafetyDescTextBlock" Text="多重灾备保护：支持从手机主动拉取全量词库、本地安全快照秒级还原与外部备份管理" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="DataSafetyDescTextBlock" Text="多重灾备保护：本地安全快照秒级还原与外部备份管理" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                     </StackPanel>
 
-                    <!-- 1. 从手机端主动拉取全量数据 -->
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="PullFromMobileTitleTextBlock" Text="从手机端主动拉取全量数据" FontSize="13" FontWeight="Medium" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="PullFromMobileDescTextBlock" Text="电脑端数据异常或丢失时，向已连接手机发送指令，将手机完整词库与进度推回电脑并安全合并" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <Button x:Name="PullFromMobileButton" Grid.Column="1" Click="PullFromMobile_Click" Style="{ThemeResource AccentButtonStyle}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE898;" FontSize="12"/>
-                                <TextBlock x:Name="PullFromMobileButtonText" Text="从手机主动拉取"/>
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-
-                    <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
-
-                    <!-- 2. 本地自动快照一键还原 (组件化列表) -->
+                    <!-- 1. 本地自动快照一键还原 (组件化列表) -->
                     <StackPanel Spacing="10">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -517,14 +497,14 @@
                                             <Button Tag="{Binding FilePath}" Click="RestoreSnapshotItem_Click" Style="{ThemeResource DefaultButtonStyle}">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                                     <FontIcon Glyph="&#xE777;" FontSize="11"/>
-                                                    <TextBlock Text="还原" FontSize="12"/>
+                                                    <TextBlock Text="{Binding ActionRestoreText}" FontSize="12"/>
                                                 </StackPanel>
                                             </Button>
                                             <Button Tag="{Binding FilePath}" Click="DeleteSnapshotItem_Click" Style="{ThemeResource SubtleButtonStyle}"
                                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                                     <FontIcon Glyph="&#xE74D;" FontSize="11"/>
-                                                    <TextBlock Text="删除" FontSize="12"/>
+                                                    <TextBlock Text="{Binding ActionDeleteText}" FontSize="12"/>
                                                 </StackPanel>
                                             </Button>
                                         </StackPanel>

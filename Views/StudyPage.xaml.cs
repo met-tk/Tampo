@@ -48,6 +48,53 @@ namespace NihongoVocab.Views
 
             if (SessionFinishedTitleTextBlock != null) SessionFinishedTitleTextBlock.Text = loc.GetString("MsgStudyFinishedTitle", "今日复习已全部完成！");
             if (SessionFinishedTipTextBlock != null) SessionFinishedTipTextBlock.Text = loc.GetString("MsgStudyFinishedTip", "目前没有需要学习或复习的单词。");
+
+            if (ImmersiveButton != null)
+            {
+                ToolTipService.SetToolTip(ImmersiveButton, _isImmersive
+                    ? loc.GetString("TooltipExitImmersiveMode", "退出沉浸式模式")
+                    : loc.GetString("TooltipImmersiveMode", "沉浸式模式"));
+            }
+        }
+
+        private bool _isImmersive = false;
+
+        private void ImmersiveButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetImmersiveMode(!_isImmersive);
+        }
+
+        private void SetImmersiveMode(bool enable)
+        {
+            _isImmersive = enable;
+            var loc = LocalizationService.Instance;
+            var mainWindow = App.MainWindowInstance as MainWindow;
+
+            if (_isImmersive)
+            {
+                if (TopTitlePanel != null) TopTitlePanel.Visibility = Visibility.Collapsed;
+                if (FilterControlPanel != null) FilterControlPanel.Visibility = Visibility.Collapsed;
+                if (ImmersiveIcon != null) ImmersiveIcon.Glyph = "\uE73F";
+                if (ImmersiveButton != null) ToolTipService.SetToolTip(ImmersiveButton, loc.GetString("TooltipExitImmersiveMode", "退出沉浸式模式"));
+                mainWindow?.SetImmersiveMode(true);
+            }
+            else
+            {
+                if (TopTitlePanel != null) TopTitlePanel.Visibility = Visibility.Visible;
+                if (FilterControlPanel != null) FilterControlPanel.Visibility = Visibility.Visible;
+                if (ImmersiveIcon != null) ImmersiveIcon.Glyph = "\uE740";
+                if (ImmersiveButton != null) ToolTipService.SetToolTip(ImmersiveButton, loc.GetString("TooltipImmersiveMode", "沉浸式模式"));
+                mainWindow?.SetImmersiveMode(false);
+            }
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            if (_isImmersive)
+            {
+                SetImmersiveMode(false);
+            }
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)

@@ -1,6 +1,8 @@
 using System;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using NihongoVocab.Services;
 using NihongoVocab.Views;
 
@@ -227,7 +229,7 @@ namespace NihongoVocab
         {
             try
             {
-                if (this.AppWindow == null) return;
+                if (this.AppWindow == null || IsImmersiveMode) return;
                 var pref = UserPreferenceService.Instance;
 
                 if (this.AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
@@ -322,9 +324,196 @@ namespace NihongoVocab
         private void NavView_Loaded(object sender, RoutedEventArgs e)
         {
             CrashLogger.LogInfo("NavView_Loaded triggered");
+
+            // 恢复上次保存的左侧菜单栏宽度偏好 (160px ~ 360px)
+            double savedWidth = UserPreferenceService.Instance.GetDouble("NavPane_Width", 200);
+            savedWidth = Math.Clamp(savedWidth, 160, 360);
+            NavView.OpenPaneLength = savedWidth;
+            UpdateNavPaneSplitter();
+
+            NavView.PaneOpened += (s, args) => UpdateNavPaneSplitter();
+            NavView.PaneClosed += (s, args) => UpdateNavPaneSplitter();
+
             NavView.SelectedItem = NavItemImport;
             NavigateTo("Import");
         }
+
+        #region 左侧菜单栏隐形分割滑块拖拽 (160px ~ 360px)
+
+        private static readonly InputSystemCursor _sizeWestEastCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+        private bool _isNavPaneResizing = false;
+        private double _navPaneStartX;
+        private double _navPaneStartWidth;
+
+        private static readonly System.Reflection.PropertyInfo? _protectedCursorProp =
+            typeof(UIElement).GetProperty("ProtectedCursor", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+
+        private void SetSplitterCursor(InputCursor? cursor)
+        {
+            try
+            {
+                if (NavPaneSplitter != null)
+                {
+                    _protectedCursorProp?.SetValue(NavPaneSplitter, cursor);
+                }
+            }
+            catch { }
+        }
+
+        private void NavPaneSplitter_PointerEntered(object sender, PointerRoutedEventArgs e)
+        {
+            SetSplitterCursor(_sizeWestEastCursor);
+            if (NavPaneSplitterBar != null) NavPaneSplitterBar.Opacity = 0.5;
+        }
+
+        private void NavPaneSplitter_PointerExited(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_isNavPaneResizing)
+            {
+                SetSplitterCursor(null);
+                if (NavPaneSplitterBar != null) NavPaneSplitterBar.Opacity = 0;
+            }
+        }
+
+        private void NavPaneSplitter_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            _isNavPaneResizing = true;
+            _navPaneStartX = e.GetCurrentPoint(RootLayoutGrid).Position.X;
+            _navPaneStartWidth = NavView.OpenPaneLength;
+            if (NavPaneSplitterBar != null) NavPaneSplitterBar.Opacity = 1.0;
+            NavPaneSplitter.CapturePointer(e.Pointer);
+        }
+
+        private void NavPaneSplitter_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_isNavPaneResizing) return;
+
+            double currentX = e.GetCurrentPoint(RootLayoutGrid).Position.X;
+            double delta = currentX - _navPaneStartX;
+            double targetWidth = Math.Clamp(_navPaneStartWidth + delta, 160, 360);
+            NavView.OpenPaneLength = targetWidth;
+            UpdateNavPaneSplitter();
+        }
+
+        private void NavPaneSplitter_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (_isNavPaneResizing)
+            {
+                _isNavPaneResizing = false;
+                NavPaneSplitter.ReleasePointerCapture(e.Pointer);
+                SetSplitterCursor(null);
+                if (NavPaneSplitterBar != null) NavPaneSplitterBar.Opacity = 0;
+                UserPreferenceService.Instance.SetDouble("NavPane_Width", NavView.OpenPaneLength);
+            }
+        }
+
+        private void NavPaneSplitter_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+        {
+            if (_isNavPaneResizing)
+            {
+                _isNavPaneResizing = false;
+                SetSplitterCursor(null);
+                if (NavPaneSplitterBar != null) NavPaneSplitterBar.Opacity = 0;
+                UserPreferenceService.Instance.SetDouble("NavPane_Width", NavView.OpenPaneLength);
+            }
+        }
+
+        public void UpdateNavPaneSplitter()
+        {
+            if (NavPaneSplitter == null) return;
+
+            bool visible = NavView.IsPaneVisible && NavView.IsPaneOpen;
+            NavPaneSplitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            if (visible)
+            {
+                NavPaneSplitter.Margin = new Thickness(NavView.OpenPaneLength - 5, 0, 0, 0);
+            }
+        }
+
+        #endregion
+
+        #region 沉浸式模式与窗口置顶管控
+
+        private Windows.Graphics.SizeInt32? _preImmersiveSize;
+        private Windows.Graphics.PointInt32? _preImmersivePosition;
+        private bool _preImmersiveIsMaximized;
+
+        public bool IsAlwaysOnTop
+        {
+            get
+            {
+                if (this.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+                {
+                    return presenter.IsAlwaysOnTop;
+                }
+                return false;
+            }
+        }
+
+        public void ToggleAlwaysOnTop()
+        {
+            SetAlwaysOnTop(!IsAlwaysOnTop);
+        }
+
+        public void SetAlwaysOnTop(bool alwaysOnTop)
+        {
+            if (this.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            {
+                presenter.IsAlwaysOnTop = alwaysOnTop;
+            }
+        }
+
+        public bool IsImmersiveMode { get; private set; }
+
+        public void SetImmersiveMode(bool enable, bool compactWindow = false)
+        {
+            if (IsImmersiveMode == enable) return;
+            IsImmersiveMode = enable;
+
+            if (enable)
+            {
+                NavView.IsPaneVisible = false;
+                UpdateNavPaneSplitter();
+
+                if (compactWindow && this.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+                {
+                    _preImmersiveIsMaximized = (presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized);
+                    _preImmersivePosition = this.AppWindow.Position;
+                    _preImmersiveSize = this.AppWindow.Size;
+
+                    if (_preImmersiveIsMaximized)
+                    {
+                        presenter.Restore();
+                    }
+
+                    // 零散单一词汇快速记录紧凑悬浮窗口尺寸
+                    this.AppWindow.Resize(new Windows.Graphics.SizeInt32(500, 640));
+                }
+            }
+            else
+            {
+                NavView.IsPaneVisible = true;
+                UpdateNavPaneSplitter();
+
+                if (this.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+                {
+                    if (_preImmersiveSize.HasValue)
+                    {
+                        this.AppWindow.Resize(_preImmersiveSize.Value);
+                        if (_preImmersivePosition.HasValue)
+                        {
+                            this.AppWindow.Move(_preImmersivePosition.Value);
+                        }
+                        if (_preImmersiveIsMaximized)
+                        {
+                            presenter.Maximize();
+                        }
+                    }
+                }
+            }
+        }
+
+        #endregion
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
@@ -344,6 +533,12 @@ namespace NihongoVocab
 
         private void NavigateTo(string tag)
         {
+            if (IsImmersiveMode)
+            {
+                SetImmersiveMode(false);
+                SetAlwaysOnTop(false);
+            }
+
             CrashLogger.LogInfo($"NavigateTo({tag}) called");
             Type? pageType = tag switch
             {

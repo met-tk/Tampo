@@ -7,7 +7,7 @@
     mc:Ignorable="d"
     Title="Tampo">
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid x:Name="RootLayoutGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <!-- 侧边栏弹性挤压 Inline 模式：展开菜单向右平推挤压右侧内容区，非浮层遮挡 -->
         <NavigationView x:Name="NavView"
                         IsBackButtonVisible="Collapsed"
@@ -120,5 +120,28 @@
             <!-- 页面内容承载容器 -->
             <Frame x:Name="ContentFrame"/>
         </NavigationView>
+
+        <!-- 左侧菜单栏隐形分割滑块 (Hover/Drag 微交互，支持 160px ~ 360px 宽度调节) -->
+        <Border x:Name="NavPaneSplitter"
+                HorizontalAlignment="Left"
+                Width="10"
+                Background="Transparent"
+                Canvas.ZIndex="1000"
+                PointerEntered="NavPaneSplitter_PointerEntered"
+                PointerExited="NavPaneSplitter_PointerExited"
+                PointerPressed="NavPaneSplitter_PointerPressed"
+                PointerMoved="NavPaneSplitter_PointerMoved"
+                PointerReleased="NavPaneSplitter_PointerReleased"
+                PointerCaptureLost="NavPaneSplitter_PointerCaptureLost"
+                PointerCanceled="NavPaneSplitter_PointerCaptureLost">
+            <Border.Child>
+                <Rectangle x:Name="NavPaneSplitterBar"
+                           Width="2"
+                           HorizontalAlignment="Center"
+                           Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                           Opacity="0"
+                           RadiusX="1" RadiusY="1"/>
+            </Border.Child>
+        </Border>
     </Grid>
 </Window>

@@ -90,10 +90,7 @@ namespace NihongoVocab.Views
             if (LogPathTextBlock != null) LogPathTextBlock.Text = CrashLogger.GetLogPath();
 
             if (SectionDataTextBlock != null) SectionDataTextBlock.Text = loc.GetString("DataMaintenance", "数据安全与灾备恢复");
-            if (DataSafetyDescTextBlock != null) DataSafetyDescTextBlock.Text = loc.GetString("DataSafetyDesc", "多重灾备保护：支持从手机主动拉取全量词库、本地安全快照秒级还原与外部备份管理");
-            if (PullFromMobileTitleTextBlock != null) PullFromMobileTitleTextBlock.Text = loc.GetString("PullFromMobileTitle", "从手机端主动拉取全量数据");
-            if (PullFromMobileDescTextBlock != null) PullFromMobileDescTextBlock.Text = loc.GetString("PullFromMobileDesc", "电脑端数据异常或丢失时，向已连接手机发送指令，将手机完整词库与进度推回电脑并安全合并");
-            if (PullFromMobileButtonText != null) PullFromMobileButtonText.Text = loc.GetString("ButtonPullFromMobile", "从手机主动拉取");
+            if (DataSafetyDescTextBlock != null) DataSafetyDescTextBlock.Text = loc.GetString("DataSafetyDesc", "多重灾备保护：本地安全快照秒级还原与外部备份管理");
             if (SyncOnStudyLabelTextBlock != null) SyncOnStudyLabelTextBlock.Text = loc.GetString("SyncOnStudyLabel", "本地打卡后自动同步");
             if (SyncOnStudyDescTextBlock != null) SyncOnStudyDescTextBlock.Text = loc.GetString("SyncOnStudyDesc", "在电脑端完成单词打卡后，自动向局域网已连接的移动端广播数据变动；关闭后仅本地记录，不向手机广播");
             if (LocalBackupsTitleTextBlock != null) LocalBackupsTitleTextBlock.Text = loc.GetString("LocalBackupsTitle", "本地自动快照一键还原");
@@ -139,8 +136,25 @@ namespace NihongoVocab.Views
             if (RefreshDevicesButtonText != null) RefreshDevicesButtonText.Text = loc.GetString("ButtonRefreshList", "刷新列表");
             if (NoDevicesTextBlock != null) NoDevicesTextBlock.Text = loc.GetString("NoDevicesText", "暂无已绑定设备。请点击上方【生成 6 位配对码】并在手机端输入完成首次绑定。");
             if (CopyPairingCodeText != null) CopyPairingCodeText.Text = loc.GetString("ButtonCopy", "复制");
+            if (RegeneratePairingCodeText != null) RegeneratePairingCodeText.Text = loc.GetString("ButtonRegeneratePairingCode", "换一个");
+            if (OpenBackupsFolderButton != null) ToolTipService.SetToolTip(OpenBackupsFolderButton, loc.GetString("TooltipOpenBackupsFolder", "打开快照目录"));
+
+            // ToggleSwitch On/Off 本地化（适配日文 オン/オフ 与英文 On/Off）
+            string toggleOn = loc.GetString("ToggleOn", "开");
+            string toggleOff = loc.GetString("ToggleOff", "关");
+            if (SoundToggleSwitch != null) { SoundToggleSwitch.OnContent = toggleOn; SoundToggleSwitch.OffContent = toggleOff; }
+            if (SyncServiceToggleSwitch != null) { SyncServiceToggleSwitch.OnContent = toggleOn; SyncServiceToggleSwitch.OffContent = toggleOff; }
+            if (SyncAutostartToggleSwitch != null) { SyncAutostartToggleSwitch.OnContent = toggleOn; SyncAutostartToggleSwitch.OffContent = toggleOff; }
+            if (SyncOnStudyToggleSwitch != null) { SyncOnStudyToggleSwitch.OnContent = toggleOn; SyncOnStudyToggleSwitch.OffContent = toggleOff; }
+
+            if (PairingServerEndpointTextBlock != null && (PairingServerEndpointTextBlock.Text.Contains("...") || PairingServerEndpointTextBlock.Text.Contains("…") || PairingServerEndpointTextBlock.Text.Contains("获取中") || PairingServerEndpointTextBlock.Text.Contains("取得中") || PairingServerEndpointTextBlock.Text.Contains("Fetching")))
+            {
+                PairingServerEndpointTextBlock.Text = loc.GetString("PairingServerEndpointFetching", "服务地址: 获取中...");
+            }
 
             UpdateSoundUI();
+            _ = RefreshBackupsListAsync();
+            _ = LoadPairedDevicesAsync();
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -289,159 +303,6 @@ namespace NihongoVocab.Views
 
         #region 数据安全与灾备恢复交互逻辑
 
-        private async void PullFromMobile_Click(object sender, RoutedEventArgs e)
-        {
-            var triggerBtn = sender as Button;
-            if (triggerBtn != null) triggerBtn.IsEnabled = false;
-            try
-            {
-                var loc = LocalizationService.Instance;
-                bool isRunning = await SyncServiceController.Instance.IsServiceRunningAsync();
-                if (!isRunning)
-                {
-                    var tip = new ContentDialog
-                    {
-                        Title = loc.GetString("SyncServiceNotRunningTitle", "局域网同步服务未启动"),
-                        Content = DialogHelper.CreateTextBlockContent(loc.GetString("SyncServiceNotRunningMsg", "局域网同步服务当前未运行，请先在上方开启【局域网同步守护服务】后再执行拉取。")),
-                        CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                        XamlRoot = this.XamlRoot,
-                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                    };
-                    MainWindow.RegisterActiveDialog(tip);
-                    await tip.ShowAsync();
-                    MainWindow.UnregisterActiveDialog(tip);
-                    return;
-                }
-
-                var devices = await _dbService.GetPairedDevicesAsync();
-                if (devices == null || devices.Count == 0)
-                {
-                    var tip = new ContentDialog
-                    {
-                        Title = loc.GetString("NoPairedDevicesTitle", "未绑定任何移动设备"),
-                        Content = DialogHelper.CreateTextBlockContent(loc.GetString("NoPairedDevicesMsg", "当前尚未绑定任何手机设备。请先点击【生成 6 位配对码】并在手机端完成配对后再执行拉取。")),
-                        CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                        XamlRoot = this.XamlRoot,
-                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                    };
-                    MainWindow.RegisterActiveDialog(tip);
-                    await tip.ShowAsync();
-                    MainWindow.UnregisterActiveDialog(tip);
-                    return;
-                }
-
-                // 获取实时在线状态
-                var liveDevices = await SyncServiceController.Instance.GetConnectedDevicesStatusAsync();
-                var liveMap = liveDevices.ToDictionary(d => d.Id, d => d);
-                foreach (var d in devices)
-                {
-                    if (liveMap.TryGetValue(d.Id, out var live))
-                    {
-                        d.IsOnline = live.IsOnline;
-                        if (!string.IsNullOrWhiteSpace(live.ClientIp)) d.ClientIp = live.ClientIp;
-                        if (!string.IsNullOrWhiteSpace(live.DeviceModel)) d.DeviceModel = live.DeviceModel;
-                    }
-                }
-
-                string? selectedDeviceId = null;
-                string? selectedDeviceName = null;
-
-                if (devices.Count == 1)
-                {
-                    // 仅绑定 1 部手机：直接定向拉取
-                    selectedDeviceId = devices[0].Id;
-                    selectedDeviceName = devices[0].DisplayTitle;
-                }
-                else
-                {
-                    // 绑定多部手机：弹窗提供清晰选择
-                    var sp = new StackPanel { Spacing = 10 };
-                    sp.Children.Add(new TextBlock
-                    {
-                        Text = loc.GetString("SelectPullDeviceDesc", "检测到已绑定多部移动设备，请指定要拉取数据的目标手机："),
-                        TextWrapping = TextWrapping.Wrap,
-                        FontSize = 13
-                    });
-
-                    var radioGroup = new RadioButtons();
-                    int defaultIdx = 0;
-                    for (int i = 0; i < devices.Count; i++)
-                    {
-                        var dev = devices[i];
-                        string status = dev.IsOnline ? "🟢 [在线]" : "⚪ [离线]";
-                        radioGroup.Items.Add($"{status} {dev.DisplayTitle} ({dev.ClientIp ?? "未知 IP"})");
-                        if (dev.IsOnline && defaultIdx == 0) defaultIdx = i;
-                    }
-                    radioGroup.Items.Add("📢 广播给所有已连接手机");
-                    radioGroup.SelectedIndex = defaultIdx;
-                    sp.Children.Add(radioGroup);
-
-                    var selectDialog = new ContentDialog
-                    {
-                        Title = loc.GetString("SelectPullDeviceTitle", "选择拉取源手机设备"),
-                        Content = sp,
-                        PrimaryButtonText = loc.GetString("ButtonStartPull", "开始拉取"),
-                        CloseButtonText = loc.GetString("ButtonCancel", "取消"),
-                        DefaultButton = ContentDialogButton.Primary,
-                        XamlRoot = this.XamlRoot,
-                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                    };
-
-                    MainWindow.RegisterActiveDialog(selectDialog);
-                    var choiceRes = await selectDialog.ShowAsync();
-                    MainWindow.UnregisterActiveDialog(selectDialog);
-
-                    if (choiceRes != ContentDialogResult.Primary) return;
-
-                    int chosenIdx = radioGroup.SelectedIndex;
-                    if (chosenIdx >= 0 && chosenIdx < devices.Count)
-                    {
-                        selectedDeviceId = devices[chosenIdx].Id;
-                        selectedDeviceName = devices[chosenIdx].DisplayTitle;
-                    }
-                    else
-                    {
-                        selectedDeviceId = null;
-                        selectedDeviceName = "全部设备";
-                    }
-                }
-
-                // 1. 拉取前自动创建专属 pre_pull 快照镜像
-                await _dbService.CreatePrePullBackupAsync(selectedDeviceName ?? "Mobile");
-                await RefreshBackupsListAsync();
-
-                // 2. 发起主动推送指令
-                var (success, notified, msg) = await SyncServiceController.Instance.RequestMobilePushAsync(selectedDeviceId);
-
-                string displayMsg = success
-                    ? (notified > 0
-                        ? string.Format(loc.GetString("PullRequestSentMsg", "已成功向 {0} 台移动设备发送全量推送指令。\n手机端将在数秒内将最新全量词库及复习日志推回电脑并安全合并。"), notified)
-                        : (selectedDeviceId != null
-                            ? string.Format(loc.GetString("PullTargetOfflineMsg", "目标设备【{0}】当前未与电脑建立实时连接。\n请在手机上打开 Tampo 并保持在同一 WiFi 局域网下，然后重试。"), selectedDeviceName)
-                            : loc.GetString("PullNoDeviceMsg", "已广播拉取指令，但当前没有已建立实时长连接的手机端。\n请确保手机端 Tampo 处于打开状态并在同一局域网内，然后重试。")))
-                    : string.Format(loc.GetString("PullRequestFailedMsg", "发送拉取指令失败：{0}"), msg);
-
-                var resultDialog = new ContentDialog
-                {
-                    Title = success ? loc.GetString("PullRequestSuccessTitle", "已发送拉取请求") : loc.GetString("PullRequestFailedTitle", "拉取请求未完成"),
-                    Content = DialogHelper.CreateTextBlockContent(displayMsg),
-                    CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                    XamlRoot = this.XamlRoot,
-                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                };
-                MainWindow.RegisterActiveDialog(resultDialog);
-                await resultDialog.ShowAsync();
-                MainWindow.UnregisterActiveDialog(resultDialog);
-            }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "SettingsPage.PullFromMobile_Click");
-            }
-            finally
-            {
-                if (triggerBtn != null) triggerBtn.IsEnabled = true;
-            }
-        }
 
         private async void RestoreSnapshotItem_Click(object sender, RoutedEventArgs e)
         {
@@ -677,7 +538,9 @@ namespace NihongoVocab.Views
                                     FormattedTime = fi.CreationTime.ToString("yyyy-MM-dd HH:mm:ss"),
                                     FormattedSize = sizeStr,
                                     BadgeText = badge,
-                                    CreationTime = fi.CreationTime
+                                    CreationTime = fi.CreationTime,
+                                    ActionRestoreText = loc.GetString("ButtonRestore", "还原"),
+                                    ActionDeleteText = loc.GetString("ButtonDelete", "删除")
                                 });
                             }
                             catch { }
@@ -710,44 +573,24 @@ namespace NihongoVocab.Views
             try
             {
                 string fileName = Path.GetFileName(backupPath);
-                var confirmDialog = new ContentDialog
+                bool deleted = _dbService.DeleteBackupFile(backupPath);
+                await RefreshBackupsListAsync();
+
+                if (!deleted)
                 {
-                    Title = loc.GetString("DeleteSnapshotConfirmTitle", "删除备份快照"),
-                    Content = DialogHelper.CreateTextBlockContent(string.Format(
-                        loc.GetString("DeleteSnapshotConfirmMsg", "确定要物理删除该备份快照文件吗？\n{0}\n\n此操作不可撤销。"),
-                        fileName)),
-                    PrimaryButtonText = loc.GetString("ButtonDelete", "删除"),
-                    CloseButtonText = loc.GetString("ButtonCancel", "取消"),
-                    DefaultButton = ContentDialogButton.Close,
-                    XamlRoot = this.XamlRoot,
-                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                };
-
-                MainWindow.RegisterActiveDialog(confirmDialog);
-                var result = await confirmDialog.ShowAsync();
-                MainWindow.UnregisterActiveDialog(confirmDialog);
-
-                if (result == ContentDialogResult.Primary)
-                {
-                    bool deleted = _dbService.DeleteBackupFile(backupPath);
-                    await RefreshBackupsListAsync();
-
-                    if (!deleted)
+                    var failDialog = new ContentDialog
                     {
-                        var failDialog = new ContentDialog
-                        {
-                            Title = loc.GetString("DeleteSnapshotFailedTitle", "删除快照失败"),
-                            Content = DialogHelper.CreateTextBlockContent(string.Format(
-                                loc.GetString("DeleteSnapshotFailedMsg", "未能成功删除快照文件：{0}"),
-                                fileName)),
-                            CloseButtonText = loc.GetString("ButtonClose", "关闭"),
-                            XamlRoot = this.XamlRoot,
-                            RequestedTheme = Converters.ThemeHelper.GetActualTheme()
-                        };
-                        MainWindow.RegisterActiveDialog(failDialog);
-                        await failDialog.ShowAsync();
-                        MainWindow.UnregisterActiveDialog(failDialog);
-                    }
+                        Title = loc.GetString("DeleteSnapshotFailedTitle", "删除快照失败"),
+                        Content = DialogHelper.CreateTextBlockContent(string.Format(
+                            loc.GetString("DeleteSnapshotFailedMsg", "未能成功删除快照文件：{0}"),
+                            fileName)),
+                        CloseButtonText = loc.GetString("ButtonClose", "关闭"),
+                        XamlRoot = this.XamlRoot,
+                        RequestedTheme = Converters.ThemeHelper.GetActualTheme()
+                    };
+                    MainWindow.RegisterActiveDialog(failDialog);
+                    await failDialog.ShowAsync();
+                    MainWindow.UnregisterActiveDialog(failDialog);
                 }
             }
             catch (Exception ex)
@@ -1047,7 +890,7 @@ namespace NihongoVocab.Views
                 string primaryIp = endpoints.FirstOrDefault(ep => !ep.IpAddress.StartsWith("127."))?.IpAddress ?? "127.0.0.1";
                 if (PairingServerEndpointTextBlock != null)
                 {
-                    PairingServerEndpointTextBlock.Text = $"本机服务地址: {primaryIp}:52080";
+                    PairingServerEndpointTextBlock.Text = string.Format(LocalizationService.Instance.GetString("PairingServerEndpointFormat", "本机服务地址: {0}:52080"), primaryIp);
                 }
             }
             catch (Exception ex)
@@ -1290,5 +1133,7 @@ namespace NihongoVocab.Views
         public string FormattedSize { get; set; } = string.Empty;
         public string BadgeText { get; set; } = string.Empty;
         public DateTime CreationTime { get; set; }
+        public string ActionRestoreText { get; set; } = string.Empty;
+        public string ActionDeleteText { get; set; } = string.Empty;
     }
 }
