@@ -348,7 +348,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   ),
 
                   const SizedBox(height: 16),
-                  _buildSectionHeader('局域网实时同步', Icons.sync_outlined, theme),
+                  _buildSectionHeader('局域网同步', Icons.sync_outlined, theme),
                   const SizedBox(height: 8),
 
                   Container(
@@ -362,11 +362,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
                       builder: (context, autoSync, _) {
                         return SwitchListTile(
                           title: const Text(
-                            '实时高频自动同步',
+                            '本地打卡后自动同步',
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
-                            '背词打卡/词汇变动时即时静默同步，启动与前台活跃时自动更新数据',
+                            '背词打卡完成后自动向电脑推送。配对后手机始终保持局域网待命，可随时响应电脑端主动拉取',
                             style: TextStyle(fontSize: 11, color: theme.hintColor),
                           ),
                           value: autoSync,
@@ -421,7 +421,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     child: Column(
                       children: [
                         Text(
-                          'Tampo Android v1.4.6',
+                          'Tampo Android v1.4.7',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,

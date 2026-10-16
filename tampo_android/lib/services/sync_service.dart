@@ -86,8 +86,8 @@ class SyncService {
       }
     });
 
-    // 若已绑定且开启自动同步，立即建立 SSE 实时下行通道
-    if (isPairedNotifier.value && isAutoSyncEnabledNotifier.value) {
+    // 若已绑定，立即建立局域网 SSE 待命互联通道（保持在线状态与电脑端识别）
+    if (isPairedNotifier.value) {
       _connectSseStream();
     }
 
@@ -125,7 +125,7 @@ class SyncService {
   }
 
   /// 局域网自发现电脑端 TampoSyncService (支持全网卡 UDP 广播 + 子网定向广播 + 历史主机 HTTP Ping 竞速)
-  Future<Map<String, dynamic>?> discoverHost({Duration timeout = const Duration(milliseconds: 2200)}) async {
+  Future<Map<String, dynamic>?> discoverHost({Duration timeout = const Duration(milliseconds: 3500)}) async {
     statusNotifier.value = SyncStatus.discovering;
     addLog('正在局域网全网段探测电脑端同步服务...');
     RawDatagramSocket? socket;
@@ -147,7 +147,7 @@ class SyncService {
                 'port': 52080,
                 'host': hostParts,
                 'name': name,
-                'version': (pingData['version'] ?? '1.4.6').toString(),
+                'version': (pingData['version'] ?? '1.4.7').toString(),
               };
               completer.complete(info);
             } catch (_) {}
@@ -159,12 +159,14 @@ class SyncService {
       final broadcastTargets = <InternetAddress>{
         InternetAddress('255.255.255.255'),
       };
+      final localSubnets = <String>{};
       try {
         final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
         for (var iface in interfaces) {
           for (var addr in iface.addresses) {
             final ipParts = addr.address.split('.');
             if (ipParts.length == 4 && !addr.isLoopback) {
+              localSubnets.add('${ipParts[0]}.${ipParts[1]}.${ipParts[2]}');
               final subnetBcast = '${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.255';
               try {
                 broadcastTargets.add(InternetAddress(subnetBcast));
@@ -209,7 +211,7 @@ class SyncService {
                   'port': port,
                   'host': '$ip:$port',
                   'name': pcName,
-                  'version': json['version']?.toString() ?? '1.4.6',
+                  'version': json['version']?.toString() ?? '1.4.7',
                 };
                 if (!completer.isCompleted) {
                   completer.complete(info);
@@ -218,6 +220,47 @@ class SyncService {
             } catch (_) {}
           }
         }
+      });
+
+      // 4. 关键穿透：若 300ms 后 UDP 广播仍未收到响应（如路由器对网线与 WiFi 隔离丢弃 UDP），自动启动子网并发 HTTP 扫描
+      Timer(const Duration(milliseconds: 300), () async {
+        if (completer.isCompleted) return;
+        try {
+          for (final subnet in localSubnets) {
+            if (completer.isCompleted) break;
+            const batchSize = 30;
+            for (int i = 1; i <= 254; i += batchSize) {
+              if (completer.isCompleted) break;
+              final end = min(i + batchSize, 255);
+              final batchFutures = <Future>[];
+              for (int hostNum = i; hostNum < end; hostNum++) {
+                final targetIp = '$subnet.$hostNum';
+                final targetUri = Uri.parse('http://$targetIp:52080/api/ping');
+                batchFutures.add(
+                  _httpClient.get(targetUri).timeout(const Duration(milliseconds: 400)).then((res) {
+                    if (res.statusCode == 200 && !completer.isCompleted) {
+                      try {
+                        final pingData = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+                        if (pingData['service'] == 'TampoSyncService' || pingData['status'] == 'ok') {
+                          final name = (pingData['device'] ?? pingData['name'] ?? 'PC-HOST').toString();
+                          final info = {
+                            'ip': targetIp,
+                            'port': 52080,
+                            'host': '$targetIp:52080',
+                            'name': name,
+                            'version': (pingData['version'] ?? '1.4.7').toString(),
+                          };
+                          completer.complete(info);
+                        }
+                      } catch (_) {}
+                    }
+                  }).catchError((_) {}),
+                );
+              }
+              await Future.wait(batchFutures);
+            }
+          }
+        } catch (_) {}
       });
 
       Timer(timeout, () {
@@ -234,6 +277,9 @@ class SyncService {
         await _db.setSetting('paired_pc_name', res['name']);
         addLog('成功连接电脑主机: ${res['name']} (${res['host']})');
         statusNotifier.value = SyncStatus.idle;
+        if (isPairedNotifier.value) {
+          ensureSseConnected();
+        }
         return res;
       } else {
         addLog('未探测到新主机响应，使用当前配置');
@@ -241,7 +287,7 @@ class SyncService {
         return null;
       }
     } catch (e) {
-      addLog('UDP 探测异常: $e', isError: true);
+      addLog('局域网探测异常: $e', isError: true);
       statusNotifier.value = SyncStatus.idle;
       return null;
     } finally {
@@ -334,16 +380,12 @@ class SyncService {
     addLog('已解除与电脑端的设备信任绑定');
   }
 
-  /// 设置是否开启自动实时同步
+  /// 设置是否开启学习打卡后自动同步
   Future<void> setAutoSyncEnabled(bool enabled) async {
     isAutoSyncEnabledNotifier.value = enabled;
     await _db.setBoolSetting('auto_sync_enabled', enabled);
-    if (enabled) {
-      ensureSseConnected();
-    } else {
-      _disconnectSse(keepTimer: false);
-    }
-    addLog(enabled ? '已开启实时高频自动同步' : '已关闭实时高频自动同步');
+    ensureSseConnected();
+    addLog(enabled ? '已开启学习打卡后自动同步' : '已关闭打卡后自动同步（仍保持局域网待命互联）');
   }
 
   /// 校准双端时钟偏差
@@ -372,9 +414,9 @@ class SyncService {
     }
   }
 
-  /// 确保 SSE 实时下行广播通道处于连接状态
+  /// 确保 SSE 实时待命信道处于连接状态（只要已配对即可待命，确保电脑随时可识别手机）
   void ensureSseConnected() {
-    if (!isPairedNotifier.value || !isAutoSyncEnabledNotifier.value) return;
+    if (!isPairedNotifier.value) return;
     if (isSseConnectedNotifier.value) return;
     _connectSseStream();
   }
@@ -383,7 +425,7 @@ class SyncService {
   Future<void> _connectSseStream() async {
     _disconnectSse(keepTimer: false);
 
-    if (!isPairedNotifier.value || !isAutoSyncEnabledNotifier.value) return;
+    if (!isPairedNotifier.value) return;
     final host = pairedHostNotifier.value ?? await _db.getSetting('paired_host');
     if (host == null || host.trim().isEmpty || _pairedToken == null || _pairedToken!.isEmpty) {
       return;
@@ -541,7 +583,7 @@ class SyncService {
 
   void _scheduleSseReconnect() {
     _sseReconnectTimer?.cancel();
-    if (!isPairedNotifier.value || !isAutoSyncEnabledNotifier.value) return;
+    if (!isPairedNotifier.value) return;
 
     final delaySec = _sseRetryBackoffSec;
     _sseRetryBackoffSec = min(_sseRetryBackoffSec * 2, 30);

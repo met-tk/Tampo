@@ -134,7 +134,7 @@ namespace NihongoVocab.SyncService
                     cmd = "tampo_beacon",
                     name = Environment.MachineName,
                     port = _httpPort,
-                    version = "1.4.5",
+                    version = HttpSyncServer.ServerVersion,
                     service = "TampoSyncService"
                 };
 

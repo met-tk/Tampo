@@ -62,7 +62,7 @@ namespace NihongoVocab.SyncService
                     return 0; // 纯净退出，退出码 0 (Mutex 在 finally 中安全销毁句柄，不调用 ReleaseMutex)
                 }
 
-                CrashLogger.LogInfo($"TampoSyncService started. PID: {Environment.ProcessId}, Version: 1.4.5");
+                CrashLogger.LogInfo($"TampoSyncService started. PID: {Environment.ProcessId}, Version: {HttpSyncServer.ServerVersion}");
 
                 // 3. 构建协作式停机 CancellationTokenSource 与等待同步原语
                 cts = new CancellationTokenSource();

@@ -322,7 +322,7 @@ namespace NihongoVocab.Services
                         {
                             status = "ok",
                             device = Environment.MachineName,
-                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.4.6",
+                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.4.7",
                             server_time = DateTime.Now
                         };
                         await SendHttpJsonAsync(stream, 200, pingObj, reqToken);

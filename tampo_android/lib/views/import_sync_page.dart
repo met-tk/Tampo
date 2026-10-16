@@ -1222,7 +1222,7 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
                                   children: [
                                     Icon(Icons.bolt, size: 11, color: Colors.green),
                                     SizedBox(width: 2),
-                                    Text('SSE 实时通道活跃', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                                    Text('局域网待命互联', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                               ),
@@ -1246,7 +1246,7 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        autoSync ? '实时高频：已启用' : '实时高频：已停用',
+                        autoSync ? '打卡自动推送：开' : '打卡自动推送：关',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,

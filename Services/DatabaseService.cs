@@ -2727,6 +2727,52 @@ namespace NihongoVocab.Services
         }
 
         /// <summary>
+        /// 获取备份快照所在绝对目录（若不存在则自动创建）
+        /// </summary>
+        public string GetBackupsDirectoryPath()
+        {
+            string dir = Path.GetDirectoryName(_dbPath) ?? "";
+            string backupDir = Path.Combine(dir, "Backups");
+            if (!Directory.Exists(backupDir))
+            {
+                Directory.CreateDirectory(backupDir);
+            }
+            return backupDir;
+        }
+
+        /// <summary>
+        /// 安全物理删除指定的快照备份文件及其关联 WAL/SHM 临时文件
+        /// </summary>
+        public bool DeleteBackupFile(string backupPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(backupPath) || !File.Exists(backupPath)) return false;
+
+                // 深度防御：严格校验文件归属于快照备份目录，杜绝误传或路径逃逸
+                string expectedDir = Path.GetFullPath(GetBackupsDirectoryPath());
+                string fullPath = Path.GetFullPath(backupPath);
+                if (!fullPath.StartsWith(expectedDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    CrashLogger.LogInfo($"DeleteBackupFile rejected path outside backups directory: {backupPath}");
+                    return false;
+                }
+
+                File.Delete(fullPath);
+                string wal = fullPath + "-wal";
+                if (File.Exists(wal)) try { File.Delete(wal); } catch { }
+                string shm = fullPath + "-shm";
+                if (File.Exists(shm)) try { File.Delete(shm); } catch { }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, $"DatabaseService.DeleteBackupFile: {backupPath}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 从指定的备份文件安全还原数据库
         /// </summary>
         public async Task<bool> RestoreFromBackupFileAsync(string backupPath)

@@ -50,7 +50,7 @@ Get-ChildItem -Path $dst -File -Recurse |
 Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
 
 # ---- Prepare Setup output directory ----------------------------------------
-$version = "1.4.6"
+$version = "1.4.7"
 $csprojContent = Get-Content "$root\Tampo.csproj" -Raw
 if ($csprojContent -match '<Version>([0-9\.]+)</Version>') {
     $version = $matches[1]

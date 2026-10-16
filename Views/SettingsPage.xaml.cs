@@ -90,14 +90,15 @@ namespace NihongoVocab.Views
             if (LogPathTextBlock != null) LogPathTextBlock.Text = CrashLogger.GetLogPath();
 
             if (SectionDataTextBlock != null) SectionDataTextBlock.Text = loc.GetString("DataMaintenance", "数据安全与灾备恢复");
-            if (DataSafetyDescTextBlock != null) DataSafetyDescTextBlock.Text = loc.GetString("DataSafetyDesc", "提供全方位数据保障，包含从手机端主动反向拉取、本地自动安全快照秒级还原与外部备份导入");
+            if (DataSafetyDescTextBlock != null) DataSafetyDescTextBlock.Text = loc.GetString("DataSafetyDesc", "多重灾备保护：支持从手机主动拉取全量词库、本地安全快照秒级还原与外部备份管理");
             if (PullFromMobileTitleTextBlock != null) PullFromMobileTitleTextBlock.Text = loc.GetString("PullFromMobileTitle", "从手机端主动拉取全量数据");
-            if (PullFromMobileDescTextBlock != null) PullFromMobileDescTextBlock.Text = loc.GetString("PullFromMobileDesc", "当电脑端数据发生异常或丢失时，向已连接手机发送拉取指令，由手机主动将完整词库与进度推回电脑并安全合并");
+            if (PullFromMobileDescTextBlock != null) PullFromMobileDescTextBlock.Text = loc.GetString("PullFromMobileDesc", "电脑端数据异常或丢失时，向已连接手机发送指令，将手机完整词库与进度推回电脑并安全合并");
             if (PullFromMobileButtonText != null) PullFromMobileButtonText.Text = loc.GetString("ButtonPullFromMobile", "从手机主动拉取");
             if (LocalBackupsTitleTextBlock != null) LocalBackupsTitleTextBlock.Text = loc.GetString("LocalBackupsTitle", "本地自动快照一键还原");
-            if (LocalBackupsDescTextBlock != null) LocalBackupsDescTextBlock.Text = loc.GetString("LocalBackupsDesc", "每次同步或数据变更前系统均会自动保存快照。选择历史快照可一键安全还原");
+            if (LocalBackupsDescTextBlock != null) LocalBackupsDescTextBlock.Text = loc.GetString("LocalBackupsDesc", "系统在同步与数据变更前自动保存快照。选择历史快照可一键安全还原");
             if (RestoreSnapshotButtonText != null) RestoreSnapshotButtonText.Text = loc.GetString("ButtonRestoreBackup", "还原此快照");
-            if (CreateSnapshotButtonText != null) CreateSnapshotButtonText.Text = loc.GetString("ButtonCreateBackup", "立即创建快照");
+            if (DeleteSnapshotButtonText != null) DeleteSnapshotButtonText.Text = loc.GetString("ButtonDelete", "删除");
+            if (CreateSnapshotButtonText != null) CreateSnapshotButtonText.Text = loc.GetString("ButtonCreateBackup", "创建快照");
             if (RestoreFromFileTitleTextBlock != null) RestoreFromFileTitleTextBlock.Text = loc.GetString("RestoreFromFileTitle", "从外部备份文件还原");
             if (RestoreFromFileDescTextBlock != null) RestoreFromFileDescTextBlock.Text = loc.GetString("RestoreFromFileDesc", "选择自定义位置的 Tampo SQLite 数据库备份文件 (.db) 恢复本地数据");
             if (BrowseAndRestoreButtonText != null) BrowseAndRestoreButtonText.Text = loc.GetString("ButtonRestoreFromFile", "浏览文件并还原...");
@@ -126,14 +127,14 @@ namespace NihongoVocab.Views
 
             // 局域网同步守护服务本地化
             if (LanSyncSectionTextBlock != null) LanSyncSectionTextBlock.Text = loc.GetString("LanSyncSectionTitle", "局域网同步守护服务");
-            if (LanSyncDescTextBlock != null) LanSyncDescTextBlock.Text = loc.GetString("LanSyncDesc", "独立后台服务常驻运行（端口 52080 HTTP / 52081 UDP），支持手机端自动发现、免密鉴权与无感秒级同步");
+            if (LanSyncDescTextBlock != null) LanSyncDescTextBlock.Text = loc.GetString("LanSyncDesc", "后台静默常驻运行，支持移动端在局域网内自动互联与无感双向合并同步");
             if (SyncAutostartLabelTextBlock != null) SyncAutostartLabelTextBlock.Text = loc.GetString("SyncAutostartLabel", "开机自启动守护服务");
             if (SyncAutostartDescTextBlock != null) SyncAutostartDescTextBlock.Text = loc.GetString("SyncAutostartDesc", "Windows 开机后自动在后台静默运行同步服务，手机端可随时即刻同步，无需先手动打开电脑主程序");
             if (PairingCodeSectionTitle != null) PairingCodeSectionTitle.Text = loc.GetString("PairingSectionTitle", "绑定新移动设备");
             if (PairingCodeDescTextBlock != null) PairingCodeDescTextBlock.Text = loc.GetString("PairingSectionDesc", "在手机端输入此 6 位配对码即可建立长效免密绑定，后续无需再手动配置 IP 或配对码");
             if (GeneratePairingCodeButtonText != null) GeneratePairingCodeButtonText.Text = loc.GetString("ButtonGeneratePairingCode", "生成 6 位配对码");
             if (PairedDevicesTitleTextBlock != null) PairedDevicesTitleTextBlock.Text = loc.GetString("PairedDevicesTitle", "已绑定设备管理");
-            if (PairedDevicesDescTextBlock != null) PairedDevicesDescTextBlock.Text = loc.GetString("PairedDevicesDesc", "已获得长期同步授权的移动设备。解除绑定后，该设备后续发起的所有同步请求将立即被拒绝 (401)");
+            if (PairedDevicesDescTextBlock != null) PairedDevicesDescTextBlock.Text = loc.GetString("PairedDevicesDesc", "已获得长期同步授权的移动设备。解除绑定后，该设备将失去同步权限并需重新配对");
             if (RefreshDevicesButtonText != null) RefreshDevicesButtonText.Text = loc.GetString("ButtonRefreshList", "刷新列表");
             if (NoDevicesTextBlock != null) NoDevicesTextBlock.Text = loc.GetString("NoDevicesText", "暂无已绑定设备。请点击上方【生成 6 位配对码】并在手机端输入完成首次绑定。");
             if (CopyPairingCodeText != null) CopyPairingCodeText.Text = loc.GetString("ButtonCopy", "复制");
@@ -639,6 +640,7 @@ namespace NihongoVocab.Views
                         BackupSnapshotComboBox.Items.Add(emptyItem);
                         BackupSnapshotComboBox.SelectedIndex = 0;
                         if (RestoreSnapshotButton != null) RestoreSnapshotButton.IsEnabled = false;
+                        if (DeleteSnapshotButton != null) DeleteSnapshotButton.IsEnabled = false;
                     }
                     else
                     {
@@ -662,6 +664,7 @@ namespace NihongoVocab.Views
                         }
                         BackupSnapshotComboBox.SelectedIndex = 0;
                         if (RestoreSnapshotButton != null) RestoreSnapshotButton.IsEnabled = true;
+                        if (DeleteSnapshotButton != null) DeleteSnapshotButton.IsEnabled = true;
                     }
                 });
             }
@@ -670,6 +673,86 @@ namespace NihongoVocab.Views
                 CrashLogger.LogException(ex, "SettingsPage.RefreshBackupsListAsync");
             }
             return Task.CompletedTask;
+        }
+
+        private async void DeleteSnapshot_Click(object sender, RoutedEventArgs e)
+        {
+            var loc = LocalizationService.Instance;
+            try
+            {
+                if (BackupSnapshotComboBox?.SelectedItem is not ComboBoxItem selectedItem ||
+                    selectedItem.Tag is not string backupPath ||
+                    !File.Exists(backupPath))
+                {
+                    return;
+                }
+
+                string fileName = Path.GetFileName(backupPath);
+                var confirmDialog = new ContentDialog
+                {
+                    Title = loc.GetString("DeleteSnapshotConfirmTitle", "删除备份快照"),
+                    Content = DialogHelper.CreateTextBlockContent(string.Format(
+                        loc.GetString("DeleteSnapshotConfirmMsg", "确定要物理删除该备份快照文件吗？\n{0}\n\n此操作不可撤销。"),
+                        fileName)),
+                    PrimaryButtonText = loc.GetString("ButtonDelete", "删除"),
+                    CloseButtonText = loc.GetString("ButtonCancel", "取消"),
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot,
+                    RequestedTheme = Converters.ThemeHelper.GetActualTheme()
+                };
+
+                MainWindow.RegisterActiveDialog(confirmDialog);
+                var result = await confirmDialog.ShowAsync();
+                MainWindow.UnregisterActiveDialog(confirmDialog);
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    bool deleted = _dbService.DeleteBackupFile(backupPath);
+                    await RefreshBackupsListAsync();
+
+                    if (!deleted)
+                    {
+                        var failDialog = new ContentDialog
+                        {
+                            Title = loc.GetString("DeleteSnapshotFailedTitle", "删除快照失败"),
+                            Content = DialogHelper.CreateTextBlockContent(string.Format(
+                                loc.GetString("DeleteSnapshotFailedMsg", "未能成功删除快照文件：{0}"),
+                                fileName)),
+                            CloseButtonText = loc.GetString("ButtonClose", "关闭"),
+                            XamlRoot = this.XamlRoot,
+                            RequestedTheme = Converters.ThemeHelper.GetActualTheme()
+                        };
+                        MainWindow.RegisterActiveDialog(failDialog);
+                        await failDialog.ShowAsync();
+                        MainWindow.UnregisterActiveDialog(failDialog);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "SettingsPage.DeleteSnapshot_Click");
+            }
+        }
+
+        private void OpenBackupsFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string dir = _dbService.GetBackupsDirectoryPath();
+                if (Directory.Exists(dir))
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "explorer.exe",
+                        Arguments = $"\"{dir}\"",
+                        UseShellExecute = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "SettingsPage.OpenBackupsFolder_Click");
+            }
         }
 
         #endregion

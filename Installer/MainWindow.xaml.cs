@@ -30,7 +30,7 @@ namespace NihongoVocab.Installer
     public partial class MainWindow : Window
     {
         // ─── 常量与元数据 ────────────────────────────────────────────────────────
-        private static readonly string NewVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.4.6";
+        private static readonly string NewVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.4.7";
         private const string RegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tampo";
 
         // ─── 字段 ────────────────────────────────────────────────────────────────

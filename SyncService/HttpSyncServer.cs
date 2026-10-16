@@ -46,7 +46,7 @@ namespace NihongoVocab.SyncService
     public sealed class HttpSyncServer : IAsyncDisposable, IDisposable
     {
         public const int DefaultPort = 52080;
-        public const string ServerVersion = "1.4.6";
+        public const string ServerVersion = "1.4.7";
         public int Port { get; }
 
         private TcpListener? _tcpListener;
@@ -62,6 +62,7 @@ namespace NihongoVocab.SyncService
             public TcpClient Client { get; }
             public NetworkStream Stream { get; }
             public SemaphoreSlim WriteLock { get; } = new(1, 1);
+            public CancellationTokenSource DisconnectCts { get; } = new();
             public string? Token { get; }
             public string? DeviceId { get; set; }
             public string? DeviceName { get; set; }
@@ -84,6 +85,11 @@ namespace NihongoVocab.SyncService
                     await Stream.WriteAsync(bytes, 0, bytes.Length, ct);
                     await Stream.FlushAsync(ct);
                 }
+                catch
+                {
+                    try { DisconnectCts.Cancel(); } catch { }
+                    throw;
+                }
                 finally
                 {
                     WriteLock.Release();
@@ -92,9 +98,11 @@ namespace NihongoVocab.SyncService
 
             public void Dispose()
             {
+                try { DisconnectCts.Cancel(); } catch { }
                 try { Stream.Dispose(); } catch { }
                 try { Client.Dispose(); } catch { }
-                WriteLock.Dispose();
+                try { WriteLock.Dispose(); } catch { }
+                try { DisconnectCts.Dispose(); } catch { }
             }
 
             public ValueTask DisposeAsync()
@@ -354,11 +362,13 @@ namespace NihongoVocab.SyncService
                 string initEvent = $"event: connected\ndata: {JsonSerializer.Serialize(connectData, _outgoingJsonOptions)}\n\n";
                 await sseClient.SendRawAsync(Encoding.UTF8.GetBytes(initEvent), CancellationToken.None);
 
-                byte[] dummyBuffer = new byte[256];
-                while (!serverToken.IsCancellationRequested)
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(serverToken, sseClient.DisconnectCts.Token);
+                try
                 {
-                    int read = await stream.ReadAsync(dummyBuffer, 0, dummyBuffer.Length, serverToken);
-                    if (read <= 0) break;
+                    await Task.Delay(Timeout.InfiniteTimeSpan, linkedCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
                 }
             }
             catch (OperationCanceledException)

@@ -214,7 +214,7 @@
                                 </Border>
                             </StackPanel>
                             <TextBlock x:Name="LanSyncDescTextBlock" 
-                                       Text="独立后台服务常驻运行（端口 52080 HTTP / 52081 UDP），支持手机端自动发现、免密鉴权与无感秒级同步" 
+                                       Text="后台静默常驻运行，支持移动端在局域网内自动互联与无感双向合并同步" 
                                        FontSize="11" Opacity="0.5"/>
                         </StackPanel>
                         <ToggleSwitch x:Name="SyncServiceToggleSwitch" Grid.Column="1" IsOn="False"
@@ -307,7 +307,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="2" VerticalAlignment="Center">
                                 <TextBlock x:Name="PairedDevicesTitleTextBlock" Text="已绑定设备管理" FontSize="13" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="PairedDevicesDescTextBlock" Text="已获得长期同步授权的移动设备。解除绑定后，该设备后续发起的所有同步请求将立即被拒绝 (401)" FontSize="11" Opacity="0.5"/>
+                                <TextBlock x:Name="PairedDevicesDescTextBlock" Text="已获得长期同步授权的移动设备。解除绑定后，该设备将失去同步权限并需重新配对" FontSize="11" Opacity="0.5"/>
                             </StackPanel>
                             <Button x:Name="RefreshDevicesButton" Grid.Column="1" Click="RefreshDevices_Click" Style="{ThemeResource SubtleButtonStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
@@ -408,7 +408,7 @@
                             <FontIcon Glyph="&#xEA35;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                             <TextBlock x:Name="SectionDataTextBlock" Text="数据安全与灾备恢复" FontWeight="SemiBold" FontSize="14"/>
                         </StackPanel>
-                        <TextBlock x:Name="DataSafetyDescTextBlock" Text="提供全方位数据保障，包含从手机端主动反向拉取、本地自动安全快照秒级还原与外部备份导入" FontSize="11" Opacity="0.5"/>
+                        <TextBlock x:Name="DataSafetyDescTextBlock" Text="多重灾备保护：支持从手机主动拉取全量词库、本地安全快照秒级还原与外部备份管理" FontSize="11" Opacity="0.5"/>
                     </StackPanel>
 
                     <!-- 1. 从手机端主动拉取全量数据 -->
@@ -419,7 +419,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
                             <TextBlock x:Name="PullFromMobileTitleTextBlock" Text="从手机端主动拉取全量数据" FontSize="13" FontWeight="Medium"/>
-                            <TextBlock x:Name="PullFromMobileDescTextBlock" Text="当电脑端数据发生异常或丢失时，向已连接手机发送拉取指令，由手机主动将完整词库与进度推回电脑并安全合并" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="PullFromMobileDescTextBlock" Text="电脑端数据异常或丢失时，向已连接手机发送指令，将手机完整词库与进度推回电脑并安全合并" FontSize="11" Opacity="0.5"/>
                         </StackPanel>
                         <Button x:Name="PullFromMobileButton" Grid.Column="1" Click="PullFromMobile_Click" Style="{ThemeResource AccentButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -439,21 +439,31 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
                             <TextBlock x:Name="LocalBackupsTitleTextBlock" Text="本地自动快照一键还原" FontSize="13" FontWeight="Medium"/>
-                            <TextBlock x:Name="LocalBackupsDescTextBlock" Text="每次同步或数据变更前系统均会自动保存快照。选择历史快照可一键安全还原" FontSize="11" Opacity="0.5"/>
+                            <TextBlock x:Name="LocalBackupsDescTextBlock" Text="系统在同步与数据变更前自动保存快照。选择历史快照可一键安全还原" FontSize="11" Opacity="0.5"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <ComboBox x:Name="BackupSnapshotComboBox" Width="220" PlaceholderText="选择备份快照..."/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <ComboBox x:Name="BackupSnapshotComboBox" Width="200" PlaceholderText="选择备份快照..."/>
                             <Button x:Name="RestoreSnapshotButton" Click="RestoreSnapshot_Click" Style="{ThemeResource DefaultButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <FontIcon Glyph="&#xE777;" FontSize="12"/>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE777;" FontSize="11"/>
                                     <TextBlock x:Name="RestoreSnapshotButtonText" Text="还原此快照"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="CreateSnapshotButton" Click="CreateSnapshot_Click" Style="{ThemeResource SubtleButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <FontIcon Glyph="&#xE72C;" FontSize="12"/>
-                                    <TextBlock x:Name="CreateSnapshotButtonText" Text="立即创建快照"/>
+                            <Button x:Name="DeleteSnapshotButton" Click="DeleteSnapshot_Click" Style="{ThemeResource SubtleButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="11" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                                    <TextBlock x:Name="DeleteSnapshotButtonText" Text="删除" Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
                                 </StackPanel>
+                            </Button>
+                            <Button x:Name="CreateSnapshotButton" Click="CreateSnapshot_Click" Style="{ThemeResource SubtleButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="11"/>
+                                    <TextBlock x:Name="CreateSnapshotButtonText" Text="创建快照"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="OpenBackupsFolderButton" Click="OpenBackupsFolder_Click" Style="{ThemeResource SubtleButtonStyle}"
+                                    ToolTipService.ToolTip="打开快照目录">
+                                <FontIcon Glyph="&#xED25;" FontSize="12"/>
                             </Button>
                         </StackPanel>
                     </Grid>
@@ -508,7 +518,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="SectionAboutTextBlock" Text="关于 Tampo" FontWeight="SemiBold" FontSize="14"/>
                     <StackPanel Spacing="4" Margin="0,2,0,0">
-                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.4.6 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
+                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.4.7 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutArchTextBlock" Text="架构: x64 Self-Contained 独立部署" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutEngineTextBlock" Text="算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)" FontSize="12" Opacity="0.7"/>
                         
