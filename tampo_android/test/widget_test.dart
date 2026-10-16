@@ -183,8 +183,9 @@ void main() {
 
   test('Word domain axioms: Mastered decoupling and natural day isDue rules', () {
     final now = DateTime.now();
-    final yesterday = now.subtract(const Duration(days: 1));
-    final todayLate = DateTime(now.year, now.month, now.day, 23, 30, 0);
+    final logicalToday = FsrsEngine.getLogicalToday(now);
+    final yesterday = logicalToday.subtract(const Duration(days: 1));
+    final todayLate = DateTime(logicalToday.year, logicalToday.month, logicalToday.day, 23, 30, 0);
 
     // Mastered (state=3) is decoupled from FSRS and never due
     final masteredWord = Word(

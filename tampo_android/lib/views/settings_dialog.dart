@@ -5,6 +5,7 @@ import '../services/tts_service.dart';
 import '../services/db_service.dart';
 import '../services/event_service.dart';
 import '../services/fsrs_engine.dart';
+import '../services/sync_service.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -347,6 +348,38 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   ),
 
                   const SizedBox(height: 16),
+                  _buildSectionHeader('局域网实时同步', Icons.sync_outlined, theme),
+                  const SizedBox(height: 8),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.cardTheme.color,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: theme.colorScheme.outline),
+                    ),
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: SyncService.instance.isAutoSyncEnabledNotifier,
+                      builder: (context, autoSync, _) {
+                        return SwitchListTile(
+                          title: const Text(
+                            '实时高频自动同步',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            '背词打卡/词汇变动时即时静默同步，启动与前台活跃时自动更新数据',
+                            style: TextStyle(fontSize: 11, color: theme.hintColor),
+                          ),
+                          value: autoSync,
+                          onChanged: (val) async {
+                            await SyncService.instance.setAutoSyncEnabled(val);
+                            HapticFeedback.selectionClick();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
                   _buildSectionHeader('数据管理', Icons.storage_outlined, theme),
                   const SizedBox(height: 8),
 
@@ -388,7 +421,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     child: Column(
                       children: [
                         Text(
-                          'Tampo Android v1.3.0',
+                          'Tampo Android v1.4.6',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,

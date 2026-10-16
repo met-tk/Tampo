@@ -40,8 +40,20 @@ namespace NihongoVocab.Models
         public string Kanji => Text;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-        public DateTime StateUpdatedAt { get; set; } = DateTime.Now;
-        public DateTime MetaUpdatedAt { get; set; } = DateTime.Now;
+
+        private DateTime _stateUpdatedAt = default;
+        public DateTime StateUpdatedAt
+        {
+            get => _stateUpdatedAt != default ? _stateUpdatedAt : (LastReviewDate ?? CreatedAt);
+            set => _stateUpdatedAt = value;
+        }
+
+        private DateTime _metaUpdatedAt = default;
+        public DateTime MetaUpdatedAt
+        {
+            get => _metaUpdatedAt != default ? _metaUpdatedAt : CreatedAt;
+            set => _metaUpdatedAt = value;
+        }
 
         [Indexed]
         public int? WordListId { get; set; }

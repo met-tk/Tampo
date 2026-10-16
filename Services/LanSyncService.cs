@@ -16,48 +16,6 @@ using NihongoVocab.Models;
 
 namespace NihongoVocab.Services
 {
-    public class FlexibleBoolConverter : JsonConverter<bool>
-    {
-        public override bool Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            if (reader.TokenType == JsonTokenType.True) return true;
-            if (reader.TokenType == JsonTokenType.False) return false;
-            if (reader.TokenType == JsonTokenType.Number) return reader.GetInt32() != 0;
-            if (reader.TokenType == JsonTokenType.String)
-            {
-                var str = reader.GetString();
-                if (bool.TryParse(str, out var b)) return b;
-                if (str == "1") return true;
-                if (str == "0") return false;
-            }
-            return false;
-        }
-
-        public override void Write(Utf8JsonWriter writer, bool value, JsonSerializerOptions options)
-        {
-            writer.WriteBooleanValue(value);
-        }
-    }
-
-    public class SyncPayload
-    {
-        public List<WordList> WordLists { get; set; } = new();
-        public List<Word> Words { get; set; } = new();
-        public List<ReviewLog> ReviewLogs { get; set; } = new();
-        public List<SyncTombstone> Tombstones { get; set; } = new();
-        public DateTime Timestamp { get; set; } = DateTime.Now;
-        public string DeviceName { get; set; } = Environment.MachineName;
-    }
-
-    public class SyncResult
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public int SyncedLists { get; set; }
-        public int SyncedWords { get; set; }
-        public int SyncedLogs { get; set; }
-        public List<SyncTombstone> Tombstones { get; set; } = new();
-    }
 
     public class NetworkEndpointInfo
     {
@@ -133,7 +91,7 @@ namespace NihongoVocab.Services
         /// <summary>
         /// 获取本机物理网络接口列表（严格优先选择物理以太网网线、物理无线WiFi，排除虚拟机与TUN等虚拟网卡）
         /// </summary>
-        public List<NetworkEndpointInfo> GetNetworkEndpoints()
+        public static List<NetworkEndpointInfo> GetNetworkEndpoints(int port = DefaultPort)
         {
             var results = new List<NetworkEndpointInfo>();
             try
@@ -178,7 +136,7 @@ namespace NihongoVocab.Services
                                 InterfaceName = netInterface.Name,
                                 InterfaceTypeDescription = typeDesc,
                                 IsEthernet = isEthernet,
-                                DisplayUrl = $"http://{ipStr}:{Port}"
+                                DisplayUrl = $"http://{ipStr}:{port}"
                             });
                         }
                     }
@@ -364,7 +322,7 @@ namespace NihongoVocab.Services
                         {
                             status = "ok",
                             device = Environment.MachineName,
-                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.3.0",
+                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.4.6",
                             server_time = DateTime.Now
                         };
                         await SendHttpJsonAsync(stream, 200, pingObj, reqToken);
@@ -553,14 +511,30 @@ namespace NihongoVocab.Services
         private async Task<SyncPayload> BuildCurrentPayloadAsync()
         {
             var lists = await _dbService.GetAllWordListsAsync();
-            var words = await _dbService.GetAllWordsAsync();
+            var allWords = await _dbService.GetAllWordsAsync();
             var logs = await _dbService.GetAllReviewLogsAsync();
             var tombstones = await _dbService.GetAllTombstonesAsync();
+
+            var wordMapById = allWords.ToDictionary(w => w.Id, w => w.Text);
+
+            foreach (var w in allWords)
+            {
+                if (w.StateUpdatedAt == default) w.StateUpdatedAt = w.LastReviewDate ?? w.CreatedAt;
+                if (w.MetaUpdatedAt == default) w.MetaUpdatedAt = w.CreatedAt;
+            }
+
+            foreach (var l in logs)
+            {
+                if (wordMapById.TryGetValue(l.WordId, out var wt))
+                {
+                    l.WordText = wt;
+                }
+            }
 
             return new SyncPayload
             {
                 WordLists = lists,
-                Words = words,
+                Words = allWords,
                 ReviewLogs = logs,
                 Tombstones = tombstones,
                 Timestamp = DateTime.Now,
@@ -570,6 +544,16 @@ namespace NihongoVocab.Services
 
         private async Task<SyncResult> MergeIncomingPayloadAsync(SyncPayload incoming)
         {
+            // 自动快照：在任何合并执行前对数据库进行原子备份，保留近 10 份快照
+            try
+            {
+                await _dbService.CreateAutomaticBackupAsync();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "LanSyncService.MergeIncomingPayloadAsync.CreateAutomaticBackupAsync");
+            }
+
             // 抑制合并过程中的高频逐项 DataChanged 事件风暴，统一在同步结束时刷新一次
             using var _ = DatabaseService.SuppressNotifications();
 
@@ -637,7 +621,11 @@ namespace NihongoVocab.Services
                     if (inTomb.EntityType == "word")
                     {
                         wordIndexByKey.TryGetValue(cleanKey, out var match);
-                        DateTime matchTime = match != null ? (match.MetaUpdatedAt > match.CreatedAt ? match.MetaUpdatedAt : match.CreatedAt) : default;
+                        DateTime matchTime = match != null
+                            ? (match.StateUpdatedAt > match.MetaUpdatedAt
+                                ? (match.StateUpdatedAt > match.CreatedAt ? match.StateUpdatedAt : match.CreatedAt)
+                                : (match.MetaUpdatedAt > match.CreatedAt ? match.MetaUpdatedAt : match.CreatedAt))
+                            : default;
 
                         if (match == null || tombDeletedAt == default || tombDeletedAt >= matchTime.AddSeconds(-1))
                         {
@@ -789,64 +777,89 @@ namespace NihongoVocab.Services
                     if (localWord.StateUpdatedAt == default) localWord.StateUpdatedAt = localWord.LastReviewDate ?? localWord.CreatedAt;
                     if (localWord.MetaUpdatedAt == default) localWord.MetaUpdatedAt = localWord.CreatedAt;
 
-                    // 【维度 1：学习与算法状态合并，由 StateUpdatedAt 裁决】
-                    // 仅当传入端的学习状态更新时采纳，绝不被任何非复习动作冲刷覆盖
-                    if (inWord.StateUpdatedAt > localWord.StateUpdatedAt.AddSeconds(1))
+                    // 【维度 1：学习与算法状态合并】
+                    // 防御铁律：本地已有学习记录（Reps > 0 或不是新词），绝对禁止被对端尚未学习的初始新词状态（Reps == 0 && State == New）覆盖！
+                    bool localHasProgress = localWord.Reps > 0 || localWord.State != (int)WordLearningState.New;
+                    bool inHasProgress = inWord.Reps > 0 || incomingState != (int)WordLearningState.New;
+
+                    if (incomingState == (int)WordLearningState.Mastered && localWord.State != (int)WordLearningState.Mastered)
                     {
-                        localWord.State = incomingState;
-                        localWord.StateUpdatedAt = inWord.StateUpdatedAt;
-                        if (incomingState == (int)WordLearningState.Mastered)
-                        {
-                            // 【已掌握】独立于 FSRS 之外，免除排期，不将旧版伪造的 Stability=25.0 污染覆盖本地真实复习历史
-                            localWord.NextReviewDate = null;
-                            if (inWord.Reps > localWord.Reps)
-                            {
-                                localWord.Stability = inWord.Stability;
-                                localWord.Difficulty = inWord.Difficulty;
-                                localWord.Reps = inWord.Reps;
-                                localWord.Lapses = inWord.Lapses;
-                                localWord.LastReviewDate = inWord.LastReviewDate;
-                            }
-                        }
-                        else
+                        localWord.State = (int)WordLearningState.Mastered;
+                        localWord.NextReviewDate = null;
+                        if (inWord.Reps > localWord.Reps)
                         {
                             localWord.Stability = inWord.Stability;
                             localWord.Difficulty = inWord.Difficulty;
                             localWord.Reps = inWord.Reps;
                             localWord.Lapses = inWord.Lapses;
                             localWord.LastReviewDate = inWord.LastReviewDate;
-                            localWord.NextReviewDate = inWord.NextReviewDate;
                         }
-                        shouldUpdate = true;
-                    }
-                    else if (incomingState == (int)WordLearningState.Mastered &&
-                             localWord.State != (int)WordLearningState.Mastered &&
-                             inWord.StateUpdatedAt >= localWord.StateUpdatedAt.AddSeconds(-1))
-                    {
-                        // 显式已掌握属性安全保底（仅设置状态与免复习，不覆盖 FSRS 稳定性或复习时间）
-                        localWord.State = (int)WordLearningState.Mastered;
-                        localWord.NextReviewDate = null;
                         localWord.StateUpdatedAt = inWord.StateUpdatedAt > localWord.StateUpdatedAt ? inWord.StateUpdatedAt : localWord.StateUpdatedAt;
                         shouldUpdate = true;
                     }
+                    else if (inHasProgress && !localHasProgress)
+                    {
+                        // 本地尚未学习，对端已有进度 -> 全量采纳对端学习进度
+                        localWord.State = incomingState;
+                        localWord.Stability = inWord.Stability;
+                        localWord.Difficulty = inWord.Difficulty;
+                        localWord.Reps = inWord.Reps;
+                        localWord.Lapses = inWord.Lapses;
+                        localWord.LastReviewDate = inWord.LastReviewDate;
+                        localWord.NextReviewDate = inWord.NextReviewDate;
+                        localWord.StateUpdatedAt = inWord.StateUpdatedAt;
+                        shouldUpdate = true;
+                    }
+                    else if (inHasProgress && localHasProgress)
+                    {
+                        // 双端均有复习进度：采纳更高复习次数或更新时间戳
+                        if (inWord.StateUpdatedAt > localWord.StateUpdatedAt.AddSeconds(1) || inWord.Reps > localWord.Reps)
+                        {
+                            localWord.State = incomingState;
+                            localWord.Stability = inWord.Stability;
+                            localWord.Difficulty = inWord.Difficulty;
+                            localWord.Reps = Math.Max(localWord.Reps, inWord.Reps);
+                            localWord.Lapses = Math.Max(localWord.Lapses, inWord.Lapses);
+                            localWord.LastReviewDate = (inWord.LastReviewDate.HasValue && localWord.LastReviewDate.HasValue)
+                                ? (inWord.LastReviewDate > localWord.LastReviewDate ? inWord.LastReviewDate : localWord.LastReviewDate)
+                                : (inWord.LastReviewDate ?? localWord.LastReviewDate);
+                            localWord.NextReviewDate = inWord.NextReviewDate ?? localWord.NextReviewDate;
+                            localWord.StateUpdatedAt = inWord.StateUpdatedAt;
+                            shouldUpdate = true;
+                        }
+                    }
 
                     // 【维度 2：词单归属与元数据合并，由 MetaUpdatedAt 独立裁决】
-                    if (inWord.MetaUpdatedAt > localWord.MetaUpdatedAt.AddSeconds(1))
-                    {
-                        int? targetListId = null;
-                        string? targetListName = null;
-                        if (!string.IsNullOrEmpty(inWord.WordListName) &&
-                            listMapByName.TryGetValue(inWord.WordListName.Trim(), out var mappedList))
-                        {
-                            targetListId = mappedList.Id;
-                            targetListName = mappedList.Name;
-                        }
+                    // 防御铁律：远端若没有词单（WordListName 为空），且本地有词单，绝不轻易清空本地词单，除非远端经历明确移出词单操作
+                    bool inHasList = !string.IsNullOrWhiteSpace(inWord.WordListName);
+                    bool localHasList = localWord.IsInList && (!string.IsNullOrWhiteSpace(localWord.WordListName) || localWord.WordListId.HasValue);
 
-                        localWord.WordListId = targetListId;
-                        localWord.WordListName = targetListName;
-                        localWord.IsInList = targetListId.HasValue;
-                        localWord.MetaUpdatedAt = inWord.MetaUpdatedAt;
-                        shouldUpdate = true;
+                    if (inHasList)
+                    {
+                        if (listMapByName.TryGetValue(inWord.WordListName!.Trim(), out var mappedList))
+                        {
+                            if (localWord.WordListId != mappedList.Id || localWord.WordListName != mappedList.Name || !localWord.IsInList)
+                            {
+                                localWord.WordListId = mappedList.Id;
+                                localWord.WordListName = mappedList.Name;
+                                localWord.IsInList = true;
+                                localWord.MetaUpdatedAt = inWord.MetaUpdatedAt > localWord.MetaUpdatedAt ? inWord.MetaUpdatedAt : localWord.MetaUpdatedAt;
+                                shouldUpdate = true;
+                            }
+                        }
+                    }
+                    else if (localHasList)
+                    {
+                        bool isExplicitUnlist = inWord.MetaUpdatedAt > inWord.CreatedAt.AddSeconds(2) &&
+                                                inWord.MetaUpdatedAt > localWord.MetaUpdatedAt.AddSeconds(1);
+                        if (isExplicitUnlist)
+                        {
+                            localWord.WordListId = null;
+                            localWord.WordListName = null;
+                            localWord.IsInList = false;
+                            localWord.MetaUpdatedAt = inWord.MetaUpdatedAt;
+                            shouldUpdate = true;
+                        }
                     }
 
                     if (shouldUpdate)
@@ -921,89 +934,77 @@ namespace NihongoVocab.Services
 
             foreach (var inLog in incoming.ReviewLogs)
             {
-                if (inWordTextById.TryGetValue(inLog.WordId, out var wordText) &&
-                    wordIdMapByText.TryGetValue(wordText, out var localWordId))
+                // 优先从 inLog 自带的 WordText 获取，降级从 inWordTextById 获取，杜绝增量过滤时因缺词丢弃日志
+                string? wordText = !string.IsNullOrWhiteSpace(inLog.WordText)
+                    ? inLog.WordText.Trim()
+                    : (inWordTextById.TryGetValue(inLog.WordId, out var wt) ? wt : null);
+
+                if (string.IsNullOrEmpty(wordText)) continue;
+
+                if (!wordIdMapByText.TryGetValue(wordText, out var localWordId)) continue;
+
+                string cleanWordKey = wordText.ToLowerInvariant();
+                if (deletedWordTimes.ContainsKey(cleanWordKey)) continue;
+
+                DateTime localReviewDate = inLog.ReviewDate.Kind == DateTimeKind.Utc ? inLog.ReviewDate.ToLocalTime() : inLog.ReviewDate;
+                inLog.ReviewDate = localReviewDate;
+                DateTime logicalReviewDay = FsrsEngine.GetLogicalDate(localReviewDate);
+                string timeStr = localReviewDate.ToString("yyyyMMddHHmmss");
+                string dayStr = logicalReviewDay.ToString("yyyyMMdd");
+
+                string tombKey = $"{cleanWordKey}_{timeStr}";
+                if (deletedLogKeys.Contains(tombKey)) continue;
+
+                string key = $"{localWordId}_{timeStr}";
+                string dayKey = $"{localWordId}_{dayStr}";
+
+                if (existingLogsByKey.TryGetValue(key, out var existingLog))
                 {
-                    string cleanWordKey = wordText.Trim().ToLowerInvariant();
-                    if (deletedWordTimes.ContainsKey(cleanWordKey)) continue;
-
-                    DateTime localReviewDate = inLog.ReviewDate.Kind == DateTimeKind.Utc ? inLog.ReviewDate.ToLocalTime() : inLog.ReviewDate;
-                    inLog.ReviewDate = localReviewDate;
-                    DateTime logicalReviewDay = FsrsEngine.GetLogicalDate(localReviewDate);
-                    string timeStr = localReviewDate.ToString("yyyyMMddHHmmss");
-                    string dayStr = logicalReviewDay.ToString("yyyyMMdd");
-
-                    string tombKey = $"{cleanWordKey}_{timeStr}";
-                    // 若已被撤销删除，严禁复活！
-                    if (deletedLogKeys.Contains(tombKey)) continue;
-
-                    string key = $"{localWordId}_{timeStr}";
-                    string dayKey = $"{localWordId}_{dayStr}";
-
-                    if (existingLogsByKey.TryGetValue(key, out var existingLog))
+                    if (existingLog.Rating != inLog.Rating ||
+                        (inLog.StabilityAfter > 0 && Math.Abs(existingLog.StabilityAfter - inLog.StabilityAfter) > 0.0001) ||
+                        (inLog.DifficultyAfter > 0 && Math.Abs(existingLog.DifficultyAfter - inLog.DifficultyAfter) > 0.0001))
                     {
-                        if (existingLog.Rating != inLog.Rating ||
-                            (inLog.StabilityAfter > 0 && Math.Abs(existingLog.StabilityAfter - inLog.StabilityAfter) > 0.0001) ||
-                            (inLog.DifficultyAfter > 0 && Math.Abs(existingLog.DifficultyAfter - inLog.DifficultyAfter) > 0.0001))
-                        {
-                            // 同日改判同步：原地更新已有日志的 Rating 与 FSRS 快照，严禁重复插入导致 Reps 虚增
-                            existingLog.Rating = inLog.Rating;
-                            if (inLog.StabilityBefore > 0) existingLog.StabilityBefore = inLog.StabilityBefore;
-                            if (inLog.StabilityAfter > 0) existingLog.StabilityAfter = inLog.StabilityAfter;
-                            if (inLog.DifficultyBefore > 0) existingLog.DifficultyBefore = inLog.DifficultyBefore;
-                            if (inLog.DifficultyAfter > 0) existingLog.DifficultyAfter = inLog.DifficultyAfter;
-                            if (inLog.State > 0) existingLog.State = inLog.State;
-                            if (inLog.ElapsedDays > 0) existingLog.ElapsedDays = inLog.ElapsedDays;
-                            if (inLog.ScheduledDays > 0) existingLog.ScheduledDays = inLog.ScheduledDays;
-                            await _dbService.UpdateReviewLogAsync(existingLog);
-                        }
+                        existingLog.Rating = inLog.Rating;
+                        if (inLog.StabilityBefore > 0) existingLog.StabilityBefore = inLog.StabilityBefore;
+                        if (inLog.StabilityAfter > 0) existingLog.StabilityAfter = inLog.StabilityAfter;
+                        if (inLog.DifficultyBefore > 0) existingLog.DifficultyBefore = inLog.DifficultyBefore;
+                        if (inLog.DifficultyAfter > 0) existingLog.DifficultyAfter = inLog.DifficultyAfter;
+                        if (inLog.State > 0) existingLog.State = inLog.State;
+                        if (inLog.ElapsedDays > 0) existingLog.ElapsedDays = inLog.ElapsedDays;
+                        if (inLog.ScheduledDays > 0) existingLog.ScheduledDays = inLog.ScheduledDays;
+                        await _dbService.UpdateReviewLogAsync(existingLog);
                     }
-                    else if (existingLogsByWordDay.TryGetValue(dayKey, out var sameDayLog))
-                    {
-                        // 双端同日不同时刻离线打卡幂等归一：同一单词在同一逻辑日最多保留 1 条最新记录，旧时间戳写入墓碑防复活
-                        DateTime existingLocalDate = sameDayLog.ReviewDate.Kind == DateTimeKind.Utc
-                            ? sameDayLog.ReviewDate.ToLocalTime()
-                            : sameDayLog.ReviewDate;
-                        string oldTimeStr = existingLocalDate.ToString("yyyyMMddHHmmss");
+                }
+                else if (existingLogsByWordDay.TryGetValue(dayKey, out var sameDayLog))
+                {
+                    // 同一逻辑日打卡：以较新记录为准更新参数，严禁伪造删除墓碑
+                    DateTime existingLocalDate = sameDayLog.ReviewDate.Kind == DateTimeKind.Utc
+                        ? sameDayLog.ReviewDate.ToLocalTime()
+                        : sameDayLog.ReviewDate;
 
-                        if (localReviewDate >= existingLocalDate)
-                        {
-                            if (oldTimeStr != timeStr)
-                            {
-                                string oldTombKey = $"{cleanWordKey}_{oldTimeStr}";
-                                deletedLogKeys.Add(oldTombKey);
-                                await _dbService.AddTombstoneAsync("review_log", oldTombKey, DateTime.Now);
-                                existingLogsByKey.Remove($"{localWordId}_{oldTimeStr}");
-                            }
-
-                            sameDayLog.ReviewDate = localReviewDate;
-                            sameDayLog.Rating = inLog.Rating;
-                            if (inLog.StabilityBefore > 0) sameDayLog.StabilityBefore = inLog.StabilityBefore;
-                            if (inLog.StabilityAfter > 0) sameDayLog.StabilityAfter = inLog.StabilityAfter;
-                            if (inLog.DifficultyBefore > 0) sameDayLog.DifficultyBefore = inLog.DifficultyBefore;
-                            if (inLog.DifficultyAfter > 0) sameDayLog.DifficultyAfter = inLog.DifficultyAfter;
-                            sameDayLog.State = inLog.State;
-                            sameDayLog.ElapsedDays = inLog.ElapsedDays;
-                            sameDayLog.ScheduledDays = inLog.ScheduledDays;
-                            await _dbService.UpdateReviewLogAsync(sameDayLog);
-                            existingLogsByKey[key] = sameDayLog;
-                        }
-                        else
-                        {
-                            // 本地同日记录更新，淘汰传入的同日较早记录并记录墓碑
-                            deletedLogKeys.Add(tombKey);
-                            await _dbService.AddTombstoneAsync("review_log", tombKey, DateTime.Now);
-                        }
-                    }
-                    else
+                    if (localReviewDate >= existingLocalDate)
                     {
-                        inLog.WordId = localWordId;
-                        inLog.Id = 0;
-                        await _dbService.AddReviewLogAsync(inLog);
-                        existingLogsByKey[key] = inLog;
-                        existingLogsByWordDay[dayKey] = inLog;
-                        insertedLogs++;
+                        sameDayLog.ReviewDate = localReviewDate;
+                        sameDayLog.Rating = inLog.Rating;
+                        if (inLog.StabilityBefore > 0) sameDayLog.StabilityBefore = inLog.StabilityBefore;
+                        if (inLog.StabilityAfter > 0) sameDayLog.StabilityAfter = inLog.StabilityAfter;
+                        if (inLog.DifficultyBefore > 0) sameDayLog.DifficultyBefore = inLog.DifficultyBefore;
+                        if (inLog.DifficultyAfter > 0) sameDayLog.DifficultyAfter = inLog.DifficultyAfter;
+                        sameDayLog.State = inLog.State;
+                        sameDayLog.ElapsedDays = inLog.ElapsedDays;
+                        sameDayLog.ScheduledDays = inLog.ScheduledDays;
+                        await _dbService.UpdateReviewLogAsync(sameDayLog);
+                        existingLogsByKey[key] = sameDayLog;
                     }
+                }
+                else
+                {
+                    inLog.WordId = localWordId;
+                    inLog.Id = 0;
+                    await _dbService.AddReviewLogAsync(inLog);
+                    existingLogsByKey[key] = inLog;
+                    existingLogsByWordDay[dayKey] = inLog;
+                    insertedLogs++;
                 }
             }
 
@@ -1016,9 +1017,10 @@ namespace NihongoVocab.Services
 
             foreach (var w in wordsToCheck)
             {
-                if (w.State != (int)WordLearningState.New && logsByWordId.TryGetValue(w.Id, out var wLogs) && wLogs.Count > 0)
+                // 关键自愈门禁：只要该词在数据库中拥有打卡记录，就必须纳入检验与自愈，绝不能因为 w.State == New 而跳过！
+                if (logsByWordId.TryGetValue(w.Id, out var wLogs) && wLogs.Count > 0)
                 {
-                    bool needsReplay = w.Reps != wLogs.Count;
+                    bool needsReplay = w.Reps != wLogs.Count || w.State == (int)WordLearningState.New || w.Lapses != wLogs.Count(l => l.Rating == 1);
                     if (!needsReplay)
                     {
                         for (int i = 1; i < wLogs.Count; i++)
@@ -1093,6 +1095,7 @@ namespace NihongoVocab.Services
                         w.Stability = simWord.Stability;
                         w.Difficulty = simWord.Difficulty;
                         w.LastReviewDate = simWord.LastReviewDate;
+                        w.StateUpdatedAt = simWord.LastReviewDate ?? DateTime.Now;
                         if (w.State == (int)WordLearningState.Mastered)
                         {
                             w.NextReviewDate = null;

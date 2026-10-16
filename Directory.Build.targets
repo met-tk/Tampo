@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Tampo'">
+    <Compile Remove="SyncService\**" />
+    <None Remove="SyncService\**" />
+  </ItemGroup>
+</Project>

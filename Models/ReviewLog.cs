@@ -31,6 +31,9 @@ namespace NihongoVocab.Models
         public int ScheduledDays { get; set; }
 
         [Ignore]
+        public string? WordText { get; set; }
+
+        [Ignore]
         public double Stability
         {
             get => StabilityAfter;

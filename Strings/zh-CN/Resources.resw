@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.3.0</value>
+    <value>v1.4.6</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>每日结算时刻</value>
@@ -1687,5 +1687,38 @@
   </data>
   <data name="ButtonConfirmEdit" xml:space="preserve">
     <value>确认修改</value>
+  </data>
+  <data name="DeviceStatusOnline" xml:space="preserve">
+    <value>在线 (已连接)</value>
+  </data>
+  <data name="DeviceStatusOffline" xml:space="preserve">
+    <value>离线</value>
+  </data>
+  <data name="SelectPullDeviceTitle" xml:space="preserve">
+    <value>选择拉取源手机设备</value>
+  </data>
+  <data name="SelectPullDeviceDesc" xml:space="preserve">
+    <value>检测到已绑定多部移动设备，请指定要拉取数据的目标手机：</value>
+  </data>
+  <data name="ButtonStartPull" xml:space="preserve">
+    <value>开始拉取</value>
+  </data>
+  <data name="NoPairedDevicesTitle" xml:space="preserve">
+    <value>未绑定任何移动设备</value>
+  </data>
+  <data name="NoPairedDevicesMsg" xml:space="preserve">
+    <value>当前尚未绑定任何手机设备。请先点击【生成 6 位配对码】并在手机端完成配对后再执行拉取。</value>
+  </data>
+  <data name="PullTargetSentMsg" xml:space="preserve">
+    <value>已成功向设备【{0}】发送全量推送指令。&#x0a;手机端将在数秒内将最新全量词库及复习日志推回电脑并安全合并。</value>
+  </data>
+  <data name="PullTargetOfflineMsg" xml:space="preserve">
+    <value>目标设备【{0}】当前未与电脑建立实时连接。&#x0a;请在手机上打开 Tampo 并保持在同一 WiFi 局域网下，然后重试。</value>
+  </data>
+  <data name="EditDeviceAliasTitle" xml:space="preserve">
+    <value>设置设备备注名称</value>
+  </data>
+  <data name="DeviceAliasPlaceholder" xml:space="preserve">
+    <value>例如：我的主力机、小米 13...</value>
   </data>
 </root>

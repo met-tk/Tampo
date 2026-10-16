@@ -59,6 +59,10 @@
             <converters:StabilityToHalfLifeConverter x:Key="StabilityToHalfLifeConverter" />
             <converters:DifficultyToRatingConverter x:Key="DifficultyToRatingConverter" />
             <converters:StringFormatConverter x:Key="StringFormatConverter" />
+            <converters:BoolToColorBrushConverter x:Key="BoolToColorBrushConverter" />
+            <converters:BoolToBadgeBackgroundConverter x:Key="BoolToBadgeBackgroundConverter" />
+            <converters:BoolToOnlineStatusTextConverter x:Key="BoolToOnlineStatusTextConverter" />
+            <converters:BoolToOnlineStatusForegroundConverter x:Key="BoolToOnlineStatusForegroundConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

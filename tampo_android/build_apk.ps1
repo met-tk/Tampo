@@ -31,7 +31,7 @@ try {
         Set-Location $scriptDir
     }
 
-    flutter build apk --release
+    flutter build apk --release --no-tree-shake-icons
     if ($LASTEXITCODE -ne 0) {
         throw "flutter build apk exited with code $LASTEXITCODE"
     }

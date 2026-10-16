@@ -7,6 +7,7 @@ import '../services/db_service.dart';
 import '../services/event_service.dart';
 import '../services/fsrs_engine.dart';
 import '../services/tts_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/word_progress_bg.dart';
 
 class WordsPage extends StatefulWidget {
@@ -580,33 +581,50 @@ class _WordsPageState extends State<WordsPage> {
 
           const SizedBox(height: 4),
 
-          // 单词列表
+          // 单词列表 (支持下拉触发增量双向同步与刷新)
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                : _words.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inventory_2_outlined, size: 48, color: theme.hintColor),
-                            const SizedBox(height: 12),
-                            Text(
-                              '暂无符合条件的单词',
-                              style: TextStyle(color: theme.hintColor, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: _words.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final word = _words[index];
-                          return _buildWordCard(word);
-                        },
-                      ),
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      if (SyncService.instance.isPairedNotifier.value) {
+                        await SyncService.instance.performSync(isAuto: false, triggerReason: 'pull_to_refresh');
+                      }
+                      await _loadData();
+                    },
+                    child: _words.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              SizedBox(
+                                height: 360,
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.inventory_2_outlined, size: 48, color: theme.hintColor),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        '暂无符合条件的单词',
+                                        style: TextStyle(color: theme.hintColor, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            itemCount: _words.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final word = _words[index];
+                              return _buildWordCard(word);
+                            },
+                          ),
+                  ),
           ),
 
           // 多选模式底部操作栏

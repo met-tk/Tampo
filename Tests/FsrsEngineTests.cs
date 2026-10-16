@@ -204,7 +204,8 @@ namespace NihongoVocab.Tests
                 var word = words[0];
 
                 // 第一次复习：昨天记得
-                DateTime yesterday = DateTime.Today.AddDays(-1).AddHours(10);
+                var (curRangeStart, _) = FsrsEngine.GetLogicalDayRange(DateTime.Now);
+                DateTime yesterday = curRangeStart.AddDays(-1).AddHours(2);
                 await db.UpdateWordFSRSAsync(word, 3, yesterday);
 
                 words = await db.GetAllWordsAsync();
@@ -213,7 +214,7 @@ namespace NihongoVocab.Tests
                 Assert.Equal(1, word.Reps);
 
                 // 第二次复习：今天手误点击了遗忘 (rating = 1)
-                DateTime today = DateTime.Today.AddHours(14);
+                DateTime today = curRangeStart.AddHours(2);
                 await db.UpdateWordFSRSAsync(word, 1, today);
 
                 words = await db.GetAllWordsAsync();
@@ -266,18 +267,19 @@ namespace NihongoVocab.Tests
                 var wordTomorrow = words.First(w => w.Text == "昼");
                 var wordDoneToday = words.First(w => w.Text == "朝");
 
-                // 词 1: NextReviewDate 设在今晚 23:00（即便当前是白天，按自然日也应纳入今日复习队列）
+                // 词 1: NextReviewDate 设在当前逻辑日内（按自然日应纳入今日复习队列）
+                DateTime logicalToday = FsrsEngine.GetLogicalToday();
                 wordNight.Reps = 1;
                 wordNight.State = (int)WordLearningState.Learning;
-                wordNight.LastReviewDate = DateTime.Today.AddDays(-1);
-                wordNight.NextReviewDate = DateTime.Today.AddHours(23);
+                wordNight.LastReviewDate = logicalToday.AddDays(-1);
+                wordNight.NextReviewDate = logicalToday.AddHours(23);
                 await db.UpdateWordAsync(wordNight);
 
-                // 词 2: NextReviewDate 设在明天中午（不应出现在今日队列）
+                // 词 2: NextReviewDate 设在下一个逻辑日中午（不应出现在今日队列）
                 wordTomorrow.Reps = 1;
                 wordTomorrow.State = (int)WordLearningState.Learning;
-                wordTomorrow.LastReviewDate = DateTime.Today.AddDays(-1);
-                wordTomorrow.NextReviewDate = DateTime.Today.AddDays(1).AddHours(12);
+                wordTomorrow.LastReviewDate = logicalToday.AddDays(-1);
+                wordTomorrow.NextReviewDate = logicalToday.AddDays(1).AddHours(12);
                 await db.UpdateWordAsync(wordTomorrow);
 
                 // 词 3: 今天已经复习过（严格排除，杜绝一日重复刷词）
@@ -348,7 +350,7 @@ namespace NihongoVocab.Tests
                 var words = await db.GetAllWordsAsync();
                 var word = words[0];
 
-                DateTime today = DateTime.Today.AddHours(10);
+                DateTime today = FsrsEngine.GetLogicalDayRange(DateTime.Now).Start.AddHours(2);
                 // 首次打卡：误点“不记得” (rating = 1)
                 await db.UpdateWordFSRSAsync(word, 1, today);
 
@@ -805,7 +807,7 @@ namespace NihongoVocab.Tests
         [Fact]
         public void Word_IsDue_MatchesAndroidDomainContract()
         {
-            DateTime today = DateTime.Today;
+            DateTime today = FsrsEngine.GetLogicalToday();
             DateTime yesterday = today.AddDays(-1);
 
             // 1. 已掌握 (Mastered) 恒不到期

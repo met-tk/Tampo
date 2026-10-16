@@ -10,11 +10,13 @@ import 'services/theme_service.dart';
 import 'services/tts_service.dart';
 import 'services/db_service.dart';
 import 'services/fsrs_engine.dart';
+import 'services/sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeService.instance.init();
   await TtsService.instance.init();
+  await SyncService.instance.init();
   final savedRollover = await DatabaseService.instance.getSetting('day_rollover_hour');
   FsrsEngine.dayRolloverHour = (int.tryParse(savedRollover ?? '') ?? 4).clamp(0, 6);
 
@@ -63,6 +65,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 应用冷启动后延时调度一次后台静默同步
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        SyncService.instance.checkAndPerformAutoSync();
+      });
+    });
   }
 
   @override
@@ -75,6 +83,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       DataEventService.instance.notify('app_resumed');
+      SyncService.instance.checkAndPerformAutoSync();
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       TtsService.instance.handleExitCleanup();
     }

@@ -84,6 +84,11 @@ namespace NihongoVocab.Services
                 return;
             }
             DataChanged?.Invoke();
+            if (OperatingSystem.IsWindows())
+            {
+                CrossProcessEventHelper.Signal(CrossProcessEventHelper.ToServiceEventName);
+                CrossProcessEventHelper.Signal(CrossProcessEventHelper.EventName);
+            }
         }
 
         public static IDisposable SuppressNotifications()
@@ -118,13 +123,20 @@ namespace NihongoVocab.Services
             public string name { get; set; } = string.Empty;
         }
 
+        private readonly SQLiteOpenFlags _openFlags;
+
         public DatabaseService() : this(null)
         {
         }
 
-        public DatabaseService(string? customDbPath)
+        public DatabaseService(string? customDbPath) : this(customDbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex)
+        {
+        }
+
+        public DatabaseService(string? customDbPath, SQLiteOpenFlags openFlags)
         {
             SQLitePCL.Batteries_V2.Init();
+            _openFlags = openFlags;
 
             if (!string.IsNullOrEmpty(customDbPath))
             {
@@ -159,12 +171,13 @@ namespace NihongoVocab.Services
             {
                 if (_isInitialized) return;
 
-                _database = new SQLiteAsyncConnection(_dbPath);
+                _database = new SQLiteAsyncConnection(new SQLiteConnectionString(_dbPath, _openFlags, storeDateTimeAsTicks: true));
 
                 try
                 {
                     await _database.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL;");
                     await _database.ExecuteAsync("PRAGMA synchronous=NORMAL;");
+                    await _database.ExecuteAsync("PRAGMA busy_timeout=5000;");
                 }
                 catch (Exception ex)
                 {
@@ -176,12 +189,16 @@ namespace NihongoVocab.Services
                 await _database.CreateTableAsync<ReviewLog>();
                 await _database.CreateTableAsync<UserPreference>();
                 await _database.CreateTableAsync<SyncTombstone>();
+                await _database.CreateTableAsync<PairedDevice>();
+                await _database.CreateTableAsync<PairingSession>();
 
                 await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_words_wordlistid ON Words(WordListId);");
                 await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_words_state_nextrev ON Words(State, NextReviewDate);");
                 await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_reviewlogs_wordid_revdate ON ReviewLogs(WordId, ReviewDate);");
                 await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_reviewlogs_revdate ON ReviewLogs(ReviewDate);");
                 await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_tombstones_type_key ON SyncTombstones(EntityType, EntityKey);");
+                await _database.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS idx_paireddevices_authtoken ON PairedDevices(AuthToken);");
+                await _database.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_pairingsessions_expires ON PairingSessions(ExpiresAt);");
 
                 // 字段平滑回填迁移保障 (StateUpdatedAt, MetaUpdatedAt, UpdatedAt)
                 try
@@ -191,21 +208,22 @@ namespace NihongoVocab.Services
                     if (!wordCols.Contains("stateupdatedat"))
                     {
                         await _database.ExecuteAsync("ALTER TABLE Words ADD COLUMN StateUpdatedAt TEXT");
-                        await _database.ExecuteAsync("UPDATE Words SET StateUpdatedAt = coalesce(LastReviewDate, CreatedAt, datetime('now', 'localtime')) WHERE StateUpdatedAt IS NULL");
                     }
+                    await _database.ExecuteAsync("UPDATE Words SET StateUpdatedAt = coalesce(LastReviewDate, CreatedAt, 631139040000000000) WHERE StateUpdatedAt IS NULL OR StateUpdatedAt = 0");
+
                     if (!wordCols.Contains("metaupdatedat"))
                     {
                         await _database.ExecuteAsync("ALTER TABLE Words ADD COLUMN MetaUpdatedAt TEXT");
-                        await _database.ExecuteAsync("UPDATE Words SET MetaUpdatedAt = coalesce(CreatedAt, datetime('now', 'localtime')) WHERE MetaUpdatedAt IS NULL");
                     }
+                    await _database.ExecuteAsync("UPDATE Words SET MetaUpdatedAt = coalesce(CreatedAt, 631139040000000000) WHERE MetaUpdatedAt IS NULL OR MetaUpdatedAt = 0");
 
                     var listCols = (await _database.QueryAsync<TableColumnInfo>("PRAGMA table_info(WordLists)"))
                         .Select(c => c.name.ToLowerInvariant()).ToHashSet();
                     if (!listCols.Contains("updatedat"))
                     {
                         await _database.ExecuteAsync("ALTER TABLE WordLists ADD COLUMN UpdatedAt TEXT");
-                        await _database.ExecuteAsync("UPDATE WordLists SET UpdatedAt = coalesce(CreatedAt, datetime('now', 'localtime')) WHERE UpdatedAt IS NULL");
                     }
+                    await _database.ExecuteAsync("UPDATE WordLists SET UpdatedAt = coalesce(CreatedAt, datetime('now', 'localtime')) WHERE UpdatedAt IS NULL");
 
                     var logCols = (await _database.QueryAsync<TableColumnInfo>("PRAGMA table_info(ReviewLogs)"))
                         .Select(c => c.name.ToLowerInvariant()).ToHashSet();
@@ -220,6 +238,17 @@ namespace NihongoVocab.Services
                     if (!logCols.Contains("scheduleddays"))
                     {
                         await _database.ExecuteAsync("ALTER TABLE ReviewLogs ADD COLUMN ScheduledDays INTEGER NOT NULL DEFAULT 0");
+                    }
+
+                    var pairedCols = (await _database.QueryAsync<TableColumnInfo>("PRAGMA table_info(PairedDevices)"))
+                        .Select(c => c.name.ToLowerInvariant()).ToHashSet();
+                    if (!pairedCols.Contains("devicemodel"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE PairedDevices ADD COLUMN DeviceModel TEXT");
+                    }
+                    if (!pairedCols.Contains("customalias"))
+                    {
+                        await _database.ExecuteAsync("ALTER TABLE PairedDevices ADD COLUMN CustomAlias TEXT");
                     }
 
                     DateTime expireCutoff = DateTime.Now.AddDays(-90);
@@ -248,6 +277,24 @@ namespace NihongoVocab.Services
             if (!_isInitialized)
             {
                 await InitializeAsync();
+            }
+        }
+
+        public async Task CloseAsync()
+        {
+            await _dbLock.WaitAsync();
+            try
+            {
+                if (_database != null)
+                {
+                    await _database.CloseAsync();
+                    _database = null;
+                }
+                _isInitialized = false;
+            }
+            finally
+            {
+                _dbLock.Release();
             }
         }
 
@@ -2098,6 +2145,11 @@ namespace NihongoVocab.Services
                 await _database!.DeleteAllAsync<WordList>();
                 await _database!.DeleteAllAsync<ReviewLog>();
                 await _database!.DeleteAllAsync<SyncTombstone>();
+
+                // 清空数据属于重大物理重置，生成全新纪元并递增数据版本，阻断移动端脏数据覆写
+                string newEpoch = "epoch_" + Guid.NewGuid().ToString("N");
+                await _database!.ExecuteAsync("INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('sync_epoch', ?)", newEpoch);
+                await _database!.ExecuteAsync("INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('data_version', COALESCE((SELECT CAST(Value AS INTEGER) FROM UserPreferences WHERE Key = 'data_version'), 0) + 1)");
             }
             catch (Exception ex)
             {
@@ -2170,6 +2222,756 @@ namespace NihongoVocab.Services
                 _dbLock.Release();
             }
         }
+
+        #endregion
+
+        #region 已绑定设备管理与鉴权持久化 (PairedDevices)
+
+        /// <summary>
+        /// 获取所有已绑定的移动设备列表，按最近活跃时间降序排列
+        /// </summary>
+        public async Task<List<PairedDevice>> GetPairedDevicesAsync()
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await _database!.Table<PairedDevice>()
+                    .OrderByDescending(d => d.LastSeenAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetPairedDevicesAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 根据 AuthToken 快速查找设备，用于 HTTP 同步请求鉴权拦截
+        /// </summary>
+        public async Task<PairedDevice?> GetDeviceByTokenAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token)) return null;
+
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                string trimmed = token.Trim();
+                return await _database!.Table<PairedDevice>()
+                    .Where(d => d.AuthToken == trimmed)
+                    .FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetDeviceByTokenAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 保存或更新已绑定设备信息。若为新增设备且 AuthToken 已存在，则由 SQLite UNIQUE 约束抛出异常；若存在相同 Id 则更新。
+        /// </summary>
+        public async Task<bool> SavePairedDeviceAsync(PairedDevice device)
+        {
+            if (device == null) throw new ArgumentNullException(nameof(device));
+            if (string.IsNullOrWhiteSpace(device.Id))
+            {
+                device.Id = Guid.NewGuid().ToString();
+            }
+            if (string.IsNullOrWhiteSpace(device.AuthToken))
+            {
+                throw new ArgumentException("AuthToken cannot be empty.", nameof(device));
+            }
+
+            await EnsureInitializedAsync();
+            int rows;
+            await _dbLock.WaitAsync();
+            try
+            {
+                var existing = await _database!.Table<PairedDevice>()
+                    .Where(d => d.Id == device.Id)
+                    .FirstOrDefaultAsync();
+
+                if (existing != null)
+                {
+                    if (string.IsNullOrWhiteSpace(device.CustomAlias) && !string.IsNullOrWhiteSpace(existing.CustomAlias))
+                    {
+                        device.CustomAlias = existing.CustomAlias;
+                    }
+                    if (string.IsNullOrWhiteSpace(device.DeviceModel) && !string.IsNullOrWhiteSpace(existing.DeviceModel))
+                    {
+                        device.DeviceModel = existing.DeviceModel;
+                    }
+                    rows = await _database.UpdateAsync(device);
+                }
+                else
+                {
+                    rows = await _database.InsertAsync(device);
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.SavePairedDeviceAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+
+            if (rows > 0)
+            {
+                NotifyDataChanged();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 删除指定 ID 的已绑定设备（解除绑定）
+        /// </summary>
+        public async Task<bool> DeletePairedDeviceAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return false;
+
+            await EnsureInitializedAsync();
+            int rows;
+            await _dbLock.WaitAsync();
+            try
+            {
+                rows = await _database!.DeleteAsync<PairedDevice>(id.Trim());
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.DeletePairedDeviceAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+
+            if (rows > 0)
+            {
+                NotifyDataChanged();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 更新指定 Token 设备的最近活跃时间戳、客户端 IP 与硬件型号
+        /// </summary>
+        public async Task<bool> UpdateLastSeenAsync(string token, string? clientIp = null, string? deviceModel = null)
+        {
+            if (string.IsNullOrWhiteSpace(token)) return false;
+
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                string trimmedToken = token.Trim();
+                var device = await _database!.Table<PairedDevice>()
+                    .Where(d => d.AuthToken == trimmedToken)
+                    .FirstOrDefaultAsync();
+
+                if (device == null) return false;
+
+                device.LastSeenAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                if (!string.IsNullOrWhiteSpace(clientIp))
+                {
+                    device.ClientIp = clientIp.Trim();
+                }
+                if (!string.IsNullOrWhiteSpace(deviceModel) && string.IsNullOrWhiteSpace(device.DeviceModel))
+                {
+                    device.DeviceModel = deviceModel.Trim();
+                }
+
+                await _database!.UpdateAsync(device);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.UpdateLastSeenAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 兼容别名：更新指定 Token 设备的最近活跃时间戳与客户端 IP
+        /// </summary>
+        public Task<bool> UpdateDeviceLastSeenAsync(string token, string? clientIp = null, string? deviceModel = null)
+            => UpdateLastSeenAsync(token, clientIp, deviceModel);
+
+        /// <summary>
+        /// 更新指定设备的自定义别名
+        /// </summary>
+        public async Task<bool> UpdateDeviceCustomAliasAsync(string deviceId, string alias)
+        {
+            if (string.IsNullOrWhiteSpace(deviceId)) return false;
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                var device = await _database!.Table<PairedDevice>()
+                    .Where(d => d.Id == deviceId.Trim())
+                    .FirstOrDefaultAsync();
+                if (device == null) return false;
+
+                device.CustomAlias = string.IsNullOrWhiteSpace(alias) ? null : alias.Trim();
+                await _database!.UpdateAsync(device);
+                NotifyDataChanged();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.UpdateDeviceCustomAliasAsync");
+                return false;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        #endregion
+
+        #region 临时配对会话管理 (PairingSessions)
+
+        /// <summary>
+        /// <summary>
+        /// 生成一个 6 位配对码，并持久化到 PairingSessions 表。
+        /// 若未指定 validity，默认时长为 5 分钟；主程序可通过传入更长时长（如 10 年）实现长效免过期配对。
+        /// </summary>
+        public async Task<string> CreatePairingCodeAsync(TimeSpan? validity = null)
+        {
+            await EnsureInitializedAsync();
+            var duration = validity ?? TimeSpan.FromMinutes(5);
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long expiresAt = now + (long)duration.TotalSeconds;
+
+            string code = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6");
+
+            await _dbLock.WaitAsync();
+            try
+            {
+                var session = new PairingSession
+                {
+                    Code = code,
+                    CreatedAt = now,
+                    ExpiresAt = expiresAt
+                };
+                await _database!.InsertOrReplaceAsync(session);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.CreatePairingCodeAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+
+            return code;
+        }
+
+        /// <summary>
+        /// 校验并核销配对码。使用单步原子 SQL 配合 RETURNING 子句物理删除匹配且未过期的配对码（单次消费有效，彻底杜绝并发重放与受影响行数置零竞态）。
+        /// 若成功核销并返回被删除的 Code，返回 true；若码不存在、已过期或已被并发连接抢先核销（返回结果集为空），返回 false。
+        /// </summary>
+        public async Task<bool> ValidateAndConsumePairingCodeAsync(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return false;
+
+            await EnsureInitializedAsync();
+            string trimmedCode = code.Trim();
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            await _dbLock.WaitAsync();
+            try
+            {
+                var deletedCodes = await _database!.QueryScalarsAsync<string>(
+                    "DELETE FROM PairingSessions WHERE Code = ? AND ExpiresAt >= ? RETURNING Code",
+                    trimmedCode, now);
+
+                return deletedCodes.Count > 0;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.ValidateAndConsumePairingCodeAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 根据配对码查询会话详情（用于调试与测试断言）
+        /// </summary>
+        public async Task<PairingSession?> GetPairingSessionAsync(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return null;
+
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                string trimmedCode = code.Trim();
+                return await _database!.Table<PairingSession>()
+                    .Where(s => s.Code == trimmedCode)
+                    .FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetPairingSessionAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 手动或定时清理所有已过期的配对码，返回清理的记录条数
+        /// </summary>
+        public async Task<int> CleanupExpiredCodesAsync()
+        {
+            await EnsureInitializedAsync();
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await _database!.ExecuteAsync("DELETE FROM PairingSessions WHERE ExpiresAt < ?", now);
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.CleanupExpiredCodesAsync");
+                throw;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        #endregion
+
+        #region SQLite PRAGMA 诊断与数据版本
+
+        /// <summary>
+        /// 获取 SQLite 当前数据版本（PRAGMA data_version）。在 WAL 模式下，仅当外部连接提交写事务时该值递增。
+        /// </summary>
+        public async Task<long> GetDataVersionAsync()
+        {
+            await EnsureInitializedAsync();
+            return await _database!.ExecuteScalarAsync<long>("PRAGMA data_version;");
+        }
+
+        /// <summary>
+        /// 执行标量查询并返回指定类型结果（用于 PRAGMA 诊断等）
+        /// </summary>
+        public async Task<T> ExecuteScalarAsync<T>(string sql)
+        {
+            await EnsureInitializedAsync();
+            return await _database!.ExecuteScalarAsync<T>(sql);
+        }
+
+        /// <summary>
+        /// 获取当前忙碌超时配置 (ms)
+        /// </summary>
+        public async Task<int> GetBusyTimeoutAsync()
+        {
+            await EnsureInitializedAsync();
+            return await _database!.ExecuteScalarAsync<int>("PRAGMA busy_timeout;");
+        }
+
+        /// <summary>
+        /// 获取当前日志模式
+        /// </summary>
+        public async Task<string> GetJournalModeAsync()
+        {
+            await EnsureInitializedAsync();
+            return await _database!.ExecuteScalarAsync<string>("PRAGMA journal_mode;");
+        }
+
+        /// <summary>
+        /// 获取当前同步模式
+        /// </summary>
+        public async Task<int> GetSynchronousModeAsync()
+        {
+            await EnsureInitializedAsync();
+            return await _database!.ExecuteScalarAsync<int>("PRAGMA synchronous;");
+        }
+
+        #region 自动备份与灾难恢复
+
+        public string DbPath => _dbPath;
+
+        /// <summary>
+        /// 创建数据库安全原子快照备份（基于 SQLite VACUUM INTO，WAL 无锁零损坏）
+        /// </summary>
+        public async Task<string?> CreateAutomaticBackupAsync(string? customFileName = null)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                if (!File.Exists(_dbPath)) return null;
+
+                string dir = Path.GetDirectoryName(_dbPath) ?? "";
+                string backupDir = Path.Combine(dir, "Backups");
+                if (!Directory.Exists(backupDir))
+                {
+                    Directory.CreateDirectory(backupDir);
+                }
+
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = !string.IsNullOrWhiteSpace(customFileName) ? customFileName.Trim() : $"vocab_auto_{timestamp}.db";
+                string backupPath = Path.Combine(backupDir, fileName);
+
+                if (File.Exists(backupPath))
+                {
+                    File.Delete(backupPath);
+                }
+
+                // 备份前主动冲刷 WAL 缓存到主库
+                try
+                {
+                    await _database!.ExecuteAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+                }
+                catch { }
+
+                // 优先使用 SQLite 原生 VACUUM INTO 原子生成完整快照
+                try
+                {
+                    await _database!.ExecuteAsync($"VACUUM INTO '{backupPath.Replace("'", "''")}';");
+                }
+                catch
+                {
+                    // 若 VACUUM INTO 遇到权限或其他限制，回退为稳健的文件级快照复制
+                    File.Copy(_dbPath, backupPath, true);
+                }
+
+                // 保留最近 10 份自动备份，清理更早的历史备份（按时间戳文件名倒序）
+                try
+                {
+                    var backupFiles = Directory.GetFiles(backupDir, "vocab_auto_*.db")
+                        .Select(f => new FileInfo(f))
+                        .OrderByDescending(f => f.Name)
+                        .ToList();
+
+                    if (backupFiles.Count > 10)
+                    {
+                        for (int i = 10; i < backupFiles.Count; i++)
+                        {
+                            try { backupFiles[i].Delete(); } catch { }
+                        }
+                    }
+                }
+                catch { }
+
+                return backupPath;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.CreateAutomaticBackupAsync");
+                return null;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 获取当前所有可用的自动与手动备份文件列表（按文件名时间戳倒序）
+        /// </summary>
+        public List<string> GetAvailableBackups()
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(_dbPath) ?? "";
+                string backupDir = Path.Combine(dir, "Backups");
+                if (!Directory.Exists(backupDir)) return new List<string>();
+
+                return Directory.GetFiles(backupDir, "vocab_*.db")
+                    .Select(f => new FileInfo(f))
+                    .OrderByDescending(f => f.Name)
+                    .Select(f => f.FullName)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetAvailableBackups");
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// 从指定的备份文件安全还原数据库
+        /// </summary>
+        public async Task<bool> RestoreFromBackupFileAsync(string backupPath)
+        {
+            if (!File.Exists(backupPath)) return false;
+
+            // 严格前置校验 SQLite 文件头（前 16 字节为 "SQLite format 3\0"）
+            try
+            {
+                byte[] header = new byte[16];
+                using (var fs = new FileStream(backupPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    if (fs.Length < 100 || fs.Read(header, 0, 16) < 16 ||
+                        System.Text.Encoding.ASCII.GetString(header) != "SQLite format 3\0")
+                    {
+                        CrashLogger.LogMessage($"RestoreFromBackupFileAsync 校验失败：文件不是合法的 SQLite 数据库文件 ({backupPath})", "WARN");
+                        return false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.RestoreFromBackupFileAsync.HeaderCheck");
+                return false;
+            }
+
+            await _dbLock.WaitAsync();
+            string preRestore = _dbPath + ".pre_restore";
+            try
+            {
+                // 1. 关闭现有连接前冲刷 WAL 并关闭连接
+                if (_database != null)
+                {
+                    try { await _database.ExecuteAsync("PRAGMA wal_checkpoint(TRUNCATE);"); } catch { }
+                    await _database.CloseAsync();
+                    _database = null;
+                }
+                _isInitialized = false;
+
+                // 2. 将当前数据库重命名为 pre_restore 防御意外损坏
+                try
+                {
+                    if (File.Exists(_dbPath))
+                    {
+                        File.Copy(_dbPath, preRestore, true);
+                    }
+                }
+                catch { }
+
+                // 3. 删除 WAL 与 SHM 临时缓存
+                string walPath = _dbPath + "-wal";
+                string shmPath = _dbPath + "-shm";
+                try { if (File.Exists(walPath)) File.Delete(walPath); } catch { }
+                try { if (File.Exists(shmPath)) File.Delete(shmPath); } catch { }
+
+                // 4. 将合法备份文件覆盖为主数据库
+                File.Copy(backupPath, _dbPath, true);
+
+                // 5. 重新建立并初始化连接
+                _database = new SQLiteAsyncConnection(new SQLiteConnectionString(_dbPath, _openFlags, storeDateTimeAsTicks: true));
+                await _database.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL;");
+                await _database.ExecuteAsync("PRAGMA synchronous=NORMAL;");
+                await _database.ExecuteAsync("PRAGMA busy_timeout=5000;");
+                _isInitialized = true;
+
+                NotifyDataChanged();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.RestoreFromBackupFileAsync");
+
+                // 关键防御：若覆盖失败或连接初始化失败，自动执行 pre_restore 紧急镜像回滚！
+                try
+                {
+                    if (File.Exists(preRestore))
+                    {
+                        File.Copy(preRestore, _dbPath, true);
+                    }
+                }
+                catch { }
+
+                // 尝试重新恢复连接
+                try
+                {
+                    _database = new SQLiteAsyncConnection(new SQLiteConnectionString(_dbPath, _openFlags, storeDateTimeAsTicks: true));
+                    await _database.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL;");
+                    await _database.ExecuteAsync("PRAGMA synchronous=NORMAL;");
+                    await _database.ExecuteAsync("PRAGMA busy_timeout=5000;");
+                    _isInitialized = true;
+                }
+                catch { }
+                return false;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 从手机端主动拉取前，自动创建独立的 pre_pull 安全快照
+        /// </summary>
+        public async Task<string?> CreatePrePullBackupAsync(string? deviceName = null)
+        {
+            string safeName = string.Empty;
+            if (!string.IsNullOrWhiteSpace(deviceName))
+            {
+                var invalidChars = Path.GetInvalidFileNameChars();
+                safeName = "_" + string.Concat(deviceName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+            }
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string fileName = $"vocab_pre_pull{safeName}_{timestamp}.db";
+            return await CreateAutomaticBackupAsync(fileName);
+        }
+
+        #endregion
+
+        #region 同步纪元与数据恢复权威重置 (SyncEpoch Protocol)
+
+        /// <summary>
+        /// 获取当前数据库的同步纪元标识 (SyncEpoch)。若数据库未曾生成，则生成并持久化默认纪元。
+        /// </summary>
+        public async Task<string> GetSyncEpochAsync()
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                var pref = await _database!.Table<UserPreference>().FirstOrDefaultAsync(p => p.Key == "sync_epoch");
+                if (pref != null && !string.IsNullOrWhiteSpace(pref.Value))
+                {
+                    return pref.Value;
+                }
+
+                string defaultEpoch = "epoch_" + Guid.NewGuid().ToString("N");
+                await _database!.ExecuteAsync(
+                    "INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('sync_epoch', ?)",
+                    defaultEpoch);
+                return defaultEpoch;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.GetSyncEpochAsync");
+                return "epoch_default";
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 轮换并生成新的 SyncEpoch
+        /// </summary>
+        public async Task<string> RotateSyncEpochAsync()
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                string newEpoch = "epoch_" + Guid.NewGuid().ToString("N");
+                await _database!.ExecuteAsync(
+                    "INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('sync_epoch', ?)",
+                    newEpoch);
+                await _database!.ExecuteAsync(
+                    "INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('data_version', " +
+                    "COALESCE((SELECT CAST(Value AS INTEGER) FROM UserPreferences WHERE Key = 'data_version'), 0) + 1)");
+                NotifyDataChanged();
+                return newEpoch;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.RotateSyncEpochAsync");
+                return "epoch_" + Guid.NewGuid().ToString("N");
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// 数据维护与备份还原后的权威纪元重置与时间戳提升：
+        /// 1. 产生全局全新唯一 SyncEpoch，宣告当前电脑端数据进入全新权威状态；
+        /// 2. 清理快照生成时间之后伪造或残留的所有墓碑；
+        /// 3. 将还原得到的所有单词的状态与元数据更新时间戳提升至当前时刻（+1秒），在常规 LWW 规则下获得最高优先级；
+        /// 4. 词单 UpdatedAt 提升至当前时刻；
+        /// 5. 递增 data_version 并广播数据变动通知。
+        /// </summary>
+        public async Task<string> ApplyMaintenanceRestoredEpochAndPromoteTimestampsAsync(DateTime? snapshotTime = null)
+        {
+            await EnsureInitializedAsync();
+            await _dbLock.WaitAsync();
+            try
+            {
+                string newEpoch = "epoch_" + Guid.NewGuid().ToString("N");
+
+                // 1. 保存新的权威 SyncEpoch
+                await _database!.ExecuteAsync(
+                    "INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('sync_epoch', ?)",
+                    newEpoch);
+
+                // 2. 清理快照时间之后残留的本地墓碑（若无快照时间则清空全部墓碑）
+                if (snapshotTime.HasValue)
+                {
+                    await _database!.ExecuteAsync(
+                        "DELETE FROM SyncTombstones WHERE DeletedAt >= ?",
+                        snapshotTime.Value);
+                }
+                else
+                {
+                    await _database!.ExecuteAsync("DELETE FROM SyncTombstones");
+                }
+
+                // 3. 将还原得到的所有单词的状态与元数据更新时间戳提升至当前时刻（+1秒，抵消时钟偏差，对齐系统统一本地时间基准）
+                long nowTicks = DateTime.Now.AddSeconds(1).Ticks;
+                await _database!.ExecuteAsync(
+                    "UPDATE Words SET StateUpdatedAt = ?, MetaUpdatedAt = ?",
+                    nowTicks, nowTicks);
+
+                // 4. 词单 UpdatedAt 同样提升
+                string nowIso = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                await _database!.ExecuteAsync("UPDATE WordLists SET UpdatedAt = ?", nowIso);
+
+                // 5. 递增 data_version
+                await _database!.ExecuteAsync(
+                    "INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('data_version', " +
+                    "COALESCE((SELECT CAST(Value AS INTEGER) FROM UserPreferences WHERE Key = 'data_version'), 0) + 1)");
+
+                NotifyDataChanged();
+                return newEpoch;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.ApplyMaintenanceRestoredEpochAndPromoteTimestampsAsync");
+                return string.Empty;
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        #endregion
 
         #endregion
 

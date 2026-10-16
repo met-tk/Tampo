@@ -2,8 +2,8 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
 Write-Host "[0/5] Ensuring previous processes are closed..." -ForegroundColor Cyan
-Get-Process | Where-Object { $_.ProcessName -match '^(Tampo|NihongoVocab|Setup|Tampo_Setup_.*|Tampo_Update_.*)$' } | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Milliseconds 600
+Get-Process | Where-Object { $_.ProcessName -match '^(Tampo.*|NihongoVocab|Setup)$' } | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 800
 
 Write-Host "[1/5] Cleaning old build caches and regenerating icons..." -ForegroundColor Cyan
 if (Test-Path "$root\bin")                 { Remove-Item "$root\bin"                 -Recurse -Force -ErrorAction SilentlyContinue }
@@ -39,6 +39,9 @@ if (Test-Path "$binDir\Tampo.pri") {
 if (Test-Path "$dst\Assets") { Remove-Item "$dst\Assets" -Recurse -Force }
 Copy-Item "$root\Assets" "$dst\Assets" -Recurse -Force
 
+Write-Host "Publishing TampoSyncService..." -ForegroundColor Cyan
+dotnet publish "$root\SyncService\TampoSyncService.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o "$dst" | Out-Null
+
 Write-Host "[5/5] Cleaning up unnecessary files from publish directory..." -ForegroundColor Cyan
 Get-ChildItem -Path $dst -File -Recurse |
     Where-Object { $_.Extension -in ".bat",".cmd",".pdb",".log" } |
@@ -47,9 +50,16 @@ Get-ChildItem -Path $dst -File -Recurse |
 Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
 
 # ---- Prepare Setup output directory ----------------------------------------
+$version = "1.4.6"
+$csprojContent = Get-Content "$root\Tampo.csproj" -Raw
+if ($csprojContent -match '<Version>([0-9\.]+)</Version>') {
+    $version = $matches[1]
+}
+Write-Host "Target packaging version: v$version" -ForegroundColor Cyan
+
 $setupDir       = "$root\Setup"
-$setupExeFinal  = "$setupDir\Tampo_Setup_v1.3.0.exe"
-$updateExeFinal = "$setupDir\Tampo_Update_v1.3.0.exe"
+$setupExeFinal  = "$setupDir\Tampo_Setup_v$version.exe"
+$updateExeFinal = "$setupDir\Tampo_Update_v$version.exe"
 
 if (Test-Path $setupDir) {
     Remove-Item $setupDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -70,7 +80,7 @@ dotnet publish "$root\Installer\Tampo.Installer.csproj" `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:AssemblyName=Tampo_Setup_v1.3.0 `
+    -p:AssemblyName="Tampo_Setup_v$version" `
     -o $setupDir | Out-Null
 
 # ---- Clean intermediate artifacts ------------------------------------------

@@ -7,6 +7,7 @@ import '../services/db_service.dart';
 import '../services/event_service.dart';
 import '../services/fsrs_engine.dart';
 import '../services/tts_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/word_progress_bg.dart';
 
 class TodayPage extends StatefulWidget {
@@ -251,18 +252,34 @@ class _TodayPageState extends State<TodayPage> {
 
                 const SizedBox(height: 10),
 
-                // 今日打卡记录列表
+                // 今日打卡记录列表 (支持下拉触发增量双向同步与刷新)
                 Expanded(
-                  child: filteredLogs.isEmpty
-                      ? Center(
-                          child: Text(
-                            '今日暂无相关打卡记录',
-                            style: TextStyle(color: theme.hintColor, fontSize: 13),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: filteredLogs.length,
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      if (SyncService.instance.isPairedNotifier.value) {
+                        await SyncService.instance.performSync(isAuto: false, triggerReason: 'pull_to_refresh');
+                      }
+                      await _loadTodayData();
+                    },
+                    child: filteredLogs.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              SizedBox(
+                                height: 320,
+                                child: Center(
+                                  child: Text(
+                                    '今日暂无相关打卡记录',
+                                    style: TextStyle(color: theme.hintColor, fontSize: 13),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            itemCount: filteredLogs.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final item = filteredLogs[index];
@@ -390,6 +407,7 @@ class _TodayPageState extends State<TodayPage> {
                             );
                           },
                         ),
+                      ),
                 ),
               ],
             ),

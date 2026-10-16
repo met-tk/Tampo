@@ -290,4 +290,56 @@ namespace NihongoVocab.Converters
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => value;
     }
+
+    public class BoolToColorBrushConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush OnlineBrush = new(Color.FromArgb(255, 34, 197, 94));
+        private static readonly SolidColorBrush OfflineBrush = new(Colors.Gray);
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            return (value is bool b && b) ? OnlineBrush : OfflineBrush;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => false;
+    }
+
+    public class BoolToBadgeBackgroundConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush OnlineBg = new(Color.FromArgb(38, 34, 197, 94));
+        private static readonly SolidColorBrush OfflineBg = new(Color.FromArgb(25, 128, 128, 128));
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            return (value is bool b && b) ? OnlineBg : OfflineBg;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => false;
+    }
+
+    public class BoolToOnlineStatusTextConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            var loc = LocalizationService.Instance;
+            return (value is bool b && b)
+                ? loc.GetString("DeviceStatusOnline", "在线 (已连接)")
+                : loc.GetString("DeviceStatusOffline", "离线");
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => false;
+    }
+
+    public class BoolToOnlineStatusForegroundConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush OnlineFg = new(Color.FromArgb(255, 34, 197, 94));
+        private static readonly SolidColorBrush OfflineFg = new(Colors.Gray);
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            return (value is bool b && b) ? OnlineFg : OfflineFg;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => false;
+    }
 }

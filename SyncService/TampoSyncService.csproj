@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NihongoVocab.SyncService</RootNamespace>
+    <ApplicationIcon>..\Assets\AppIcon.ico</ApplicationIcon>
+
+    <!-- 版本号定义 (对齐 1.4.6) -->
+    <Version>1.4.6</Version>
+    <AssemblyVersion>1.4.6.0</AssemblyVersion>
+    <FileVersion>1.4.6.0</FileVersion>
+    <Product>Tampo Sync Service</Product>
+    <Company>taketo</Company>
+
+    <!-- 严苛极低内存优化配置 (<30MB) -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+
+    <!-- 独立守护服务专属条件编译宏 -->
+    <DefineConstants>$(DefineConstants);TAMPO_SYNC_SERVICE</DefineConstants>
+
+    <!-- 发布与运行时特性 -->
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <!-- 剔除 WINDOWS 预处理符号，使共享的 LocalizationService 无需 WindowsAppSDK 即可编译 -->
+  <Target Name="RemoveWindowsDefine" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <DefineConstants>$([System.Text.RegularExpressions.Regex]::Replace($(DefineConstants), '\bWINDOWS\b', ''))</DefineConstants>
+    </PropertyGroup>
+  </Target>
+
+  <ItemGroup>
+    <!-- 基础包依赖：与主程序保持版本 100% 一致 -->
+    <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
+    <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 链接共享核心数据模型 -->
+    <Compile Include="..\Models\Word.cs" Link="Models\Word.cs" />
+    <Compile Include="..\Models\WordList.cs" Link="Models\WordList.cs" />
+    <Compile Include="..\Models\ReviewLog.cs" Link="Models\ReviewLog.cs" />
+    <Compile Include="..\Models\SyncTombstone.cs" Link="Models\SyncTombstone.cs" />
+    <Compile Include="..\Models\PairedDevice.cs" Link="Models\PairedDevice.cs" />
+    <Compile Include="..\Models\PairingSession.cs" Link="Models\PairingSession.cs" />
+    <Compile Include="..\Models\SyncPayload.cs" Link="Models\SyncPayload.cs" />
+
+    <!-- 链接共享基础服务层 -->
+    <Compile Include="..\Services\DatabaseService.cs" Link="Services\DatabaseService.cs" />
+    <Compile Include="..\Services\CrossProcessEventHelper.cs" Link="Services\CrossProcessEventHelper.cs" />
+    <Compile Include="..\Services\CrossProcessEventListener.cs" Link="Services\CrossProcessEventListener.cs" />
+    <Compile Include="..\Services\CrashLogger.cs" Link="Services\CrashLogger.cs" />
+    <Compile Include="..\Services\FsrsEngine.cs" Link="Services\FsrsEngine.cs" />
+    <Compile Include="..\Services\LocalizationService.cs" Link="Services\LocalizationService.cs" />
+  </ItemGroup>
+
+</Project>

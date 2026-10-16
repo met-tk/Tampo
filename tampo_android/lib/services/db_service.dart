@@ -91,6 +91,7 @@ class DatabaseService {
         try {
           await db.rawQuery('PRAGMA journal_mode=WAL');
           await db.execute('PRAGMA synchronous=NORMAL');
+          await db.execute('PRAGMA busy_timeout=5000');
         } catch (_) {}
         await db.execute('''
           CREATE TABLE IF NOT EXISTS sync_tombstones (
@@ -114,12 +115,22 @@ class DatabaseService {
           final wordColNames = wordCols.map((c) => c['name'].toString().toLowerCase()).toSet();
           if (!wordColNames.contains('stateupdatedat')) {
             await db.execute('ALTER TABLE words ADD COLUMN stateUpdatedAt TEXT');
-            await db.execute("UPDATE words SET stateUpdatedAt = coalesce(lastReviewDate, createdAt, datetime('now', 'localtime')) WHERE stateUpdatedAt IS NULL");
           }
+          await db.execute("UPDATE words SET stateUpdatedAt = coalesce(lastReviewDate, createdAt, '1970-01-01T00:00:00.000') WHERE stateUpdatedAt IS NULL OR stateUpdatedAt = ''");
+
           if (!wordColNames.contains('metaupdatedat')) {
             await db.execute('ALTER TABLE words ADD COLUMN metaUpdatedAt TEXT');
-            await db.execute("UPDATE words SET metaUpdatedAt = coalesce(createdAt, datetime('now', 'localtime')) WHERE metaUpdatedAt IS NULL");
           }
+          await db.execute("UPDATE words SET metaUpdatedAt = coalesce(createdAt, '1970-01-01T00:00:00.000') WHERE metaUpdatedAt IS NULL OR metaUpdatedAt = ''");
+
+          if (!wordColNames.contains('wordlistname')) {
+            await db.execute('ALTER TABLE words ADD COLUMN wordListName TEXT');
+          }
+          await db.execute('''
+            UPDATE words
+            SET wordListName = (SELECT name FROM word_lists WHERE word_lists.id = words.wordListId)
+            WHERE wordListId IS NOT NULL AND (wordListName IS NULL OR wordListName = '')
+          ''');
 
           final listCols = await db.rawQuery('PRAGMA table_info(word_lists)');
           final listColNames = listCols.map((c) => c['name'].toString().toLowerCase()).toSet();
@@ -215,11 +226,21 @@ class DatabaseService {
     );
   }
 
+  Future<void> clearTombstones() async {
+    final db = await database;
+    await db.delete('sync_tombstones');
+  }
+
   // --- 单词操作 ---
 
   Future<List<Word>> getAllWords() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('words', orderBy: 'createdAt DESC');
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT w.*, l.name AS wordListName
+      FROM words w
+      LEFT JOIN word_lists l ON w.wordListId = l.id
+      ORDER BY w.createdAt DESC
+    ''');
     return maps.map((m) => Word.fromMap(m)).toList();
   }
 
@@ -234,34 +255,35 @@ class DatabaseService {
     List<dynamic> args = [];
 
     if (query.trim().isNotEmpty) {
-      where += r" AND text LIKE ? ESCAPE '\'";
+      where += r" AND w.text LIKE ? ESCAPE '\'";
       args.add('%${_escapeLikePattern(query.trim())}%');
     }
 
     if (listId != null) {
-      where += ' AND wordListId = ?';
+      where += ' AND w.wordListId = ?';
       args.add(listId);
     }
 
     if (stateFilter != null && stateFilter >= 0) {
-      where += ' AND state = ?';
+      where += ' AND w.state = ?';
       args.add(stateFilter);
     }
 
     if (archivedFilter != null) {
       if (archivedFilter) {
-        where += ' AND (isInList = 1 OR wordListId IS NOT NULL)';
+        where += ' AND (w.isInList = 1 OR w.wordListId IS NOT NULL)';
       } else {
-        where += ' AND (isInList = 0 OR isInList IS NULL) AND wordListId IS NULL';
+        where += ' AND (w.isInList = 0 OR w.isInList IS NULL) AND w.wordListId IS NULL';
       }
     }
 
-    final List<Map<String, dynamic>> maps = await db.query(
-      'words',
-      where: where,
-      whereArgs: args,
-      orderBy: 'createdAt DESC',
-    );
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT w.*, coalesce(l.name, w.wordListName) AS wordListName
+      FROM words w
+      LEFT JOIN word_lists l ON w.wordListId = l.id
+      WHERE $where
+      ORDER BY w.createdAt DESC
+    ''', args);
     return maps.map((m) => Word.fromMap(m)).toList();
   }
 
@@ -274,20 +296,21 @@ class DatabaseService {
     final endOfTodayIso = DateTime(logicalToday.year, logicalToday.month, logicalToday.day, 23, 59, 59, 999).toIso8601String();
     
     // 到期条件：不是已掌握(3)，且排除今日逻辑日内已复习过的词汇 (lastReviewDate >= dayStartIso)，并且 (从未学过 reps == 0 或 nextReviewDate 为空 或 nextReviewDate <= 今日结束)
-    String where = 'state != 3 AND (lastReviewDate IS NULL OR lastReviewDate < ?) AND (reps = 0 OR nextReviewDate IS NULL OR nextReviewDate <= ?)';
+    String where = 'w.state != 3 AND (w.lastReviewDate IS NULL OR w.lastReviewDate < ?) AND (w.reps = 0 OR w.nextReviewDate IS NULL OR w.nextReviewDate <= ?)';
     List<dynamic> args = [dayStartIso, endOfTodayIso];
 
     if (listId != null) {
-      where += ' AND wordListId = ?';
+      where += ' AND w.wordListId = ?';
       args.add(listId);
     }
 
-    final maps = await db.query(
-      'words',
-      where: where,
-      whereArgs: args,
-      orderBy: 'CASE WHEN reps = 0 THEN 0 ELSE 1 END ASC, nextReviewDate ASC, createdAt ASC',
-    );
+    final maps = await db.rawQuery('''
+      SELECT w.*, coalesce(l.name, w.wordListName) AS wordListName
+      FROM words w
+      LEFT JOIN word_lists l ON w.wordListId = l.id
+      WHERE $where
+      ORDER BY CASE WHEN w.reps = 0 THEN 0 ELSE 1 END ASC, w.nextReviewDate ASC, w.createdAt ASC
+    ''', args);
     return maps.map((m) => Word.fromMap(m)).toList();
   }
 
@@ -1096,19 +1119,105 @@ class DatabaseService {
 
   Future<List<ReviewLog>> getReviewLogs(int wordId) async {
     final db = await database;
-    final maps = await db.query(
-      'review_logs',
-      where: 'wordId = ?',
-      whereArgs: [wordId],
-      orderBy: 'reviewDate ASC',
-    );
+    final maps = await db.rawQuery('''
+      SELECT r.*, w.text AS wordText
+      FROM review_logs r
+      LEFT JOIN words w ON r.wordId = w.id
+      WHERE r.wordId = ?
+      ORDER BY r.reviewDate ASC
+    ''', [wordId]);
     return maps.map((m) => ReviewLog.fromMap(m)).toList();
   }
 
   Future<List<ReviewLog>> getAllReviewLogs() async {
     final db = await database;
-    final maps = await db.query('review_logs', orderBy: 'reviewDate ASC');
+    final maps = await db.rawQuery('''
+      SELECT r.*, w.text AS wordText
+      FROM review_logs r
+      LEFT JOIN words w ON r.wordId = w.id
+      ORDER BY r.reviewDate ASC
+    ''');
     return maps.map((m) => ReviewLog.fromMap(m)).toList();
+  }
+
+  // --- 增量同步与局部重放支持 ---
+
+  Future<List<Word>> getWordsByIds(List<int> ids) async {
+    if (ids.isEmpty) return [];
+    final db = await database;
+    if (ids.length <= 500) {
+      final placeholders = List.filled(ids.length, '?').join(',');
+      final List<Map<String, dynamic>> maps = await db.rawQuery('''
+        SELECT w.*, coalesce(l.name, w.wordListName) AS wordListName
+        FROM words w
+        LEFT JOIN word_lists l ON w.wordListId = l.id
+        WHERE w.id IN ($placeholders)
+      ''', ids);
+      return maps.map((m) => Word.fromMap(m)).toList();
+    }
+
+    final results = <Word>[];
+    for (var i = 0; i < ids.length; i += 500) {
+      final chunk = ids.sublist(i, (i + 500 > ids.length) ? ids.length : i + 500);
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      final List<Map<String, dynamic>> maps = await db.rawQuery('''
+        SELECT w.*, coalesce(l.name, w.wordListName) AS wordListName
+        FROM words w
+        LEFT JOIN word_lists l ON w.wordListId = l.id
+        WHERE w.id IN ($placeholders)
+      ''', chunk);
+      results.addAll(maps.map((m) => Word.fromMap(m)));
+    }
+    return results;
+  }
+
+  Future<List<Word>> getWordsModifiedSince(DateTime since) async {
+    final db = await database;
+    final sinceIso = since.toIso8601String();
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT w.*, coalesce(l.name, w.wordListName) AS wordListName
+      FROM words w
+      LEFT JOIN word_lists l ON w.wordListId = l.id
+      WHERE w.stateUpdatedAt >= ? OR w.metaUpdatedAt >= ? OR w.createdAt >= ? OR (w.lastReviewDate IS NOT NULL AND w.lastReviewDate >= ?)
+      ORDER BY w.createdAt DESC
+    ''', [sinceIso, sinceIso, sinceIso, sinceIso]);
+    return maps.map((m) => Word.fromMap(m)).toList();
+  }
+
+  Future<List<ReviewLog>> getReviewLogsModifiedSince(DateTime since) async {
+    final db = await database;
+    final sinceIso = since.toIso8601String();
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT r.*, w.text AS wordText
+      FROM review_logs r
+      LEFT JOIN words w ON r.wordId = w.id
+      WHERE r.reviewDate >= ?
+      ORDER BY r.reviewDate ASC
+    ''', [sinceIso]);
+    return maps.map((m) => ReviewLog.fromMap(m)).toList();
+  }
+
+  Future<List<WordList>> getWordListsModifiedSince(DateTime since) async {
+    final db = await database;
+    final sinceIso = since.toIso8601String();
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT l.id, l.name, l.createdAt, l.updatedAt,
+             (SELECT COUNT(*) FROM words w WHERE w.wordListId = l.id) AS wordCount
+      FROM word_lists l
+      WHERE l.updatedAt >= ? OR l.createdAt >= ?
+      ORDER BY l.createdAt DESC
+    ''', [sinceIso, sinceIso]);
+    return maps.map((m) => WordList.fromMap(m)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getTombstonesModifiedSince(DateTime since) async {
+    final db = await database;
+    final sinceIso = since.toIso8601String();
+    return await db.query(
+      'sync_tombstones',
+      where: 'deletedAt >= ?',
+      whereArgs: [sinceIso],
+    );
   }
 
   Future<void> clearAllData() async {
@@ -1139,6 +1248,24 @@ class DatabaseService {
       {'key': key, 'value': value},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  /// 删除指定配置项（例如解绑时清理 auth_token）
+  Future<int> deleteSetting(String key) async {
+    final db = await database;
+    return await db.delete('app_settings', where: 'key = ?', whereArgs: [key]);
+  }
+
+  /// 获取布尔类型配置项（提供默认值支持）
+  Future<bool> getBoolSetting(String key, {bool defaultValue = false}) async {
+    final val = await getSetting(key);
+    if (val == null) return defaultValue;
+    return val.toLowerCase() == 'true' || val == '1';
+  }
+
+  /// 保存布尔类型配置项
+  Future<void> setBoolSetting(String key, bool value) async {
+    await setSetting(key, value ? 'true' : 'false');
   }
 }
 

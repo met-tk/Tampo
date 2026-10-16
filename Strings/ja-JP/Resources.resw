@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.3.0</value>
+    <value>v1.4.6</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>日次更新時刻</value>
@@ -1687,5 +1687,38 @@
   </data>
   <data name="ButtonConfirmEdit" xml:space="preserve">
     <value>変更を確認</value>
+  </data>
+  <data name="DeviceStatusOnline" xml:space="preserve">
+    <value>オンライン (接続中)</value>
+  </data>
+  <data name="DeviceStatusOffline" xml:space="preserve">
+    <value>オフライン</value>
+  </data>
+  <data name="SelectPullDeviceTitle" xml:space="preserve">
+    <value>同期元の端末を選択</value>
+  </data>
+  <data name="SelectPullDeviceDesc" xml:space="preserve">
+    <value>複数のモバイル端末が登録されています。データを取得する端末を選択してください：</value>
+  </data>
+  <data name="ButtonStartPull" xml:space="preserve">
+    <value>取得開始</value>
+  </data>
+  <data name="NoPairedDevicesTitle" xml:space="preserve">
+    <value>登録端末がありません</value>
+  </data>
+  <data name="NoPairedDevicesMsg" xml:space="preserve">
+    <value>登録されたスマートフォンがありません。まずペアリングコードを生成して端末を連携してください。</value>
+  </data>
+  <data name="PullTargetSentMsg" xml:space="preserve">
+    <value>端末「{0}」にデータ送信リクエストを送信しました。&#x0a;数秒以内にスマートフォンの最新データが安全にPCへマージされます。</value>
+  </data>
+  <data name="PullTargetOfflineMsg" xml:space="preserve">
+    <value>端末「{0}」は現在オフラインです。&#x0a;スマホで Tampo を起動し、同じ Wi-Fi ネットワークに接続されていることを確認してください。</value>
+  </data>
+  <data name="EditDeviceAliasTitle" xml:space="preserve">
+    <value>端末の表示名を設定</value>
+  </data>
+  <data name="DeviceAliasPlaceholder" xml:space="preserve">
+    <value>例：メインスマホ、Pixel 7...</value>
   </data>
 </root>

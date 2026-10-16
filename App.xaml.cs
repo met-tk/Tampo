@@ -131,6 +131,33 @@ namespace NihongoVocab
                             });
                         }
 
+                        // 启动跨进程数据同步事件监听器，感知后台守护服务推送的数据变动并即时刷新 UI
+                        if (OperatingSystem.IsWindows())
+                        {
+                            _crossProcessListener = new CrossProcessEventListener(db, () =>
+                            {
+                                RunOnUIThread(() => DatabaseService.NotifyDataChanged());
+                            }, CrossProcessEventHelper.ToAppEventName);
+                            _crossProcessListener.Start();
+                            AppDomain.CurrentDomain.ProcessExit += (s, e) => _crossProcessListener?.Dispose();
+
+                            // 静默托管检测：若后台同步守护服务未启动，在后台静默拉起
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    if (!await SyncServiceController.Instance.IsServiceRunningAsync())
+                                    {
+                                        await SyncServiceController.Instance.StartServiceAsync();
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    CrashLogger.LogException(ex, "App.EnsureSyncServiceRunning");
+                                }
+                            });
+                        }
+
                         // 数据加载完毕后，回到UI线程重新应用真实的窗口几何（因为构造时Pref尚未加载）并刷新逻辑日依赖视图
                         UIThreadDispatcher?.TryEnqueue(() =>
                         {
@@ -150,5 +177,7 @@ namespace NihongoVocab
                 throw;
             }
         }
+
+        private CrossProcessEventListener? _crossProcessListener;
     }
 }

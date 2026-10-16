@@ -7,6 +7,11 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <TargetName>Tampo.Tests2</TargetName>
+    <AssemblyName>Tampo.Tests2</AssemblyName>
+    <Version>1.4.6</Version>
+    <!-- 启用 TAMPO_SYNC_SERVICE 条件编译宏 -->
+    <DefineConstants>$(DefineConstants);TAMPO_SYNC_SERVICE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +22,11 @@
     <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,6 +48,16 @@
     <Compile Include="..\Services\ExportPresetManager.cs" Link="ExportPresetManager.cs" />
     <Compile Include="..\Services\DatabaseService.cs" Link="DatabaseService.cs" />
     <Compile Include="..\Services\LanSyncService.cs" Link="LanSyncService.cs" />
+    <Compile Include="..\Models\PairedDevice.cs" Link="PairedDevice.cs" />
+    <Compile Include="..\Models\PairingSession.cs" Link="PairingSession.cs" />
+    <Compile Include="..\Services\CrossProcessEventHelper.cs" Link="CrossProcessEventHelper.cs" />
+    <Compile Include="..\Services\CrossProcessEventListener.cs" Link="CrossProcessEventListener.cs" />
+    <Compile Include="..\Models\SyncPayload.cs" Link="SyncPayload.cs" />
+    <Compile Include="..\Services\SyncServiceController.cs" Link="SyncServiceController.cs" />
+    <!-- 链接守护服务核心组件 (注意：不可链接 Program.cs) -->
+    <Compile Include="..\SyncService\HttpSyncServer.cs" Link="HttpSyncServer.cs" />
+    <Compile Include="..\SyncService\MemoryOptimizer.cs" Link="MemoryOptimizer.cs" />
+    <Compile Include="..\SyncService\UdpDiscoveryServer.cs" Link="UdpDiscoveryServer.cs" />
   </ItemGroup>
 
 </Project>

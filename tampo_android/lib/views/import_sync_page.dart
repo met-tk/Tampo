@@ -41,7 +41,6 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
   final TextEditingController _hostCtrl = TextEditingController(text: '192.168.1.');
   final TextEditingController _pinCtrl = TextEditingController();
   bool _isSyncing = false;
-  String _syncStatusMessage = '请输入电脑端设置页面显示的局域网地址与 PIN 码';
 
   @override
   void initState() {
@@ -85,11 +84,14 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
 
   // --- 自动恢复与持久化保存局域网 IP 与 PIN ---
   Future<void> _loadSavedSyncSettings() async {
+    final pairedHost = SyncService.instance.pairedHostNotifier.value;
     final savedHost = await _db.getSetting('last_sync_host');
     final savedPin = await _db.getSetting('last_sync_pin');
     if (mounted) {
       setState(() {
-        if (savedHost != null && savedHost.isNotEmpty) {
+        if (pairedHost != null && pairedHost.isNotEmpty) {
+          _hostCtrl.text = pairedHost;
+        } else if (savedHost != null && savedHost.isNotEmpty) {
           _hostCtrl.text = savedHost;
         }
         if (savedPin != null && savedPin.isNotEmpty) {
@@ -102,6 +104,115 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
   Future<void> _saveSyncSettings(String host, String pin) async {
     await _db.setSetting('last_sync_host', host.trim());
     await _db.setSetting('last_sync_pin', pin.trim());
+  }
+
+  void _autoDiscoverHost() async {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('正在局域网发送 UDP 广播自动探测电脑端服务...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    final discovered = await _sync.discoverHost();
+    if (discovered != null && mounted) {
+      setState(() {
+        _hostCtrl.text = discovered['host'] ?? '';
+      });
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已自动探测到电脑端主机「${discovered['name']}」(${discovered['host']})'),
+          backgroundColor: Colors.green.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('未能探测到电脑端服务，请确认电脑端已开启服务且在同一网络下，或手动输入 IP'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _handlePairDevice() async {
+    final host = _hostCtrl.text.trim();
+    final pin = _pinCtrl.text.trim();
+    if (host.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入或点击自动探测电脑端局域网 IP')),
+      );
+      return;
+    }
+    if (pin.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入电脑端「绑定新设备」生成的 6 位配对码')),
+      );
+      return;
+    }
+
+    try {
+      final success = await _sync.pairDevice(host, pin);
+      if (success && mounted) {
+        _pinCtrl.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('设备绑定成功！后续无需再输入配对码，数据将自动实时拉取与同步'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('绑定失败'),
+            content: Text(e.toString()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('好的'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleUnpairDevice() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('解除设备绑定'),
+        content: const Text('解除绑定后，手机端将不再自动与该电脑端进行实时同步。如需同步需重新配对。\n\n是否确认解除绑定？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('解除绑定'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _sync.unpairDevice();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已解除与电脑端的设备绑定')),
+        );
+      }
+    }
   }
 
   void _onTextChanged() {
@@ -201,79 +312,65 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
     }
   }
 
-  void _testConnection() async {
-    final host = _hostCtrl.text.trim();
-    if (host.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入电脑端局域网 IP 地址')),
-      );
-      return;
-    }
-
-    _saveSyncSettings(host, _pinCtrl.text);
-
-    setState(() => _syncStatusMessage = '正在测试连接电脑端服务...');
-    final ok = await _sync.ping(host);
-    setState(() {
-      _syncStatusMessage = ok ? '连接成功！电脑端同步服务正在运行。' : '连接失败，请确认手机与电脑在同一 WiFi，且电脑端已开启同步服务。';
-    });
-  }
-
   void _startSync(bool biDirectional) async {
     final host = _hostCtrl.text.trim();
     final pin = _pinCtrl.text.trim();
+    final isPaired = _sync.isPairedNotifier.value;
 
     if (host.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入电脑端局域网 IP 地址')),
+        const SnackBar(content: Text('请输入电脑端局域网 IP 地址，或点击自动探测')),
       );
       return;
     }
-    if (pin.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入电脑端显示的 6 位配对 PIN 码')),
-      );
-      return;
+    if (!isPaired) {
+      if (pin.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未绑定设备，请输入电脑端显示的 6 位配对码，或先点击上方一键绑定')),
+        );
+        return;
+      } else {
+        // 用户输入了配对码但未显式点击一键绑定：自动先行完成设备配对换取 Token
+        try {
+          setState(() {
+            _isSyncing = true;
+          });
+          await _sync.pairDevice(host, pin);
+        } catch (e) {
+          setState(() => _isSyncing = false);
+          return;
+        }
+      }
     }
 
-    // 自动保存输入的 IP 和 PIN 码
     _saveSyncSettings(host, pin);
 
     setState(() {
       _isSyncing = true;
-      _syncStatusMessage = biDirectional ? '正在执行双向合并同步...' : '正在从电脑端拉取全部数据...';
     });
 
     try {
       final report = biDirectional
-          ? await _sync.biDirectionalSync(host, pin)
+          ? await _sync.performSync(isAuto: false, host: host, pin: pin)
           : await _sync.pullFromPC(host, pin);
 
       setState(() {
         _isSyncing = false;
-        _syncStatusMessage = report.summary;
       });
-      DataEventService.instance.notify('sync_finished');
 
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('局域网同步成功'),
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
             content: Text(report.summary),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('好的'),
-              ),
-            ],
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
       setState(() {
         _isSyncing = false;
-        _syncStatusMessage = '同步失败: $e';
       });
       if (mounted) {
         showDialog(
@@ -784,140 +881,559 @@ class _ImportSyncPageState extends State<ImportSyncPage> with SingleTickerProvid
     );
   }
 
-  // --- 局域网数据同步 (支持自动保存上次输入的 IP 与 PIN 码) ---
+  // --- 局域网数据同步视图（支持一次绑定永久免配、UDP 自动探测与高频实时监控看板） ---
   Widget _buildSyncView(ThemeData theme) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
+    return ValueListenableBuilder<bool>(
+      valueListenable: _sync.isPairedNotifier,
+      builder: (context, isPaired, _) {
+        return ListView(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.sync_alt_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text('局域网数据同步', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '确保手机与电脑连接同一路由器/WiFi。\n在电脑端「设置 -> 局域网多端数据同步」开启服务，输入对应的 IP 与 PIN 码即可同步。',
-                style: TextStyle(fontSize: 12, color: theme.hintColor, height: 1.4),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _hostCtrl,
-          decoration: InputDecoration(
-            labelText: '电脑端 IP 地址',
-            hintText: '如 192.168.1.100',
-            prefixIcon: const Icon(Icons.computer_outlined, size: 20),
-            suffixIcon: TextButton(
-              onPressed: _testConnection,
-              child: const Text('测试连接'),
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _pinCtrl,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          decoration: InputDecoration(
-            labelText: '配对 PIN 码',
-            hintText: '6 位数字',
-            prefixIcon: const Icon(Icons.password_outlined, size: 20),
-            counterText: '',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
           children: [
-            Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            // 1. 顶部：主机连接与设备绑定状态卡片
+            if (isPaired)
+              _buildPairedHostCard(theme)
+            else
+              _buildUnpairedSetupCard(theme),
+
+            const SizedBox(height: 16),
+
+            // 2. 手动同步触发操作栏
+            _buildManualSyncActionRow(theme),
+
+            const SizedBox(height: 16),
+
+            // 3. 核心新增：实时高频同步监控看板（充分利用剩余空间）
+            _buildLiveSyncMonitorDashboard(theme),
+
+            const SizedBox(height: 24),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 已绑定状态卡片
+  Widget _buildPairedHostCard(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
                 ),
-                onPressed: _isSyncing ? null : () => _startSync(false),
-                child: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('从电脑拉取全部', style: TextStyle(fontWeight: FontWeight.w600)),
-                    SizedBox(height: 2),
-                    Text('以电脑端数据为准', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                  ],
-                ),
+                child: const Icon(Icons.laptop_chromebook, color: Colors.green, size: 22),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: _isSyncing ? null : () => _startSync(true),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('双向合并同步', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 2),
-                    Text(
-                      '互通两端最新进度 (推荐)',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: theme.colorScheme.onPrimary.withValues(alpha: 0.75),
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: ValueListenableBuilder<String?>(
+                            valueListenable: _sync.pairedPcNameNotifier,
+                            builder: (context, pcName, _) {
+                              return Text(
+                                pcName ?? '已绑定电脑主机',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            '已信任绑定',
+                            style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ValueListenableBuilder<String?>(
+                      valueListenable: _sync.pairedHostNotifier,
+                      builder: (context, host, _) {
+                        return Text(
+                          '主机地址: ${host ?? _hostCtrl.text}  (免输配对码)',
+                          style: TextStyle(fontSize: 12, color: theme.hintColor),
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.scaffoldBackgroundColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            children: [
-              if (_isSyncing) ...[
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: Text(
-                  _syncStatusMessage,
-                  style: TextStyle(fontSize: 12, color: theme.hintColor),
-                ),
+              IconButton(
+                icon: const Icon(Icons.radar_outlined, size: 20),
+                tooltip: '局域网自动探测更新 IP',
+                onPressed: _autoDiscoverHost,
+              ),
+              IconButton(
+                icon: const Icon(Icons.link_off_outlined, size: 20, color: Colors.grey),
+                tooltip: '解除绑定',
+                onPressed: _handleUnpairDevice,
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            '双端已建立专属安全凭据，启动与打卡时将全自动实时高频拉取与同步。',
+            style: TextStyle(fontSize: 11, color: theme.hintColor, height: 1.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 未绑定状态卡片（引导输入配对码）
+  Widget _buildUnpairedSetupCard(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.phonelink_setup_outlined, size: 20),
+              const SizedBox(width: 8),
+              const Text('绑定电脑端主机', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              TextButton.icon(
+                icon: const Icon(Icons.wifi_find_outlined, size: 16),
+                label: const Text('自动探测', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                onPressed: _autoDiscoverHost,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '在电脑端 Tampo「设置 -> 局域网多端数据同步」中点击「绑定新设备」，获取 6 位临时配对码。一次绑定即可终身免输。',
+            style: TextStyle(fontSize: 12, color: theme.hintColor, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _hostCtrl,
+            decoration: InputDecoration(
+              labelText: '电脑端 IP 地址',
+              hintText: '如 192.168.1.100',
+              helperText: '默认服务端口 52080 (输入 IP 即可，无需输入端口)',
+              prefixIcon: const Icon(Icons.computer_outlined, size: 20),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _pinCtrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  decoration: InputDecoration(
+                    labelText: '6 位配对码',
+                    hintText: '在电脑端查看',
+                    prefixIcon: const Icon(Icons.password_outlined, size: 20),
+                    counterText: '',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: _handlePairDevice,
+                icon: const Icon(Icons.link, size: 18),
+                label: const Text('一键配对'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 手动同步操作按钮栏
+  Widget _buildManualSyncActionRow(ThemeData theme) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: _isSyncing ? null : () => _startSync(false),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.download_outlined, size: 16),
+                    SizedBox(width: 6),
+                    Text('从电脑拉取全部', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                SizedBox(height: 2),
+                Text('以电脑端数据为准', style: TextStyle(fontSize: 10, color: Colors.grey)),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: _isSyncing ? null : () => _startSync(true),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.sync_alt, size: 16),
+                    SizedBox(width: 6),
+                    Text('立即双向合并', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '互通双端最新进度 (即时同步)',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: theme.colorScheme.onPrimary.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  /// 核心监控看板（占据下半部分剩余空间）
+  Widget _buildLiveSyncMonitorDashboard(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 看板头部标题与状态指示灯
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Row(
+              children: [
+                ValueListenableBuilder<SyncStatus>(
+                  valueListenable: _sync.statusNotifier,
+                  builder: (context, status, _) {
+                    Color dotColor = Colors.grey;
+                    String statusText = '监听待机中';
+                    if (status == SyncStatus.syncing) {
+                      dotColor = Colors.amber;
+                      statusText = '正在实时合并...';
+                    } else if (status == SyncStatus.discovering) {
+                      dotColor = Colors.blue;
+                      statusText = '正在探测主机...';
+                    } else if (status == SyncStatus.success) {
+                      dotColor = Colors.green;
+                      statusText = '实时同步就绪';
+                    } else if (status == SyncStatus.error) {
+                      dotColor = Colors.red;
+                      statusText = '网络断开/离线';
+                    }
+
+                    return Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: dotColor,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: dotColor.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          statusText,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                        ),
+                        ValueListenableBuilder<bool>(
+                          valueListenable: _sync.isSseConnectedNotifier,
+                          builder: (context, sseConnected, _) {
+                            if (!sseConnected) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.bolt, size: 11, color: Colors.green),
+                                    SizedBox(width: 2),
+                                    Text('SSE 实时通道活跃', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const Spacer(),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _sync.isAutoSyncEnabledNotifier,
+                  builder: (context, autoSync, _) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: autoSync
+                            ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                            : Colors.grey.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        autoSync ? '实时高频：已启用' : '实时高频：已停用',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: autoSync ? theme.colorScheme.primary : Colors.grey,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // 指标信息网格（上次同步时间、累计次数、当前网络）
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildMetricTile(
+                    label: '上次同步',
+                    icon: Icons.history_toggle_off_outlined,
+                    theme: theme,
+                    child: ValueListenableBuilder<DateTime?>(
+                      valueListenable: _sync.lastSyncTimeNotifier,
+                      builder: (context, dt, _) {
+                        if (dt == null) {
+                          return const Text('暂无', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600));
+                        }
+                        final h = dt.hour.toString().padLeft(2, '0');
+                        final m = dt.minute.toString().padLeft(2, '0');
+                        final s = dt.second.toString().padLeft(2, '0');
+                        return Text('$h:$m:$s', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold));
+                      },
+                    ),
+                  ),
+                ),
+                Container(height: 36, width: 1, color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+                Expanded(
+                  child: _buildMetricTile(
+                    label: '累计实时同步',
+                    icon: Icons.repeat,
+                    theme: theme,
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _sync.totalRealtimeSyncCountNotifier,
+                      builder: (context, count, _) {
+                        return Text('$count 次', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold));
+                      },
+                    ),
+                  ),
+                ),
+                Container(height: 36, width: 1, color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+                Expanded(
+                  child: _buildMetricTile(
+                    label: '网络适配',
+                    icon: Icons.lan_outlined,
+                    theme: theme,
+                    child: const Text('网线/WiFi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // 实时动态流水日志展示窗
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+            child: Row(
+              children: [
+                const Icon(Icons.receipt_long_outlined, size: 16),
+                const SizedBox(width: 6),
+                const Text(
+                  '实时同步动态流水',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: _autoDiscoverHost,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh, size: 13, color: theme.colorScheme.primary),
+                        const SizedBox(width: 2),
+                        Text(
+                          '快速探测',
+                          style: TextStyle(fontSize: 11, color: theme.colorScheme.primary, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Container(
+            height: 180,
+            margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.7)),
+            ),
+            child: ValueListenableBuilder<List<SyncLogItem>>(
+              valueListenable: _sync.syncLogsNotifier,
+              builder: (context, logs, _) {
+                if (logs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      '暂无同步流水，连接电脑后将在此实时展示事件',
+                      style: TextStyle(fontSize: 11, color: theme.hintColor),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: logs.length,
+                  itemBuilder: (context, index) {
+                    final item = logs[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.5),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '[${item.timeFormatted}]',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              color: theme.hintColor,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              item.message,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: item.isError ? Colors.redAccent : theme.colorScheme.onSurface,
+                                fontWeight: item.isError ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile({
+    required String label,
+    required IconData icon,
+    required ThemeData theme,
+    required Widget child,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 12, color: theme.hintColor),
+              const SizedBox(width: 4),
+              Text(label, style: TextStyle(fontSize: 10, color: theme.hintColor)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          child,
+        ],
+      ),
     );
   }
 }

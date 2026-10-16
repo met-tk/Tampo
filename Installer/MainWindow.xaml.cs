@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Net.Http;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -27,8 +29,8 @@ namespace NihongoVocab.Installer
 
     public partial class MainWindow : Window
     {
-        // ─── 常量 ────────────────────────────────────────────────────────────────
-        private const string NewVersion = "1.3.0";
+        // ─── 常量与元数据 ────────────────────────────────────────────────────────
+        private static readonly string NewVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.4.6";
         private const string RegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tampo";
 
         // ─── 字段 ────────────────────────────────────────────────────────────────
@@ -266,13 +268,53 @@ namespace NihongoVocab.Installer
         private async Task<bool> PromptAndKillRunningProcess()
         {
             var procs = new List<Process>();
-            procs.AddRange(Process.GetProcessesByName("Tampo"));
-            procs.AddRange(Process.GetProcessesByName("NihongoVocab"));
+            var procIds = new HashSet<int>();
+
+            void AddProcess(Process p)
+            {
+                try
+                {
+                    if (p.Id != Environment.ProcessId && procIds.Add(p.Id))
+                    {
+                        procs.Add(p);
+                    }
+                }
+                catch { }
+            }
+
+            // ① 查杀已知的 Tampo 核心主程序与后台守护服务进程
+            foreach (var name in new[] { "Tampo", "TampoSyncService", "NihongoVocab" })
+            {
+                foreach (var p in Process.GetProcessesByName(name))
+                {
+                    AddProcess(p);
+                }
+            }
+
+            // ② 按路径查杀目标安装目录下的所有相关可执行程序（防止重命名或其它衍生守护进程占用 DLL）
+            if (!string.IsNullOrWhiteSpace(_targetDirectory) && Directory.Exists(_targetDirectory))
+            {
+                string normTargetDir = Path.GetFullPath(_targetDirectory).TrimEnd('\\', '/');
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        string? modulePath = p.MainModule?.FileName;
+                        if (!string.IsNullOrEmpty(modulePath) &&
+                            modulePath.StartsWith(normTargetDir, StringComparison.OrdinalIgnoreCase))
+                        {
+                            AddProcess(p);
+                        }
+                    }
+                    catch { }
+                }
+            }
+
             if (procs.Count == 0) return true;
 
             string msg = _installState == InstallState.Upgrade
-                ? $"Tampo (v{_existingVersion}) is running. Close it to continue?"
-                : "Tampo is running. Close it to continue?";
+                ? $"Tampo 及其后台同步服务正在运行。是否立即关闭它们以继续安装？"
+                : "Tampo 及其后台同步服务正在运行。是否立即关闭它们以继续安装？";
 
             var result = MessageBox.Show(msg, "Tampo",
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -284,12 +326,29 @@ namespace NihongoVocab.Installer
 
             await Task.Run(() =>
             {
+                // 先尝试优雅退出守护进程
+                try
+                {
+                    using var http = new HttpClient { Timeout = TimeSpan.FromMilliseconds(800) };
+                    http.PostAsync("http://127.0.0.1:52080/api/control/stop", null).Wait();
+                }
+                catch { }
+
                 foreach (var p in procs)
                 {
-                    try { p.Kill(); p.WaitForExit(3000); }
+                    try
+                    {
+                        if (!p.HasExited)
+                        {
+                            p.Kill();
+                            p.WaitForExit(3000);
+                        }
+                    }
                     catch { }
                     finally { p.Dispose(); }
                 }
+                // 留出 300ms 保证 Windows 内核完全释放文件句柄
+                Thread.Sleep(300);
             });
             return true;
         }
@@ -361,7 +420,7 @@ namespace NihongoVocab.Installer
                         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                             Directory.CreateDirectory(dir);
 
-                        entry.ExtractToFile(dest, overwrite: true);
+                        SafeExtractToFile(entry, dest);
                         done++;
                         int pct = 20 + (int)(done / (double)total * 55);
                         UpdateProgress(pct, $"{_loc.StatusExtracting} ({done}/{total})");
@@ -420,6 +479,46 @@ namespace NihongoVocab.Installer
             }
         }
 
+        /// <summary>
+        /// 安全解压文件写入：带重试与 Windows 独占文件重命名热替换兜底，确保 100% 写入成功
+        /// </summary>
+        private static void SafeExtractToFile(ZipArchiveEntry entry, string dest)
+        {
+            int maxRetries = 3;
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    entry.ExtractToFile(dest, overwrite: true);
+                    return;
+                }
+                catch (IOException) when (attempt < maxRetries)
+                {
+                    Thread.Sleep(250);
+                }
+                catch (IOException)
+                {
+                    // 若重试仍被第三方占用，采用 Windows 原生允许的重命名热替换策略
+                    if (File.Exists(dest))
+                    {
+                        string tempOld = dest + ".old_" + Guid.NewGuid().ToString("N")[..8];
+                        try
+                        {
+                            File.Move(dest, tempOld);
+                            entry.ExtractToFile(dest, overwrite: true);
+                            try { File.Delete(tempOld); } catch { }
+                            return;
+                        }
+                        catch
+                        {
+                            throw;
+                        }
+                    }
+                    throw;
+                }
+            }
+        }
+
         /// <summary>清理旧版本程序文件（保留用户生词库数据目录，并校验安全子目录边界）</summary>
         private static void CleanOldProgramFiles(string dir)
         {
@@ -441,7 +540,7 @@ namespace NihongoVocab.Installer
                     return; // 仅允许清理专属应用子目录
                 }
 
-                // 删除根目录下所有文件
+                // 删除根目录下旧文件（含之前重命名遗留的 .old_* 临时文件）
                 foreach (var f in Directory.GetFiles(fullPath, "*", SearchOption.TopDirectoryOnly))
                 {
                     try
@@ -449,7 +548,17 @@ namespace NihongoVocab.Installer
                         File.SetAttributes(f, FileAttributes.Normal);
                         File.Delete(f);
                     }
-                    catch { }
+                    catch
+                    {
+                        // 若被锁，尝试移为临时名延后清理
+                        try
+                        {
+                            string purgePath = f + ".old_purge";
+                            File.Move(f, purgePath);
+                            File.Delete(purgePath);
+                        }
+                        catch { }
+                    }
                 }
                 // 删除子目录
                 foreach (var d in Directory.GetDirectories(fullPath))

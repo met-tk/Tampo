@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.3.0</value>
+    <value>v1.4.6</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>Daily Rollover Time</value>
@@ -1687,5 +1687,38 @@ Editing text will not affect study state or review logs.</value>
   </data>
   <data name="ButtonConfirmEdit" xml:space="preserve">
     <value>Save Changes</value>
+  </data>
+  <data name="DeviceStatusOnline" xml:space="preserve">
+    <value>Online (Connected)</value>
+  </data>
+  <data name="DeviceStatusOffline" xml:space="preserve">
+    <value>Offline</value>
+  </data>
+  <data name="SelectPullDeviceTitle" xml:space="preserve">
+    <value>Select Mobile Device</value>
+  </data>
+  <data name="SelectPullDeviceDesc" xml:space="preserve">
+    <value>Multiple mobile devices detected. Please select the target device to pull data from:</value>
+  </data>
+  <data name="ButtonStartPull" xml:space="preserve">
+    <value>Start Pull</value>
+  </data>
+  <data name="NoPairedDevicesTitle" xml:space="preserve">
+    <value>No Paired Mobile Devices</value>
+  </data>
+  <data name="NoPairedDevicesMsg" xml:space="preserve">
+    <value>No paired mobile devices found. Please generate a 6-digit pairing code and pair your phone first.</value>
+  </data>
+  <data name="PullTargetSentMsg" xml:space="preserve">
+    <value>Pull request successfully sent to [{0}].&#x0a;The phone will push its vocabulary and review logs to your PC shortly.</value>
+  </data>
+  <data name="PullTargetOfflineMsg" xml:space="preserve">
+    <value>Device [{0}] is currently offline.&#x0a;Please open Tampo on your phone and ensure both devices are on the same Wi-Fi network.</value>
+  </data>
+  <data name="EditDeviceAliasTitle" xml:space="preserve">
+    <value>Edit Device Alias</value>
+  </data>
+  <data name="DeviceAliasPlaceholder" xml:space="preserve">
+    <value>e.g., My Pixel 7, Primary Phone...</value>
   </data>
 </root>

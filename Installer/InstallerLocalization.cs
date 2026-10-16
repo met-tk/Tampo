@@ -47,12 +47,13 @@ namespace NihongoVocab.Installer
         private static InstallerLocalization Detect()
         {
             string culture = CultureInfo.CurrentUICulture.Name.ToLowerInvariant();
+            string ver = typeof(InstallerLocalization).Assembly.GetName().Version?.ToString(3) ?? "1.4.6";
             if (culture.StartsWith("ja"))
             {
                 return new InstallerLocalization
                 {
                     SetupTitle = "Tampo セットアップ",
-                    SetupSubtitle = "v1.3.0 現代的な日本語語彙・FSRS記憶学習ツール",
+                    SetupSubtitle = $"v{ver} 現代的な日本語語彙・FSRS記憶学習ツール",
                     InstallPathLabel = "インストール先フォルダー",
                     BrowseButton = "参照...",
                     DesktopShortcut = "デスクトップにショートカットを作成",
@@ -91,7 +92,7 @@ namespace NihongoVocab.Installer
                 return new InstallerLocalization
                 {
                     SetupTitle = "Tampo 安装向导",
-                    SetupSubtitle = "v1.3.0 现代日语生词与 FSRS 记忆宝库",
+                    SetupSubtitle = $"v{ver} 现代日语生词与 FSRS 记忆宝库",
                     InstallPathLabel = "安装目标目录",
                     BrowseButton = "浏览...",
                     DesktopShortcut = "创建桌面快捷方式",
@@ -130,7 +131,7 @@ namespace NihongoVocab.Installer
                 return new InstallerLocalization
                 {
                     SetupTitle = "Tampo Setup Wizard",
-                    SetupSubtitle = "v1.3.0 Modern Japanese Vocabulary & FSRS Memory Scheduler",
+                    SetupSubtitle = $"v{ver} Modern Japanese Vocabulary & FSRS Memory Scheduler",
                     InstallPathLabel = "Installation Directory",
                     BrowseButton = "Browse...",
                     DesktopShortcut = "Create Desktop Shortcut",

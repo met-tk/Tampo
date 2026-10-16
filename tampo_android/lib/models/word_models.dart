@@ -123,12 +123,14 @@ class Word {
     DateTime? lrDate = map['lastReviewDate'] != null
         ? DateTime.tryParse(map['lastReviewDate'].toString())?.toLocal()
         : null;
-    DateTime now = DateTime.now();
+    final epochZero = DateTime.fromMillisecondsSinceEpoch(0);
+    final fallbackStateDate = lrDate ?? cDate ?? epochZero;
+    final fallbackMetaDate = cDate ?? epochZero;
 
     return Word(
       id: map['id'] is int ? map['id'] : int.tryParse(map['id'].toString()) ?? 0,
       text: map['text']?.toString() ?? '',
-      createdAt: cDate ?? now,
+      createdAt: cDate ?? epochZero,
       isInList: map['isInList'] == 1 || map['isInList'] == true,
       wordListId: map['wordListId'] is int
           ? map['wordListId']
@@ -147,11 +149,11 @@ class Word {
           ? DateTime.tryParse(map['nextReviewDate'].toString())?.toLocal()
           : null,
       stateUpdatedAt: map['stateUpdatedAt'] != null
-          ? DateTime.tryParse(map['stateUpdatedAt'].toString())?.toLocal() ?? lrDate ?? cDate ?? now
-          : lrDate ?? cDate ?? now,
+          ? DateTime.tryParse(map['stateUpdatedAt'].toString())?.toLocal() ?? fallbackStateDate
+          : fallbackStateDate,
       metaUpdatedAt: map['metaUpdatedAt'] != null
-          ? DateTime.tryParse(map['metaUpdatedAt'].toString())?.toLocal() ?? cDate ?? now
-          : cDate ?? now,
+          ? DateTime.tryParse(map['metaUpdatedAt'].toString())?.toLocal() ?? fallbackMetaDate
+          : fallbackMetaDate,
     );
   }
 }
@@ -203,6 +205,7 @@ class WordList {
 class ReviewLog {
   int id;
   int wordId;
+  String? wordText;
   DateTime reviewDate;
   int rating; // 1=Again, 2=Hard, 3=Good, 4=Easy
   int state;
@@ -216,6 +219,7 @@ class ReviewLog {
   ReviewLog({
     this.id = 0,
     required this.wordId,
+    this.wordText,
     DateTime? reviewDate,
     required this.rating,
     this.state = 0,
@@ -249,6 +253,7 @@ class ReviewLog {
   Map<String, dynamic> toSyncMap() {
     return {
       ...toMap(),
+      if (wordText != null && wordText!.isNotEmpty) 'wordText': wordText,
       'stabilityAfter': stability,
       'difficultyAfter': difficulty,
     };
@@ -269,6 +274,7 @@ class ReviewLog {
     return ReviewLog(
       id: map['id'] is int ? map['id'] : int.tryParse(map['id'].toString()) ?? 0,
       wordId: map['wordId'] is int ? map['wordId'] : int.tryParse(map['wordId']?.toString() ?? '') ?? 0,
+      wordText: map['wordText']?.toString(),
       reviewDate: map['reviewDate'] != null
           ? DateTime.tryParse(map['reviewDate'].toString())?.toLocal() ?? DateTime.now()
           : DateTime.now(),

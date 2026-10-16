@@ -32,7 +32,7 @@ namespace NihongoVocab.Tests
         public void NetworkEndpoints_Should_Prioritize_Ethernet_And_Filter_Virtual_Adapters()
         {
             var service = LanSyncService.Instance;
-            var endpoints = service.GetNetworkEndpoints();
+            var endpoints = LanSyncService.GetNetworkEndpoints();
 
             Assert.NotNull(endpoints);
             Assert.NotEmpty(endpoints);
@@ -396,7 +396,7 @@ namespace NihongoVocab.Tests
         }
 
         [Fact]
-        public async Task LanSyncService_SameDayCrossDeviceLogs_Should_DeduplicateToLatest_And_WriteOldTombstone()
+        public async Task LanSyncService_SameDayCrossDeviceLogs_Should_DeduplicateToLatest_WithoutFakeTombstone()
         {
             var (dbPath, db, service) = CreateIsolatedSyncEnv();
             string testWord = "同日跨端去重词_" + Guid.NewGuid().ToString("N").Substring(0, 6);
@@ -475,9 +475,9 @@ namespace NihongoVocab.Tests
                 Assert.Equal(3, wordLogs[0].Rating);
                 Assert.Equal(afternoonTime.ToString("yyyyMMddHHmmss"), wordLogs[0].ReviewDate.ToString("yyyyMMddHHmmss"));
 
-                // 验证 2：旧时间戳（早上 09:15:10）已自动生成 review_log 墓碑防复活
+                // 验证 2：同一自然日更新日志绝不产生伪造删除墓碑，杜绝丢数据
                 var tombstones = await db.GetAllTombstonesAsync();
-                Assert.Contains(tombstones, t => t.EntityType == "review_log" && t.EntityKey == oldTombKey);
+                Assert.DoesNotContain(tombstones, t => t.EntityType == "review_log" && t.EntityKey == oldTombKey);
 
                 // 验证 3：单词 FSRS 状态与归并后的唯一日志保持一致（Reps=1，绝不虚增为 2）
                 var mergedWord = (await db.GetAllWordsAsync()).Find(w => w.Id == insertedWord.Id)!;
