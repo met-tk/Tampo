@@ -16,7 +16,7 @@ namespace NihongoVocab.Services
         private ResourceContext? _resourceContext;
 #endif
         private string _currentLanguage = "zh-CN";
-        public static readonly string AppVersion = typeof(LocalizationService).Assembly.GetName().Version?.ToString(3) ?? "1.4.8";
+        public static readonly string AppVersion = typeof(LocalizationService).Assembly.GetName().Version?.ToString(3) ?? "1.5.0";
 
         public event PropertyChangedEventHandler? PropertyChanged;
         public event EventHandler? LanguageChanged;

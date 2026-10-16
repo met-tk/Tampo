@@ -158,7 +158,7 @@ class SyncService {
                 'port': 52080,
                 'host': hostParts,
                 'name': name,
-                'version': (pingData['version'] ?? '1.4.8').toString(),
+                'version': (pingData['version'] ?? '1.5.0').toString(),
               };
               completer.complete(info);
             } catch (_) {}
@@ -222,7 +222,7 @@ class SyncService {
                   'port': port,
                   'host': '$ip:$port',
                   'name': pcName,
-                  'version': json['version']?.toString() ?? '1.4.8',
+                  'version': json['version']?.toString() ?? '1.5.0',
                 };
                 if (!completer.isCompleted) {
                   completer.complete(info);
@@ -259,7 +259,7 @@ class SyncService {
                             'port': 52080,
                             'host': '$targetIp:52080',
                             'name': name,
-                            'version': (pingData['version'] ?? '1.4.8').toString(),
+                            'version': (pingData['version'] ?? '1.5.0').toString(),
                           };
                           completer.complete(info);
                         }

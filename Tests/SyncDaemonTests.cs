@@ -100,7 +100,7 @@ namespace NihongoVocab.Tests
             {
                 status = "ok",
                 service = "TampoSyncService",
-                version = "1.4.8",
+                version = "1.5.0",
                 name = "DESKTOP-TEST"
             };
 
@@ -110,7 +110,7 @@ namespace NihongoVocab.Tests
 
             Assert.Equal("ok", root.GetProperty("status").GetString());
             Assert.Equal("TampoSyncService", root.GetProperty("service").GetString());
-            Assert.Equal("1.4.8", root.GetProperty("version").GetString());
+            Assert.Equal("1.5.0", root.GetProperty("version").GetString());
             Assert.Equal("DESKTOP-TEST", root.GetProperty("name").GetString());
         }
 
@@ -387,7 +387,7 @@ namespace NihongoVocab.Tests
 
             Assert.Equal("ok", root.GetProperty("status").GetString());
             Assert.Equal("TampoSyncService", root.GetProperty("service").GetString());
-            Assert.Equal("1.4.8", root.GetProperty("version").GetString());
+            Assert.Equal("1.5.0", root.GetProperty("version").GetString());
             Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("name").GetString()), "主机名称不能为空");
 
             // 3. 停止服务并验证运行状态
