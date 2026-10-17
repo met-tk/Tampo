@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace NihongoVocab.Services
 {
     /// <summary>
-    /// 主程序后台监听器：监听跨进程事件与 data_version 变动，并安全调度到 UI 线程刷新
+    /// 监听词库同步内容的跨进程变更，忽略设置和设备活跃时间等辅助写入。
     /// </summary>
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public sealed class CrossProcessEventListener : IDisposable
@@ -18,6 +18,7 @@ namespace NihongoVocab.Services
         private Thread? _listenerThread;
         private EventWaitHandle? _waitHandle;
         private long _lastKnownDataVersion = -1;
+        private long _lastKnownExternalVersion = -1;
         private int _isChecking = 0;
         private int _hasPendingCheck = 0;
         private int _disposed = 0;
@@ -26,31 +27,34 @@ namespace NihongoVocab.Services
         /// 构造监听器
         /// </summary>
         /// <param name="dbService">数据库服务引用</param>
-        /// <param name="onDataChangedAction">变动发生时触发的回调（若未提供，默认调用 DatabaseService.NotifyDataChanged）</param>
+        /// <param name="onDataChangedAction">词库变动时触发的回调（默认只刷新当前进程的视图）</param>
         /// <param name="eventName">自定义事件名称，若为 null 则使用默认 EventName</param>
         public CrossProcessEventListener(DatabaseService dbService, Action? onDataChangedAction = null, string? eventName = null)
         {
             _dbService = dbService ?? throw new ArgumentNullException(nameof(dbService));
-            _onDataChangedAction = onDataChangedAction ?? (() => DatabaseService.NotifyDataChanged());
+            _onDataChangedAction = onDataChangedAction ?? DatabaseService.NotifyViewDataChanged;
             _eventName = eventName ?? CrossProcessEventHelper.EventName;
         }
 
         /// <summary>
-        /// 启动后台监听线程
+        /// 获取基线后启动后台监听线程，避免启动期间的第一笔写入被当作基线吞掉。
         /// </summary>
-        public void Start()
+        public async Task StartAsync()
         {
             if (_disposed != 0 || _listenerThread != null) return;
 
-            // 获取初始 data_version 基准
-            Task.Run(async () =>
+            long before;
+            long after;
+            do
             {
-                try
-                {
-                    _lastKnownDataVersion = await _dbService.GetDataVersionAsync();
-                }
-                catch { }
-            });
+                before = await _dbService.GetDataVersionAsync();
+                _lastKnownDataVersion = await _dbService.GetSyncContentVersionAsync();
+                after = await _dbService.GetDataVersionAsync();
+            }
+            while (before != after);
+            _lastKnownExternalVersion = after;
+
+            if (_disposed != 0 || _listenerThread != null) return;
 
             _waitHandle = CrossProcessEventHelper.TryCreateOrOpenEvent(_eventName);
 
@@ -67,7 +71,9 @@ namespace NihongoVocab.Services
 
         private void ListenLoop()
         {
-            var cancelHandle = _cts.Token.WaitHandle;
+            WaitHandle cancelHandle;
+            try { cancelHandle = _cts.Token.WaitHandle; }
+            catch (ObjectDisposedException) { return; }
             WaitHandle[]? handles = _waitHandle != null ? new[] { _waitHandle, cancelHandle } : null;
 
             while (!_cts.IsCancellationRequested && _disposed == 0)
@@ -150,18 +156,32 @@ namespace NihongoVocab.Services
                         await Task.Delay(50, _cts.Token);
                     }
 
-                    long currentVersion = await _dbService.GetDataVersionAsync();
+                    long externalVersionBefore = await _dbService.GetDataVersionAsync();
+                    long currentVersion = await _dbService.GetSyncContentVersionAsync();
+                    long externalVersionAfter = await _dbService.GetDataVersionAsync();
+                    if (externalVersionBefore != externalVersionAfter)
+                    {
+                        Interlocked.Exchange(ref _hasPendingCheck, 1);
+                        continue;
+                    }
 
                     if (_lastKnownDataVersion < 0)
                     {
                         _lastKnownDataVersion = currentVersion;
+                        _lastKnownExternalVersion = externalVersionAfter;
                     }
                     else if (currentVersion != _lastKnownDataVersion)
                     {
+                        bool isExternalChange = externalVersionAfter != _lastKnownExternalVersion;
                         _lastKnownDataVersion = currentVersion;
+                        _lastKnownExternalVersion = externalVersionAfter;
 
-                        // 安全派发
-                        _onDataChangedAction?.Invoke();
+                        if (isExternalChange)
+                            _onDataChangedAction.Invoke();
+                    }
+                    else
+                    {
+                        _lastKnownExternalVersion = externalVersionAfter;
                     }
 
                     // 后续微批次无需重复 50ms 延迟
@@ -193,20 +213,9 @@ namespace NihongoVocab.Services
                 // 边缘竞态检测：如果在跳出循环到重置 _isChecking 瞬间到达了新信号，重新拉起一次安全检查
                 if (Interlocked.Exchange(ref _hasPendingCheck, 0) == 1 && _disposed == 0 && !_cts.IsCancellationRequested)
                 {
-                    if (Interlocked.CompareExchange(ref _isChecking, 1, 0) == 0)
-                    {
-                        _ = CheckDataVersionAndDispatchAsync(isPushEvent: false);
-                    }
+                    _ = CheckDataVersionAndDispatchAsync(isPushEvent: false);
                 }
             }
-        }
-
-        /// <summary>
-        /// 记录本地写事务后的最新版本，防止本进程自身触发误报刷新
-        /// </summary>
-        public void UpdateLocalVersion(long newVersion)
-        {
-            _lastKnownDataVersion = newVersion;
         }
 
         public void Dispose()

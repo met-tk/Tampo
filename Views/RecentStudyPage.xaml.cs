@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -13,6 +14,8 @@ namespace NihongoVocab.Views
     public sealed partial class RecentStudyPage : Page
     {
         public RecentStudyViewModel ViewModel { get; }
+        private readonly DataRefreshGate _dataRefreshGate = new(
+            () => DatabaseService.DataRevision, getPeriod: () => FsrsEngine.GetLogicalToday().Ticks);
 
         public RecentStudyPage()
         {
@@ -62,7 +65,6 @@ namespace NihongoVocab.Views
 
             if (TimeSpanComboBox != null)
             {
-                int curTimeIdx = TimeSpanComboBox.SelectedIndex;
                 foreach (ComboBoxItem item in TimeSpanComboBox.Items)
                 {
                     if (item.Tag is string tag)
@@ -77,16 +79,10 @@ namespace NihongoVocab.Views
                         };
                     }
                 }
-                if (curTimeIdx >= 0)
-                {
-                    TimeSpanComboBox.SelectedIndex = -1;
-                    TimeSpanComboBox.SelectedIndex = curTimeIdx;
-                }
             }
 
             if (StateFilterComboBox != null)
             {
-                int curStateIdx = StateFilterComboBox.SelectedIndex;
                 foreach (ComboBoxItem item in StateFilterComboBox.Items)
                 {
                     if (item.Tag is string tag)
@@ -101,11 +97,6 @@ namespace NihongoVocab.Views
                             _ => item.Content
                         };
                     }
-                }
-                if (curStateIdx >= 0)
-                {
-                    StateFilterComboBox.SelectedIndex = -1;
-                    StateFilterComboBox.SelectedIndex = curStateIdx;
                 }
             }
         }
@@ -154,7 +145,8 @@ namespace NihongoVocab.Views
                 {
                     if (ViewModel != null)
                     {
-                        await ViewModel.LoadDataAsync();
+                        if (ReferenceEquals(Frame?.Content, this))
+                            await RefreshDataIfNeededAsync();
                     }
                 });
             }
@@ -167,7 +159,6 @@ namespace NihongoVocab.Views
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            UpdateLocalizedStrings();
             DatabaseService.DataChanged -= OnDatabaseDataChanged;
             DatabaseService.DataChanged += OnDatabaseDataChanged;
 
@@ -175,7 +166,7 @@ namespace NihongoVocab.Views
             {
                 if (ViewModel != null)
                 {
-                    await ViewModel.LoadDataAsync();
+                    await RefreshDataIfNeededAsync();
                 }
             }
             catch (Exception ex)
@@ -194,9 +185,12 @@ namespace NihongoVocab.Views
         {
             if (ViewModel != null)
             {
-                await ViewModel.LoadDataAsync();
+                await RefreshDataIfNeededAsync(force: true);
             }
         }
+
+        private Task RefreshDataIfNeededAsync(bool force = false) =>
+            _dataRefreshGate.RefreshIfNeededAsync(ViewModel.LoadDataAsync, force);
 
         private void TimeSpanComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {

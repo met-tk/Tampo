@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -15,6 +16,7 @@ namespace NihongoVocab.Views
     public sealed partial class AllWordsPage : Page
     {
         public AllWordsViewModel ViewModel { get; }
+        private readonly DataRefreshGate _dataRefreshGate = new();
 
         private bool _isResizing;
         private double _startPointerX;
@@ -137,7 +139,6 @@ namespace NihongoVocab.Views
             var loc = LocalizationService.Instance;
             if (DimensionComboBox != null)
             {
-                int curDimIdx = DimensionComboBox.SelectedIndex;
                 foreach (ComboBoxItem item in DimensionComboBox.Items)
                 {
                     if (item.Tag is string tag)
@@ -152,11 +153,6 @@ namespace NihongoVocab.Views
                             _ => item.Content
                         };
                     }
-                }
-                if (curDimIdx >= 0)
-                {
-                    DimensionComboBox.SelectedIndex = -1;
-                    DimensionComboBox.SelectedIndex = curDimIdx;
                 }
             }
 
@@ -233,13 +229,11 @@ namespace NihongoVocab.Views
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            UpdateLocalizedStrings();
             DatabaseService.DataChanged -= OnDatabaseDataChanged;
             DatabaseService.DataChanged += OnDatabaseDataChanged;
             try
             {
-                await ViewModel.LoadDataAsync();
-                RefreshTreeRootNodes();
+                await RefreshDataIfNeededAsync();
             }
             catch (Exception ex)
             {
@@ -259,8 +253,8 @@ namespace NihongoVocab.Views
             {
                 DispatcherQueue.TryEnqueue(async () =>
                 {
-                    await ViewModel.LoadDataAsync();
-                    RefreshTreeRootNodes();
+                    if (ReferenceEquals(Frame?.Content, this))
+                        await RefreshDataIfNeededAsync();
                 });
             }
             catch (Exception ex)
@@ -268,6 +262,12 @@ namespace NihongoVocab.Views
                 CrashLogger.LogException(ex, "AllWordsPage.OnDatabaseDataChanged");
             }
         }
+
+        private Task RefreshDataIfNeededAsync() => _dataRefreshGate.RefreshIfNeededAsync(async () =>
+        {
+            await ViewModel.LoadDataAsync();
+            RefreshTreeRootNodes();
+        });
 
         private static readonly InputSystemCursor _sizeWestEastCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
         private static readonly InputSystemCursor _sizeNorthSouthCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);

@@ -16,7 +16,7 @@ namespace NihongoVocab.Services
         private ResourceContext? _resourceContext;
 #endif
         private string _currentLanguage = "zh-CN";
-        public static readonly string AppVersion = typeof(LocalizationService).Assembly.GetName().Version?.ToString(3) ?? "1.5.0";
+        public static readonly string AppVersion = typeof(LocalizationService).Assembly.GetName().Version?.ToString(3) ?? "1.5.2";
 
         public event PropertyChangedEventHandler? PropertyChanged;
         public event EventHandler? LanguageChanged;
@@ -728,7 +728,7 @@ namespace NihongoVocab.Services
                     "SyncAutostartLabel" => "PC起動時にサービスを自動開始",
                     "SyncAutostartDesc" => "Windows 起動時にバックグラウンドで同期サービスを常駐させます。PC側アプリを起動していなくてもスマホからいつでも同期できます",
                     "PairingSectionTitle" => "新しいモバイル端末を連携",
-                    "PairingSectionDesc" => "スマホ側でこの6桁のペアリングコードを入力すると長期間の自動接続が確立され、以降はIPやコードの手動設定が不要になります",
+                    "PairingSectionDesc" => "この6桁コードは5分間有効です。スマホで入力すると長期間の自動接続が確立され、以降はIPやコードの手動設定が不要になります",
                     "ButtonGeneratePairingCode" => "6桁ペアリングコードを生成",
                     "PairedDevicesTitle" => "連携済みデバイス管理",
                     "PairedDevicesDesc" => "長期間の同期を許可された端末です。連携を解除すると同期権限が無効になり、再ペアリングが必要になります",
@@ -1355,7 +1355,7 @@ namespace NihongoVocab.Services
                     "SyncAutostartLabel" => "Auto-start Daemon on Boot",
                     "SyncAutostartDesc" => "Automatically runs the sync daemon in background after Windows starts, enabling instant sync from mobile at any time.",
                     "PairingSectionTitle" => "Pair New Mobile Device",
-                    "PairingSectionDesc" => "Enter this 6-digit pairing code on your mobile device to establish persistent pairing without needing manual IP configuration.",
+                    "PairingSectionDesc" => "This 6-digit code is valid for 5 minutes. Enter it on your mobile device to establish persistent pairing without manual IP or code entry.",
                     "ButtonGeneratePairingCode" => "Generate 6-Digit Pairing Code",
                     "PairedDevicesTitle" => "Paired Devices Management",
                     "PairedDevicesDesc" => "Devices authorized for persistent sync. Unbinding removes sync permission and requires re-pairing.",
@@ -1982,7 +1982,7 @@ namespace NihongoVocab.Services
                     "SyncAutostartLabel" => "开机自启动守护服务",
                     "SyncAutostartDesc" => "Windows 开机后自动在后台静默运行同步服务，手机端可随时即刻同步，无需先手动打开电脑主程序",
                     "PairingSectionTitle" => "绑定新移动设备",
-                    "PairingSectionDesc" => "在手机端输入此 6 位配对码即可建立长效免密绑定，后续无需再手动配置 IP 或配对码",
+                    "PairingSectionDesc" => "此 6 位配对码有效期为 5 分钟。在手机端输入后即可建立长效免密绑定，后续无需再手动配置 IP 或配对码",
                     "ButtonGeneratePairingCode" => "生成 6 位配对码",
                     "PairedDevicesTitle" => "已绑定设备管理",
                     "PairedDevicesDesc" => "已获得长期同步授权的移动设备。解除绑定后，该设备将失去同步权限并需重新配对",

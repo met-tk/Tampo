@@ -20,6 +20,7 @@ namespace NihongoVocab.Views
         public WordListViewModel ViewModel => App.GetService<WordListViewModel>();
 
         public ObservableCollection<Word> FilteredWords { get; } = new();
+        private readonly DataRefreshGate _dataRefreshGate = new();
 
         public Visibility GetListSelectedVisibility(bool isCustomListSelected)
         {
@@ -143,7 +144,6 @@ namespace NihongoVocab.Views
 
             if (DimensionComboBox != null)
             {
-                int curDimIdx = DimensionComboBox.SelectedIndex;
                 foreach (ComboBoxItem item in DimensionComboBox.Items)
                 {
                     if (item.Tag is string tag)
@@ -158,11 +158,6 @@ namespace NihongoVocab.Views
                             _ => item.Content
                         };
                     }
-                }
-                if (curDimIdx >= 0)
-                {
-                    DimensionComboBox.SelectedIndex = -1;
-                    DimensionComboBox.SelectedIndex = curDimIdx;
                 }
             }
 
@@ -222,14 +217,10 @@ namespace NihongoVocab.Views
             base.OnNavigatedTo(e);
             try
             {
-                UpdateLocalizedStrings();
                 DatabaseService.DataChanged -= OnDatabaseDataChanged;
                 DatabaseService.DataChanged += OnDatabaseDataChanged;
 
-                await ViewModel.LoadDataAsync();
-                RefreshTreeRootNodes();
-                ApplySearchFilter();
-                UpdateBatchMoveFlyout();
+                await RefreshDataIfNeededAsync();
             }
             catch (Exception ex)
             {
@@ -241,12 +232,18 @@ namespace NihongoVocab.Views
         {
             DispatcherQueue.TryEnqueue(async () =>
             {
-                await ViewModel.LoadDataAsync();
-                RefreshTreeRootNodes();
-                ApplySearchFilter();
-                UpdateBatchMoveFlyout();
+                if (ReferenceEquals(Frame?.Content, this))
+                    await RefreshDataIfNeededAsync();
             });
         }
+
+        private Task RefreshDataIfNeededAsync() => _dataRefreshGate.RefreshIfNeededAsync(async () =>
+        {
+            await ViewModel.LoadDataAsync();
+            RefreshTreeRootNodes();
+            ApplySearchFilter();
+            UpdateBatchMoveFlyout();
+        });
 
         private void FlatLevelModeCheckBox_Click(object sender, RoutedEventArgs e)
         {

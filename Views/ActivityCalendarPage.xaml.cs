@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -13,6 +14,8 @@ namespace NihongoVocab.Views
     public sealed partial class ActivityCalendarPage : Page
     {
         public ActivityCalendarViewModel ViewModel { get; }
+        private readonly DataRefreshGate _dataRefreshGate = new(
+            () => DatabaseService.DataRevision, getPeriod: () => FsrsEngine.GetLogicalToday().Ticks);
 
         public ActivityCalendarPage()
         {
@@ -103,8 +106,8 @@ namespace NihongoVocab.Views
         {
             DispatcherQueue.TryEnqueue(async () =>
             {
-                await ViewModel.LoadDataAsync();
-                UpdateViewModeUI();
+                if (ReferenceEquals(Frame?.Content, this))
+                    await RefreshDataIfNeededAsync();
             });
         }
 
@@ -116,14 +119,19 @@ namespace NihongoVocab.Views
 
             try
             {
-                await ViewModel.LoadDataAsync();
-                UpdateViewModeUI();
+                await RefreshDataIfNeededAsync();
             }
             catch (Exception ex)
             {
                 CrashLogger.LogException(ex, "ActivityCalendarPage.OnNavigatedTo");
             }
         }
+
+        private Task RefreshDataIfNeededAsync() => _dataRefreshGate.RefreshIfNeededAsync(async () =>
+        {
+            await ViewModel.LoadDataAsync();
+            UpdateViewModeUI();
+        });
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {

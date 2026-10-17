@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -100,7 +101,7 @@ namespace NihongoVocab.Tests
             {
                 status = "ok",
                 service = "TampoSyncService",
-                version = "1.5.0",
+                version = "1.5.2",
                 name = "DESKTOP-TEST"
             };
 
@@ -110,7 +111,7 @@ namespace NihongoVocab.Tests
 
             Assert.Equal("ok", root.GetProperty("status").GetString());
             Assert.Equal("TampoSyncService", root.GetProperty("service").GetString());
-            Assert.Equal("1.5.0", root.GetProperty("version").GetString());
+            Assert.Equal("1.5.2", root.GetProperty("version").GetString());
             Assert.Equal("DESKTOP-TEST", root.GetProperty("name").GetString());
         }
 
@@ -387,7 +388,7 @@ namespace NihongoVocab.Tests
 
             Assert.Equal("ok", root.GetProperty("status").GetString());
             Assert.Equal("TampoSyncService", root.GetProperty("service").GetString());
-            Assert.Equal("1.5.0", root.GetProperty("version").GetString());
+            Assert.Equal("1.5.2", root.GetProperty("version").GetString());
             Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("name").GetString()), "主机名称不能为空");
 
             // 3. 停止服务并验证运行状态
@@ -448,6 +449,74 @@ namespace NihongoVocab.Tests
             Assert.Equal(HttpStatusCode.Forbidden, replayResponse.StatusCode);
 
             server.Stop();
+        }
+
+        [Fact]
+        public async Task HttpSyncServer_PairEndpoint_LimitsRepeatedInvalidCodes()
+        {
+            var db = new DatabaseService(CreateTempDbPath());
+            await db.InitializeAsync();
+            using var shutdownCts = new CancellationTokenSource();
+            int port = GetAvailablePort(52102);
+            using var server = new HttpSyncServer(db, shutdownCts, port);
+            server.Start();
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+            for (int i = 0; i < 5; i++)
+            {
+                using var content = new StringContent("{\"code\":\"000000\"}", Encoding.UTF8, "application/json");
+                using var response = await client.PostAsync($"http://127.0.0.1:{port}/api/pair", content);
+                Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            }
+
+            string validCode = await db.CreatePairingCodeAsync();
+            using var validContent = new StringContent($"{{\"code\":\"{validCode}\"}}", Encoding.UTF8, "application/json");
+            using var lockedResponse = await client.PostAsync($"http://127.0.0.1:{port}/api/pair", validContent);
+            Assert.Equal(HttpStatusCode.TooManyRequests, lockedResponse.StatusCode);
+            Assert.NotNull(await db.GetPairingSessionAsync(validCode));
+        }
+
+        [Fact]
+        public async Task HttpSyncServer_UnauthenticatedPush_RejectsBeforeReadingLargeBody()
+        {
+            var db = new DatabaseService(CreateTempDbPath());
+            await db.InitializeAsync();
+            using var shutdownCts = new CancellationTokenSource();
+            int port = GetAvailablePort(52103);
+            using var server = new HttpSyncServer(db, shutdownCts, port);
+            server.Start();
+
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, port);
+            using var stream = client.GetStream();
+            byte[] request = Encoding.ASCII.GetBytes(
+                "POST /api/sync/push HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 52428800\r\n\r\n");
+            await stream.WriteAsync(request);
+            byte[] response = new byte[256];
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            int read = await stream.ReadAsync(response, timeout.Token);
+            Assert.StartsWith("HTTP/1.1 401", Encoding.ASCII.GetString(response, 0, read));
+        }
+
+        [Fact]
+        public async Task HttpSyncServer_LocalControl_RejectsBrowserOrigin()
+        {
+            var db = new DatabaseService(CreateTempDbPath());
+            await db.InitializeAsync();
+            using var shutdownCts = new CancellationTokenSource();
+            int port = GetAvailablePort(52104);
+            using var server = new HttpSyncServer(db, shutdownCts, port);
+            server.Start();
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{port}/api/control/stop");
+            request.Headers.TryAddWithoutValidation("Origin", "https://example.com");
+            using var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.False(shutdownCts.IsCancellationRequested);
+
+            using var getResponse = await client.GetAsync($"http://127.0.0.1:{port}/api/control/maintenance-mode?enabled=true");
+            Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
         }
 
         [Fact]

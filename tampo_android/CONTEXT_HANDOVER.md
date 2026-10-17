@@ -2,7 +2,7 @@
 
 > **项目名称**：Tampo Android (日语词汇宝库移动端)  
 > **基线源头**：移植自 Windows 电脑端原版 Tampo (WinUI 3 / .NET 8 / C#)  
-> **当前版本**：v1.2.3 (纯净版本，无构建号)  
+> **当前版本**：v1.5.2 (纯净版本，无构建号)
 > **制作人署名**：AI-driven by Taketo  
 > **设计哲学**：黑白极简主义（Black & White Minimalism），零多余 Emoji，极速响应，离线优先。
 

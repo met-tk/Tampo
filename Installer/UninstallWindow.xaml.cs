@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -67,10 +66,13 @@ namespace NihongoVocab.Installer
                         var psi = new ProcessStartInfo
                         {
                             FileName = runnerExe,
-                            Arguments = $"--uninstall --temp-runner --target-dir \"{_appDirectory}\"",
                             WorkingDirectory = tempDir,
-                            UseShellExecute = true
+                            UseShellExecute = false
                         };
+                        psi.ArgumentList.Add("--uninstall");
+                        psi.ArgumentList.Add("--temp-runner");
+                        psi.ArgumentList.Add("--target-dir");
+                        psi.ArgumentList.Add(_appDirectory);
                         Process.Start(psi);
 
                         // 立即退出原安装目录下的卸载进程
@@ -112,32 +114,58 @@ namespace NihongoVocab.Installer
 
             bool keepData = KeepUserDataCheckBox.IsChecked == true;
 
-            await Task.Run(() => PerformUninstall(keepData));
+            var result = await Task.Run(() => PerformUninstall(keepData));
 
             ProgressStepPanel.Visibility = Visibility.Collapsed;
-            FinishStepPanel.Visibility = Visibility.Visible;
+            if (result.Success)
+            {
+                FinishStepPanel.Visibility = Visibility.Visible;
+                if (result.CleanupIncomplete)
+                    MessageBox.Show("Tampo was removed, but some user data or shortcuts could not be deleted.",
+                        "Tampo", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else
+            {
+                ConfirmStepPanel.Visibility = Visibility.Visible;
+                MessageBox.Show("Uninstallation could not complete. The installed files and registration were left in place where possible.",
+                    "Tampo", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
-        private void PerformUninstall(bool keepData)
+        private (bool Success, bool CleanupIncomplete) PerformUninstall(bool keepData)
         {
             try
             {
+                bool cleanupIncomplete = false;
+                if (!IsSafeDirectoryToDelete(_appDirectory))
+                    throw new InvalidDataException("Uninstallation target is not a verified Tampo installation.");
+
                 UpdateProgress(15, _loc.UninstallingTitle);
 
                 // 1. 关闭任何可能还在运行的 Tampo / NihongoVocab 进程
                 try
                 {
-                    var procs = new List<Process>();
-                    procs.AddRange(Process.GetProcessesByName("Tampo"));
-                    procs.AddRange(Process.GetProcessesByName("NihongoVocab"));
-                    foreach (var p in procs)
+                    string targetPrefix = Path.GetFullPath(_appDirectory).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+                    foreach (var name in new[] { "Tampo", "NihongoVocab", "TampoSyncService" })
                     {
-                        try { p.Kill(); p.WaitForExit(3000); }
-                        catch { }
-                        finally { p.Dispose(); }
+                        foreach (var p in Process.GetProcessesByName(name))
+                        {
+                            try
+                            {
+                                string? path = p.MainModule?.FileName;
+                                if (p.Id != Environment.ProcessId && path != null &&
+                                    path.StartsWith(targetPrefix, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    p.Kill();
+                                    p.WaitForExit(3000);
+                                }
+                            }
+                            catch { }
+                            finally { p.Dispose(); }
+                        }
                     }
                 }
-                catch { }
+                catch { cleanupIncomplete = true; }
 
                 UpdateProgress(35, _loc.UninstallingTitle);
 
@@ -150,19 +178,15 @@ namespace NihongoVocab.Installer
                     string startMenuLnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Tampo.lnk");
                     if (File.Exists(startMenuLnk)) File.Delete(startMenuLnk);
                 }
-                catch { }
+                catch { cleanupIncomplete = true; }
 
                 UpdateProgress(55, _loc.UninstallingTitle);
 
-                // 3. 清理注册表卸载信息
-                try
-                {
-                    Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tampo", throwOnMissingSubKey: false);
-                    Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\NihongoVocab", throwOnMissingSubKey: false);
-                }
-                catch { }
+                // 先移除程序目录；若失败，保留用户数据供重试。
+                if (!ForceDeleteDirectory(_appDirectory))
+                    throw new IOException("The installation directory could not be removed.");
 
-                // 4. 清理本地缓存数据（若用户不保留）
+                // 清理本地缓存数据（若用户不保留）
                 if (!keepData)
                 {
                     UpdateProgress(70, _loc.UninstallingTitle);
@@ -171,38 +195,42 @@ namespace NihongoVocab.Installer
                         string localAppDataNihongo = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NihongoVocab");
                         if (Directory.Exists(localAppDataNihongo))
                         {
-                            ForceDeleteDirectory(localAppDataNihongo);
+                            if (!ForceDeleteDirectory(localAppDataNihongo, userDataDirectory: true))
+                                cleanupIncomplete = true;
                         }
 
                         string localAppDataTampo = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Tampo");
                         if (Directory.Exists(localAppDataTampo))
                         {
-                            ForceDeleteDirectory(localAppDataTampo);
+                            if (!ForceDeleteDirectory(localAppDataTampo, userDataDirectory: true))
+                                cleanupIncomplete = true;
                         }
                     }
-                    catch { }
+                    catch { cleanupIncomplete = true; }
                 }
 
-                UpdateProgress(85, _loc.UninstallingTitle);
-
-                // 5. 彻底物理销毁整个安装目标目录及其下所有文件和子目录（仅当通过安全目录边界验证时执行）
-                if (!string.IsNullOrEmpty(_appDirectory) && Directory.Exists(_appDirectory) && IsSafeDirectoryToDelete(_appDirectory))
+                // 只有程序目录确实移除后，才注销卸载项，便于失败时重试。
+                try
                 {
-                    ForceDeleteDirectory(_appDirectory);
+                    Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tampo", throwOnMissingSubKey: false);
+                    Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\NihongoVocab", throwOnMissingSubKey: false);
                 }
+                catch { cleanupIncomplete = true; }
 
                 UpdateProgress(100, _loc.UninstallSuccess);
+                return (true, cleanupIncomplete);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Uninstall error: {ex.Message}");
+                return (false, false);
             }
         }
 
         /// <summary>
         /// 校验待删除目录是否为合法的 Tampo / NihongoVocab 专属目录，防止在根目录或系统目录误执行递归删除
         /// </summary>
-        private static bool IsSafeDirectoryToDelete(string targetDir)
+        private static bool IsSafeDirectoryToDelete(string targetDir, bool userDataDirectory = false)
         {
             if (string.IsNullOrWhiteSpace(targetDir)) return false;
             try
@@ -213,15 +241,19 @@ namespace NihongoVocab.Installer
                 {
                     return false;
                 }
+                if (!Directory.Exists(fullPath) ||
+                    (File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0)
+                    return false;
 
-                string leafName = Path.GetFileName(fullPath);
-                if (string.Equals(leafName, "Tampo", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(leafName, "NihongoVocab", StringComparison.OrdinalIgnoreCase))
+                if (userDataDirectory)
                 {
-                    return true;
+                    string localData = Path.GetFullPath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    return string.Equals(fullPath, Path.Combine(localData, "Tampo"), StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(fullPath, Path.Combine(localData, "NihongoVocab"), StringComparison.OrdinalIgnoreCase);
                 }
 
-                // 若目录名自定义，则必须包含 Tampo.exe 或 NihongoVocab.exe 特征文件且不处于用户主目录/桌面顶层
+                string leafName = Path.GetFileName(fullPath);
                 string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 if (string.Equals(fullPath, desktop, StringComparison.OrdinalIgnoreCase) ||
@@ -230,8 +262,20 @@ namespace NihongoVocab.Installer
                     return false;
                 }
 
-                return File.Exists(Path.Combine(fullPath, "Tampo.exe")) ||
-                       File.Exists(Path.Combine(fullPath, "NihongoVocab.exe"));
+                bool hasExecutable = File.Exists(Path.Combine(fullPath, "Tampo.exe")) ||
+                                     File.Exists(Path.Combine(fullPath, "NihongoVocab.exe"));
+                if (!hasExecutable) return false;
+
+                if (string.Equals(leafName, "Tampo", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(leafName, "NihongoVocab", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                // 自定义旧安装目录须与注册表记录一致。
+                using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tampo")
+                    ?? Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\NihongoVocab");
+                string? registered = key?.GetValue("InstallLocation") as string;
+                return !string.IsNullOrWhiteSpace(registered) &&
+                       string.Equals(fullPath, Path.GetFullPath(registered).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
             }
             catch
             {
@@ -242,35 +286,19 @@ namespace NihongoVocab.Installer
         /// <summary>
         /// 彻底删除指定目录（深度递归清除只读、隐藏属性，多轮重试直到目录完全消失）
         /// </summary>
-        private static void ForceDeleteDirectory(string targetDir)
+        private static bool ForceDeleteDirectory(string targetDir, bool userDataDirectory = false)
         {
-            if (!Directory.Exists(targetDir) || !IsSafeDirectoryToDelete(targetDir)) return;
+            if (!Directory.Exists(targetDir)) return true;
+            if (!IsSafeDirectoryToDelete(targetDir, userDataDirectory)) return false;
 
             for (int attempt = 1; attempt <= 5; attempt++)
             {
                 try
                 {
-                    // 先递归移除所有文件的只读与系统隐藏保护
-                    var di = new DirectoryInfo(targetDir);
-                    if (di.Exists)
-                    {
-                        foreach (var fi in di.GetFiles("*", SearchOption.AllDirectories))
-                        {
-                            try
-                            {
-                                fi.Attributes = FileAttributes.Normal;
-                                fi.Delete();
-                            }
-                            catch { }
-                        }
-                    }
-
-                    // 递归删除整个目录
-                    Directory.Delete(targetDir, recursive: true);
-
+                    DeleteTreeWithoutFollowingLinks(new DirectoryInfo(targetDir));
                     if (!Directory.Exists(targetDir))
                     {
-                        return; // 成功删除
+                        return true;
                     }
                 }
                 catch
@@ -279,25 +307,28 @@ namespace NihongoVocab.Installer
                 }
             }
 
-            // 若仍残留，调用底层命令行回退强制销毁
-            if (Directory.Exists(targetDir))
+            return !Directory.Exists(targetDir);
+        }
+
+        private static void DeleteTreeWithoutFollowingLinks(DirectoryInfo directory)
+        {
+            if ((directory.Attributes & FileAttributes.ReparsePoint) != 0)
             {
-                try
-                {
-                    string safePath = Path.GetFullPath(targetDir).Replace("\"", "");
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = "cmd.exe",
-                        Arguments = $"/c rd /s /q \"{safePath}\"",
-                        CreateNoWindow = true,
-                        UseShellExecute = false,
-                        WindowStyle = ProcessWindowStyle.Hidden
-                    };
-                    using var proc = Process.Start(psi);
-                    proc?.WaitForExit(2000);
-                }
-                catch { }
+                directory.Delete();
+                return;
             }
+            foreach (var entry in directory.EnumerateFileSystemInfos())
+            {
+                if (entry is DirectoryInfo child)
+                    DeleteTreeWithoutFollowingLinks(child);
+                else
+                {
+                    if ((entry.Attributes & FileAttributes.ReparsePoint) == 0)
+                        entry.Attributes = FileAttributes.Normal;
+                    entry.Delete();
+                }
+            }
+            directory.Delete();
         }
 
         private void UpdateProgress(int percent, string status)
@@ -317,14 +348,20 @@ namespace NihongoVocab.Installer
                 try
                 {
                     string currentTempDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
-                    if (currentTempDir.IndexOf("Temp", StringComparison.OrdinalIgnoreCase) >= 0)
+                    string tempRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd('\\', '/');
+                    string fullTempDir = Path.GetFullPath(currentTempDir);
+                    string leaf = Path.GetFileName(fullTempDir);
+                    bool isOwnTempDir = string.Equals(Path.GetDirectoryName(fullTempDir), tempRoot, StringComparison.OrdinalIgnoreCase) &&
+                        leaf.StartsWith("Tampo_Uninstall_", StringComparison.Ordinal) &&
+                        Guid.TryParseExact(leaf.Substring("Tampo_Uninstall_".Length), "N", out _) &&
+                        File.Exists(Path.Combine(fullTempDir, "UninstallRunner.exe"));
+                    if (isOwnTempDir)
                     {
                         string tempBat = Path.Combine(Path.GetTempPath(), $"clean_{Guid.NewGuid():N}.bat");
-                        string safeTempDir = currentTempDir.Replace("\"", "");
                         string script = $@"@echo off
 chcp 65001 >nul
 ping 127.0.0.1 -n 2 >nul
-rd /s /q ""{safeTempDir}""
+rd /s /q ""{fullTempDir}""
 del ""%~f0""
 ";
                         File.WriteAllText(tempBat, script, new System.Text.UTF8Encoding(false));

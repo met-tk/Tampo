@@ -47,7 +47,7 @@ namespace NihongoVocab.Installer
         private static InstallerLocalization Detect()
         {
             string culture = CultureInfo.CurrentUICulture.Name.ToLowerInvariant();
-            string ver = typeof(InstallerLocalization).Assembly.GetName().Version?.ToString(3) ?? "1.5.0";
+            string ver = typeof(InstallerLocalization).Assembly.GetName().Version?.ToString(3) ?? "1.5.2";
             if (culture.StartsWith("ja"))
             {
                 return new InstallerLocalization

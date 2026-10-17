@@ -137,9 +137,9 @@ namespace NihongoVocab
                         {
                             _crossProcessListener = new CrossProcessEventListener(db, () =>
                             {
-                                RunOnUIThread(() => DatabaseService.NotifyDataChanged());
+                                RunOnUIThread(() => DatabaseService.NotifyViewDataChanged());
                             }, CrossProcessEventHelper.ToAppEventName);
-                            _crossProcessListener.Start();
+                            await _crossProcessListener.StartAsync();
                             AppDomain.CurrentDomain.ProcessExit += (s, e) => _crossProcessListener?.Dispose();
 
                             // 静默托管检测：若后台同步守护服务未启动，在后台静默拉起
@@ -163,7 +163,7 @@ namespace NihongoVocab
                         UIThreadDispatcher?.TryEnqueue(() =>
                         {
                             MainWindowInstance?.ApplyRestoredGeometry();
-                            DatabaseService.NotifyDataChanged();
+                            DatabaseService.NotifyViewDataChanged();
                         });
                     }
                     catch (Exception ex)

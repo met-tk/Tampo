@@ -231,6 +231,103 @@ namespace NihongoVocab.Tests
         }
 
         [Fact]
+        public async Task PairingSessions_LongRequestedValidity_IsCappedAndOldCodeIsRejected()
+        {
+            string dbPath = CreateTempDbPath();
+            var db = new DatabaseService(dbPath);
+            await db.InitializeAsync();
+
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            string code = await db.CreatePairingCodeAsync(TimeSpan.FromDays(3650));
+            var session = await db.GetPairingSessionAsync(code);
+            Assert.NotNull(session);
+            Assert.InRange(session.ExpiresAt, now, now + 301);
+
+            var conn = new SQLiteAsyncConnection(dbPath);
+            await conn.ExecuteAsync("UPDATE PairingSessions SET CreatedAt = ? WHERE Code = ?", now - 301, code);
+            Assert.False(await db.ValidateAndConsumePairingCodeAsync(code));
+        }
+
+        [Fact]
+        public async Task SQLiteNativeLibrary_LoadsPatchedVersion()
+        {
+            var db = new DatabaseService(CreateTempDbPath());
+            await db.InitializeAsync();
+            var conn = new SQLiteAsyncConnection(db.DbPath);
+            string sqliteVersion = await conn.ExecuteScalarAsync<string>("SELECT sqlite_version()");
+            Assert.True(Version.Parse(sqliteVersion) >= new Version(3, 50, 2),
+                $"SQLite native library is too old: {sqliteVersion}");
+        }
+
+        [Fact]
+        public async Task ClearAllData_WhenLaterDeleteFails_RollsBackWordsAndSyncEpoch()
+        {
+            string dbPath = CreateTempDbPath();
+            var db = new DatabaseService(dbPath);
+            await db.InitializeAsync();
+            await db.AddWordsAsync(new[] { "事务回滚测试" });
+            int wordId = (await db.GetAllWordsAsync()).Single().Id;
+            await db.AddReviewLogAsync(new ReviewLog { WordId = wordId, Rating = 3 });
+            string originalEpoch = await db.GetSyncEpochAsync();
+
+            var conn = new SQLiteAsyncConnection(dbPath);
+            await conn.ExecuteAsync("CREATE TRIGGER deny_review_delete BEFORE DELETE ON ReviewLogs BEGIN SELECT RAISE(ABORT, 'blocked'); END;");
+
+            await Assert.ThrowsAnyAsync<Exception>(() => db.ClearAllDataAsync());
+            Assert.Single(await db.GetAllWordsAsync());
+            Assert.Single(await db.GetAllReviewLogsAsync());
+            Assert.Equal(originalEpoch, await db.GetSyncEpochAsync());
+        }
+
+        [Fact]
+        public async Task Backup_StaysWithinBackupDirectory_AndRestoreRejectsWrongSchema()
+        {
+            var db = new DatabaseService(CreateTempDbPath());
+            await db.InitializeAsync();
+            await db.AddWordsAsync(new[] { "保留原词" });
+
+            string? backup = await db.CreateAutomaticBackupAsync();
+            Assert.NotNull(backup);
+            Assert.True(File.Exists(backup));
+            Assert.True(db.DeleteBackupFile(backup));
+
+            string outsideName = $"outside_{Guid.NewGuid():N}.db";
+            Assert.Null(await db.CreateAutomaticBackupAsync("../" + outsideName));
+            Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(db.DbPath)!, outsideName)));
+
+            string invalidDbPath = CreateTempDbPath();
+            var invalidDb = new SQLiteAsyncConnection(invalidDbPath);
+            await invalidDb.ExecuteAsync("CREATE TABLE Unrelated (Id INTEGER PRIMARY KEY)");
+            await invalidDb.CloseAsync();
+
+            Assert.False(await db.RestoreFromBackupFileAsync(invalidDbPath));
+            Assert.Equal("保留原词", (await db.GetAllWordsAsync()).Single().Text);
+        }
+
+        [Fact]
+        public async Task Restore_OlderBackup_RecreatesSyncContentTracking()
+        {
+            var db = new DatabaseService(CreateTempDbPath());
+            await db.InitializeAsync();
+            await db.AddWordsAsync(new[] { "备份单词" });
+            string backup = Assert.IsType<string>(await db.CreateAutomaticBackupAsync());
+
+            var oldBackup = new SQLiteAsyncConnection(backup);
+            await oldBackup.ExecuteAsync("DROP TABLE SyncContentVersion");
+            Assert.Equal(0, await oldBackup.ExecuteScalarAsync<int>("PRAGMA wal_checkpoint(TRUNCATE)"));
+            Assert.Equal("ok", await oldBackup.ExecuteScalarAsync<string>("PRAGMA integrity_check"));
+            await oldBackup.CloseAsync();
+
+            await db.AddWordsAsync(new[] { "之后添加" });
+            Assert.True(await db.RestoreFromBackupFileAsync(backup));
+            Assert.Single(await db.GetAllWordsAsync());
+            long restoredVersion = await db.GetSyncContentVersionAsync();
+            await db.AddWordsAsync(new[] { "再添加" });
+            Assert.NotEqual(restoredVersion, await db.GetSyncContentVersionAsync());
+            Assert.True(db.DeleteBackupFile(backup));
+        }
+
+        [Fact]
         public async Task PairingSessions_ValidateAndConsume_ValidCode_SucceedsOnce()
         {
             string dbPath = CreateTempDbPath();

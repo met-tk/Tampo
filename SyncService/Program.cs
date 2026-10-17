@@ -124,6 +124,8 @@ namespace NihongoVocab.SyncService
                 // 4. 初始化数据库核心服务
                 dbService = new DatabaseService();
                 await dbService.InitializeAsync();
+                // 守护服务自身写库由 HTTP 合并结果通知客户端，不向自己的跨进程监听器重复发信号。
+                DatabaseService.IsAutoSyncOnStudyEnabled = false;
 
                 // 5. 启动网络监听服务 (HTTP 52080 + UDP 52081)
                 httpServer = new HttpSyncServer(dbService, cts);
@@ -153,7 +155,7 @@ namespace NihongoVocab.SyncService
                             }
                         });
                     }, CrossProcessEventHelper.ToServiceEventName);
-                    crossProcessListener.Start();
+                    await crossProcessListener.StartAsync();
                 }
 
                 // 6. 启动 15 分钟周期性工作集修剪定时器

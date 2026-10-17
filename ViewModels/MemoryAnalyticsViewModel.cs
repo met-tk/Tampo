@@ -148,9 +148,9 @@ namespace NihongoVocab.ViewModels
 
         partial void OnSelectedOptionChanged(WordListFilterOption? value)
         {
-            UserPreferenceService.Instance.SetInt("MemoryAnalytics_SelectedListId", value?.Id ?? -1);
             if (!_isLoadingOptions)
             {
+                UserPreferenceService.Instance.SetInt("MemoryAnalytics_SelectedListId", value?.Id ?? -1);
                 _ = RefreshStatsAsync();
             }
         }

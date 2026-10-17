@@ -11,9 +11,20 @@ namespace NihongoVocab.Services
 {
     public class WebExportService
     {
+        private readonly string? _exportDirectory;
+
+        public WebExportService()
+        {
+        }
+
+        internal WebExportService(string exportDirectory)
+        {
+            _exportDirectory = exportDirectory;
+        }
+
         public async Task<string> ExportLibraryToHtmlAsync(IEnumerable<Word> words)
         {
-            string exportDir = Path.Combine(
+            string exportDir = _exportDirectory ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "NihongoVocab", "exports");
 
@@ -53,9 +64,9 @@ namespace NihongoVocab.Services
                 Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                 WriteIndented = false
             };
-            // 防御 </script> 闭合逃逸以及 U+2028 / U+2029 行分隔符导致内联脚本断裂或 XSS
+            // HTML 脚本结束标签不区分大小写，因此转义所有 <，而不是只替换小写 </。
             string wordsJson = JsonSerializer.Serialize(wordListDto, jsonOptions)
-                .Replace("</", "<\\/", StringComparison.Ordinal)
+                .Replace("<", "\\u003C", StringComparison.Ordinal)
                 .Replace("\u2028", "\\u2028", StringComparison.Ordinal)
                 .Replace("\u2029", "\\u2029", StringComparison.Ordinal);
 

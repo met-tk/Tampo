@@ -255,7 +255,7 @@
 
                     <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}"/>
 
-                    <!-- 设备配对卡片 (6 位长效配对码) -->
+                    <!-- 设备配对卡片 (6 位临时配对码) -->
                     <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             CornerRadius="6" Padding="14">
@@ -267,7 +267,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
                                     <TextBlock x:Name="PairingCodeSectionTitle" Text="绑定新移动设备" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock x:Name="PairingCodeDescTextBlock" Text="在手机端输入此 6 位配对码即可建立长效免密绑定，后续无需再手动配置 IP 或配对码" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="PairingCodeDescTextBlock" Text="此 6 位配对码有效期为 5 分钟。在手机端输入后即可建立长效免密绑定，后续无需再手动配置 IP 或配对码" FontSize="11" Opacity="0.5" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <Button x:Name="GeneratePairingCodeButton" Grid.Column="1" Click="GeneratePairingCode_Click" Style="{ThemeResource AccentButtonStyle}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -564,7 +564,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="SectionAboutTextBlock" Text="关于 Tampo" FontWeight="SemiBold" FontSize="14"/>
                     <StackPanel Spacing="4" Margin="0,2,0,0">
-                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.5.0 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
+                        <TextBlock x:Name="AboutVersionTextBlock" Text="版本: v1.5.2 (Windows App SDK / WinUI 3)" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutArchTextBlock" Text="架构: x64 Self-Contained 独立部署" FontSize="12" Opacity="0.7"/>
                         <TextBlock x:Name="AboutEngineTextBlock" Text="算法引擎: FSRS v4.5 (Free Spaced Repetition Scheduler)" FontSize="12" Opacity="0.7"/>
                         

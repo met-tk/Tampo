@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Windows.ApplicationModel.DataTransfer;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -14,12 +15,19 @@ namespace NihongoVocab.Views
     public sealed partial class SettingsPage : Page
     {
         public SettingsViewModel ViewModel { get; }
+        private readonly DispatcherTimer _deviceRefreshTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+        private int _isLoadingPairedDevices;
 
         public SettingsPage()
         {
             this.InitializeComponent();
             ViewModel = App.GetService<SettingsViewModel>();
             this.DataContext = ViewModel;
+            _deviceRefreshTimer.Tick += async (_, _) =>
+            {
+                if (ReferenceEquals(Frame?.Content, this))
+                    await LoadPairedDevicesAsync();
+            };
 
             this.Loaded += async (s, e) =>
             {
@@ -29,17 +37,23 @@ namespace NihongoVocab.Views
 
                 DatabaseService.DataChanged -= OnDatabaseDataChanged;
                 DatabaseService.DataChanged += OnDatabaseDataChanged;
+                DatabaseService.DeviceMetadataChanged -= OnDeviceMetadataChanged;
+                DatabaseService.DeviceMetadataChanged += OnDeviceMetadataChanged;
                 SyncServiceController.Instance.ServiceStatusChanged -= OnSyncServiceStatusChanged;
                 SyncServiceController.Instance.ServiceStatusChanged += OnSyncServiceStatusChanged;
 
                 await UpdateSyncServiceUIAsync();
                 await LoadPairedDevicesAsync();
                 await RefreshBackupsListAsync();
+                if (ReferenceEquals(Frame?.Content, this))
+                    _deviceRefreshTimer.Start();
             };
             this.Unloaded += (s, e) =>
             {
+                _deviceRefreshTimer.Stop();
                 LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
                 DatabaseService.DataChanged -= OnDatabaseDataChanged;
+                DatabaseService.DeviceMetadataChanged -= OnDeviceMetadataChanged;
                 SyncServiceController.Instance.ServiceStatusChanged -= OnSyncServiceStatusChanged;
             };
             UpdateLocalizedStrings();
@@ -63,7 +77,6 @@ namespace NihongoVocab.Views
 
             if (ThemeComboBox != null)
             {
-                int curThemeIdx = ThemeComboBox.SelectedIndex;
                 foreach (ComboBoxItem item in ThemeComboBox.Items)
                 {
                     if (item.Tag is string tag)
@@ -76,11 +89,6 @@ namespace NihongoVocab.Views
                             _ => item.Content
                         };
                     }
-                }
-                if (curThemeIdx >= 0)
-                {
-                    ThemeComboBox.SelectedIndex = -1;
-                    ThemeComboBox.SelectedIndex = curThemeIdx;
                 }
             }
 
@@ -129,7 +137,7 @@ namespace NihongoVocab.Views
             if (SyncAutostartLabelTextBlock != null) SyncAutostartLabelTextBlock.Text = loc.GetString("SyncAutostartLabel", "开机自启动守护服务");
             if (SyncAutostartDescTextBlock != null) SyncAutostartDescTextBlock.Text = loc.GetString("SyncAutostartDesc", "Windows 开机后自动在后台静默运行同步服务，手机端可随时即刻同步，无需先手动打开电脑主程序");
             if (PairingCodeSectionTitle != null) PairingCodeSectionTitle.Text = loc.GetString("PairingSectionTitle", "绑定新移动设备");
-            if (PairingCodeDescTextBlock != null) PairingCodeDescTextBlock.Text = loc.GetString("PairingSectionDesc", "在手机端输入此 6 位配对码即可建立长效免密绑定，后续无需再手动配置 IP 或配对码");
+            if (PairingCodeDescTextBlock != null) PairingCodeDescTextBlock.Text = loc.GetString("PairingSectionDesc", "此 6 位配对码有效期为 5 分钟。在手机端输入后即可建立长效免密绑定，后续无需再手动配置 IP 或配对码");
             if (GeneratePairingCodeButtonText != null) GeneratePairingCodeButtonText.Text = loc.GetString("ButtonGeneratePairingCode", "生成 6 位配对码");
             if (PairedDevicesTitleTextBlock != null) PairedDevicesTitleTextBlock.Text = loc.GetString("PairedDevicesTitle", "已绑定设备管理");
             if (PairedDevicesDescTextBlock != null) PairedDevicesDescTextBlock.Text = loc.GetString("PairedDevicesDesc", "已获得长期同步授权的移动设备。解除绑定后，该设备将失去同步权限并需重新配对");
@@ -207,7 +215,8 @@ namespace NihongoVocab.Views
                     "Dark" => ElementTheme.Dark,
                     _ => ElementTheme.Default
                 };
-                ViewModel.SetTheme(theme);
+                if (ViewModel.CurrentTheme != theme)
+                    ViewModel.SetTheme(theme);
             }
         }
 
@@ -790,6 +799,11 @@ namespace NihongoVocab.Views
             });
         }
 
+        private void OnDeviceMetadataChanged()
+        {
+            DispatcherQueue.TryEnqueue(async () => await LoadPairedDevicesAsync());
+        }
+
         private void OnSyncServiceStatusChanged(bool isRunning)
         {
             DispatcherQueue.TryEnqueue(() =>
@@ -872,8 +886,8 @@ namespace NihongoVocab.Views
         {
             try
             {
-                // 电脑端生成长效配对码（10年有效，直到手机端核销），彻底告别倒计时焦虑
-                string code = await _dbService.CreatePairingCodeAsync(TimeSpan.FromDays(3650));
+                // 配对码仅用于首次换取长期令牌，短时有效。
+                string code = await _dbService.CreatePairingCodeAsync();
                 if (code.Length == 6)
                 {
                     PairingCodeTextBlock.Text = $"{code.Substring(0, 3)} {code.Substring(3)}";
@@ -924,6 +938,7 @@ namespace NihongoVocab.Views
 
         private async Task LoadPairedDevicesAsync()
         {
+            if (Interlocked.Exchange(ref _isLoadingPairedDevices, 1) != 0) return;
             try
             {
                 var devices = await _dbService.GetPairedDevicesAsync();
@@ -972,6 +987,10 @@ namespace NihongoVocab.Views
             catch (Exception ex)
             {
                 CrashLogger.LogException(ex, "SettingsPage.LoadPairedDevicesAsync");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _isLoadingPairedDevices, 0);
             }
         }
 

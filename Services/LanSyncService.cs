@@ -322,7 +322,7 @@ namespace NihongoVocab.Services
                         {
                             status = "ok",
                             device = Environment.MachineName,
-                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.5.0",
+                            version = typeof(LanSyncService).Assembly.GetName().Version?.ToString(3) ?? "1.5.2",
                             server_time = DateTime.Now
                         };
                         await SendHttpJsonAsync(stream, 200, pingObj, reqToken);
@@ -420,7 +420,6 @@ namespace NihongoVocab.Services
                         var result = await MergeIncomingPayloadAsync(incomingPayload);
                         await SendHttpJsonAsync(stream, 200, result, reqToken);
                         LogReceived?.Invoke($"[合并成功] 更新单词: {result.SyncedWords}，新日志: {result.SyncedLogs}！");
-                        DatabaseService.NotifyDataChanged();
                         return;
                     }
 

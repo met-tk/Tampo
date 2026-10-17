@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -11,6 +12,8 @@ namespace NihongoVocab.Views
     public sealed partial class TodayStudyPage : Page
     {
         public TodayStudyViewModel ViewModel { get; }
+        private readonly DataRefreshGate _dataRefreshGate = new(
+            () => DatabaseService.DataRevision, getPeriod: () => FsrsEngine.GetLogicalToday().Ticks);
 
         public TodayStudyPage()
         {
@@ -43,7 +46,6 @@ namespace NihongoVocab.Views
 
             if (StatusFilterComboBox != null)
             {
-                int curStatusIdx = StatusFilterComboBox.SelectedIndex;
                 foreach (ComboBoxItem item in StatusFilterComboBox.Items)
                 {
                     if (item.Tag is string tag)
@@ -56,11 +58,6 @@ namespace NihongoVocab.Views
                             _ => item.Content
                         };
                     }
-                }
-                if (curStatusIdx >= 0)
-                {
-                    StatusFilterComboBox.SelectedIndex = -1;
-                    StatusFilterComboBox.SelectedIndex = curStatusIdx;
                 }
             }
         }
@@ -105,8 +102,8 @@ namespace NihongoVocab.Views
                 {
                     if (ViewModel != null)
                     {
-                        await ViewModel.LoadDataAsync();
-                        UpdateViewModeUI();
+                        if (ReferenceEquals(Frame?.Content, this))
+                            await RefreshDataIfNeededAsync();
                     }
                 });
             }
@@ -119,7 +116,6 @@ namespace NihongoVocab.Views
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            UpdateLocalizedStrings();
             DatabaseService.DataChanged -= OnDatabaseDataChanged;
             DatabaseService.DataChanged += OnDatabaseDataChanged;
 
@@ -127,8 +123,7 @@ namespace NihongoVocab.Views
             {
                 if (ViewModel != null)
                 {
-                    await ViewModel.LoadDataAsync();
-                    UpdateViewModeUI();
+                    await RefreshDataIfNeededAsync();
                 }
             }
             catch (Exception ex)
@@ -147,15 +142,22 @@ namespace NihongoVocab.Views
         {
             if (ViewModel != null)
             {
-                await ViewModel.LoadDataAsync();
+                await RefreshDataIfNeededAsync(force: true);
             }
         }
+
+        private Task RefreshDataIfNeededAsync(bool force = false) => _dataRefreshGate.RefreshIfNeededAsync(async () =>
+        {
+            await ViewModel.LoadDataAsync();
+            UpdateViewModeUI();
+        }, force);
 
         private void StatusFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ViewModel == null) return;
             if (StatusFilterComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             {
+                if (ViewModel.StatusFilter == tag) return;
                 ViewModel.StatusFilter = tag;
                 UserPreferenceService.Instance.Set("TodayStudy_StatusFilter", tag);
             }

@@ -45,7 +45,7 @@ namespace NihongoVocab.SyncService
     public sealed class HttpSyncServer : IAsyncDisposable, IDisposable
     {
         public const int DefaultPort = 52080;
-        public const string ServerVersion = "1.5.0";
+        public const string ServerVersion = "1.5.2";
         public int Port { get; }
 
         private TcpListener? _tcpListener;
@@ -54,6 +54,7 @@ namespace NihongoVocab.SyncService
         private CancellationTokenSource? _serverCts;
         private Task? _listenTask;
         private static volatile bool _isMaintenanceLocked = false;
+        private readonly ConcurrentDictionary<string, (int Attempts, DateTime WindowStartUtc, DateTime LockedUntilUtc)> _pairingAttempts = new();
 
         private sealed class SseClient : IAsyncDisposable, IDisposable
         {
@@ -393,7 +394,7 @@ namespace NihongoVocab.SyncService
                 try
                 {
                     var client = await _tcpListener.AcceptTcpClientAsync(token);
-                    _ = Task.Run(() => HandleTcpClientAsync(client, token), token);
+                    _ = Task.Run(() => HandleTcpClientAsync(client, token));
                 }
                 catch (OperationCanceledException)
                 {
@@ -490,58 +491,9 @@ namespace NihongoVocab.SyncService
                         }
                     }
 
-                    // 读取 Request Body
-                    long contentLength = 0;
-                    if (headers.TryGetValue("Content-Length", out var clStr) && long.TryParse(clStr, out var clVal))
-                    {
-                        contentLength = clVal;
-                    }
-
-                    const long MaxPayloadBytes = 50 * 1024 * 1024; // 50MB 上限
-                    if (contentLength > MaxPayloadBytes)
-                    {
-                        await SendHttpResponseAsync(stream, 413, "Payload Too Large", Encoding.UTF8.GetBytes("{\"error\":\"Payload Too Large\"}"));
-                        return;
-                    }
-
-                    byte[] bodyBytes;
-                    int alreadyReadBodyBytes = totalBuffered - bodyStartOffset;
-                    if (contentLength > 0)
-                    {
-                        bodyBytes = new byte[contentLength];
-                        if (alreadyReadBodyBytes > 0)
-                        {
-                            int toCopy = (int)Math.Min(alreadyReadBodyBytes, contentLength);
-                            Array.Copy(rawBuf, bodyStartOffset, bodyBytes, 0, toCopy);
-                            int remaining = (int)contentLength - toCopy;
-                            int offset = toCopy;
-                            while (remaining > 0)
-                            {
-                                int n = await stream.ReadAsync(bodyBytes, offset, remaining, reqToken);
-                                if (n <= 0) break;
-                                offset += n;
-                                remaining -= n;
-                            }
-                        }
-                        else
-                        {
-                            int offset = 0;
-                            int remaining = (int)contentLength;
-                            while (remaining > 0)
-                            {
-                                int n = await stream.ReadAsync(bodyBytes, offset, remaining, reqToken);
-                                if (n <= 0) break;
-                                offset += n;
-                                remaining -= n;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        bodyBytes = Array.Empty<byte>();
-                    }
-
-                    string body = Encoding.UTF8.GetString(bodyBytes);
+                    // 仅在路由完成鉴权后读取请求体，避免匿名连接分配大块内存。
+                    long contentLength = headers.TryGetValue("Content-Length", out var clStr) && long.TryParse(clStr, out var clVal)
+                        ? clVal : -1;
                     var remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
                     var remoteIp = remoteEndPoint?.Address;
 
@@ -575,10 +527,39 @@ namespace NihongoVocab.SyncService
                     // 2. POST /api/pair
                     if (path.Equals("/api/pair", StringComparison.OrdinalIgnoreCase) && method == "POST")
                     {
+                        string ipKey = remoteIp?.ToString() ?? "unknown";
+                        if (_pairingAttempts.Count >= 1024)
+                        {
+                            PrunePairingAttempts();
+                            if (_pairingAttempts.Count >= 1024 && !_pairingAttempts.ContainsKey(ipKey))
+                            {
+                                await SendHttpJsonAsync(stream, 429, "Too Many Requests", new { error = "Pairing temporarily unavailable" }, reqToken);
+                                return;
+                            }
+                        }
+                        if (IsPairingRateLimited(ipKey))
+                        {
+                            await SendHttpJsonAsync(stream, 429, "Too Many Requests", new { error = "Pairing temporarily locked" }, reqToken);
+                            return;
+                        }
+
+                        if (contentLength <= 0 || contentLength > 4096)
+                        {
+                            await SendHttpJsonAsync(stream, contentLength > 4096 ? 413 : 400,
+                                contentLength > 4096 ? "Payload Too Large" : "Bad Request", new { error = "Invalid pairing request size" }, reqToken);
+                            return;
+                        }
+
+                        byte[]? pairBytes = await ReadBodyAsync(stream, rawBuf, bodyStartOffset, totalBuffered, (int)contentLength, reqToken);
+                        if (pairBytes == null)
+                        {
+                            await SendHttpJsonAsync(stream, 400, "Bad Request", new { error = "Incomplete pairing request" }, reqToken);
+                            return;
+                        }
                         PairingRequest? pairReq = null;
                         try
                         {
-                            pairReq = JsonSerializer.Deserialize<PairingRequest>(body, _incomingJsonOptions);
+                            pairReq = JsonSerializer.Deserialize<PairingRequest>(pairBytes, _incomingJsonOptions);
                         }
                         catch { }
 
@@ -595,6 +576,7 @@ namespace NihongoVocab.SyncService
                             await SendHttpJsonAsync(stream, 403, "Forbidden", new { error = "Invalid or expired pairing code" }, reqToken);
                             return;
                         }
+                        _pairingAttempts.TryRemove(ipKey, out _);
 
                         // 生成 256 位高强度安全 Hex Token (32 字节 -> 64 字符十六进制)
                         byte[] tokenBytes = RandomNumberGenerator.GetBytes(32);
@@ -711,10 +693,25 @@ namespace NihongoVocab.SyncService
                         string clientIp = remoteIp?.ToString() ?? string.Empty;
                         await _dbService.UpdateDeviceLastSeenAsync(token, clientIp);
 
+                        const long MaxPayloadBytes = 50 * 1024 * 1024;
+                        if (contentLength <= 0 || contentLength > MaxPayloadBytes)
+                        {
+                            await SendHttpJsonAsync(stream, contentLength > MaxPayloadBytes ? 413 : 400,
+                                contentLength > MaxPayloadBytes ? "Payload Too Large" : "Bad Request", new { error = "Invalid sync request size" }, reqToken);
+                            return;
+                        }
+
+                        byte[]? bodyBytes = await ReadBodyAsync(stream, rawBuf, bodyStartOffset, totalBuffered, (int)contentLength, reqToken);
+                        if (bodyBytes == null)
+                        {
+                            await SendHttpJsonAsync(stream, 400, "Bad Request", new { error = "Incomplete request body" }, reqToken);
+                            return;
+                        }
+
                         SyncPayload? incomingPayload = null;
                         try
                         {
-                            incomingPayload = JsonSerializer.Deserialize<SyncPayload>(body, _incomingJsonOptions);
+                            incomingPayload = JsonSerializer.Deserialize<SyncPayload>(bodyBytes, _incomingJsonOptions);
                         }
                         catch (Exception ex)
                         {
@@ -786,10 +783,10 @@ namespace NihongoVocab.SyncService
                         return;
                     }
 
-                    // 4.5 POST/GET /api/sync/request-mobile-push (通知手机端发起全量推送恢复，仅限本机回环调用)
-                    if (path.Equals("/api/sync/request-mobile-push", StringComparison.OrdinalIgnoreCase))
+                    // 4.5 POST /api/sync/request-mobile-push (通知手机端发起全量推送恢复，仅限本机回环调用)
+                    if (path.Equals("/api/sync/request-mobile-push", StringComparison.OrdinalIgnoreCase) && method == "POST")
                     {
-                        if (remoteIp == null || !IPAddress.IsLoopback(remoteIp))
+                        if (!IsLocalControlRequest(remoteIp, headers))
                         {
                             await SendHttpJsonAsync(stream, 403, "Forbidden", new { error = "Forbidden: request-mobile-push endpoint is loopback only" }, reqToken);
                             return;
@@ -819,9 +816,9 @@ namespace NihongoVocab.SyncService
                     }
 
                     // 4.6 POST /api/control/maintenance-mode (仅限本机回环调用，设置数据维护锁定状态)
-                    if (path.Equals("/api/control/maintenance-mode", StringComparison.OrdinalIgnoreCase) && (method == "POST" || method == "GET"))
+                    if (path.Equals("/api/control/maintenance-mode", StringComparison.OrdinalIgnoreCase) && method == "POST")
                     {
-                        if (remoteIp == null || !IPAddress.IsLoopback(remoteIp))
+                        if (!IsLocalControlRequest(remoteIp, headers))
                         {
                             await SendHttpJsonAsync(stream, 403, "Forbidden", new { error = "Forbidden: loopback only" }, reqToken);
                             return;
@@ -848,7 +845,7 @@ namespace NihongoVocab.SyncService
                     // 4.7 GET /api/devices/status (仅限本机回环调用，获取已配对设备的实时在线状态与活跃连接)
                     if (path.Equals("/api/devices/status", StringComparison.OrdinalIgnoreCase) && method == "GET")
                     {
-                        if (remoteIp == null || !IPAddress.IsLoopback(remoteIp))
+                        if (!IsLocalControlRequest(remoteIp, headers))
                         {
                             await SendHttpJsonAsync(stream, 403, "Forbidden", new { error = "Forbidden: loopback only" }, reqToken);
                             return;
@@ -895,7 +892,7 @@ namespace NihongoVocab.SyncService
                     // 5. POST /api/control/stop (仅限本机回环优雅关停)
                     if (path.Equals("/api/control/stop", StringComparison.OrdinalIgnoreCase) && method == "POST")
                     {
-                        if (remoteIp == null || !IPAddress.IsLoopback(remoteIp))
+                        if (!IsLocalControlRequest(remoteIp, headers))
                         {
                             await SendHttpJsonAsync(stream, 403, "Forbidden", new { error = "Forbidden: control endpoints are loopback only" }, reqToken);
                             return;
@@ -933,6 +930,56 @@ namespace NihongoVocab.SyncService
                     catch { }
                 }
             }
+        }
+
+        private bool IsPairingRateLimited(string ipKey)
+        {
+            DateTime now = DateTime.UtcNow;
+            var state = _pairingAttempts.AddOrUpdate(ipKey,
+                _ => (1, now, DateTime.MinValue),
+                (_, previous) =>
+                {
+                    if (now < previous.LockedUntilUtc)
+                        return previous;
+                    if (now - previous.WindowStartUtc >= TimeSpan.FromMinutes(1))
+                        return (1, now, DateTime.MinValue);
+                    int attempts = previous.Attempts + 1;
+                    return (attempts, previous.WindowStartUtc,
+                        attempts > 5 ? now.AddMinutes(1) : DateTime.MinValue);
+                });
+            return state.Attempts > 5 || now < state.LockedUntilUtc;
+        }
+
+        private void PrunePairingAttempts()
+        {
+            DateTime now = DateTime.UtcNow;
+            foreach (var entry in _pairingAttempts)
+            {
+                if (now - entry.Value.WindowStartUtc >= TimeSpan.FromMinutes(1) &&
+                    now >= entry.Value.LockedUntilUtc)
+                    _pairingAttempts.TryRemove(entry.Key, out _);
+            }
+        }
+
+        private static bool IsLocalControlRequest(IPAddress? remoteIp, IReadOnlyDictionary<string, string> headers)
+            => remoteIp != null && IPAddress.IsLoopback(remoteIp) &&
+               !headers.ContainsKey("Origin") &&
+               (!headers.TryGetValue("Sec-Fetch-Site", out var site) ||
+                site.Equals("none", StringComparison.OrdinalIgnoreCase));
+
+        private static async Task<byte[]?> ReadBodyAsync(NetworkStream stream, byte[] buffered, int bodyOffset,
+            int bufferedLength, int contentLength, CancellationToken ct)
+        {
+            byte[] body = new byte[contentLength];
+            int copied = Math.Min(contentLength, Math.Max(0, bufferedLength - bodyOffset));
+            if (copied > 0) Buffer.BlockCopy(buffered, bodyOffset, body, 0, copied);
+            while (copied < contentLength)
+            {
+                int read = await stream.ReadAsync(body, copied, contentLength - copied, ct);
+                if (read <= 0) return null;
+                copied += read;
+            }
+            return body;
         }
 
         private static int FindHeaderEnd(byte[] buffer, int length)

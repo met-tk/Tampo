@@ -88,6 +88,50 @@ namespace NihongoVocab.Tests
         }
 
         [Fact]
+        public async Task SetPreferenceAsync_DoesNotSignalDataChangeWhenValueIsUnchanged()
+        {
+            var observer = new DatabaseService(_testDbPath);
+            var writer = new DatabaseService(_testDbPath,
+                SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
+            await observer.InitializeAsync();
+            await writer.InitializeAsync();
+
+            await writer.SetPreferenceAsync("AllWords_Dimension", "Month");
+            long beforeDuplicate = await observer.GetDataVersionAsync();
+            await writer.SetPreferenceAsync("AllWords_Dimension", "Month");
+            Assert.Equal(beforeDuplicate, await observer.GetDataVersionAsync());
+
+            await writer.SetPreferenceAsync("AllWords_Dimension", "Week");
+            Assert.True(await observer.GetDataVersionAsync() > beforeDuplicate);
+        }
+
+        [Fact]
+        public async Task SyncContentVersion_ChangesOnlyForWordDataAndSyncEpoch()
+        {
+            var observer = new DatabaseService(_testDbPath);
+            var writer = new DatabaseService(_testDbPath,
+                SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
+            await observer.InitializeAsync();
+            await writer.InitializeAsync();
+
+            long initialVersion = await observer.GetSyncContentVersionAsync();
+            await writer.SetPreferenceAsync("AllWords_Dimension", "Week");
+            Assert.Equal(initialVersion, await observer.GetSyncContentVersionAsync());
+
+            var device = new PairedDevice { DeviceName = "Phone", AuthToken = Guid.NewGuid().ToString("N") };
+            await writer.SavePairedDeviceAsync(device);
+            Assert.True(await writer.UpdateDeviceLastSeenAsync(device.AuthToken, "127.0.0.1"));
+            Assert.Equal(initialVersion, await observer.GetSyncContentVersionAsync());
+
+            await writer.AddWordAsync(new Word { Text = "変更" });
+            long wordVersion = await observer.GetSyncContentVersionAsync();
+            Assert.NotEqual(initialVersion, wordVersion);
+
+            await writer.SetPreferenceAsync("sync_epoch", "epoch_test");
+            Assert.NotEqual(wordVersion, await observer.GetSyncContentVersionAsync());
+        }
+
+        [Fact]
         public async Task CrossProcessEventListener_TriggersCallbackOnExternalSignal()
         {
             string testEvent = $@"Local\Tampo_Test_Listener_{Guid.NewGuid():N}";
@@ -100,7 +144,7 @@ namespace NihongoVocab.Tests
                 Interlocked.Increment(ref callbackInvoked);
             }, testEvent);
 
-            listener.Start();
+            await listener.StartAsync();
 
             // 外部写入新数据
             var dbConn2 = new DatabaseService(_testDbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
@@ -122,12 +166,44 @@ namespace NihongoVocab.Tests
         }
 
         [Fact]
-        public void CrossProcessEventListener_Dispose_ExitsCleanlyWithoutExceptionOrHang()
+        public async Task CrossProcessEventListener_ServiceMode_IgnoresOwnAndAuxiliaryWrites()
+        {
+            string testEvent = $@"Local\Tampo_Test_ServiceListener_{Guid.NewGuid():N}";
+            var serviceDb = new DatabaseService(_testDbPath);
+            var appDb = new DatabaseService(_testDbPath,
+                SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
+            await serviceDb.InitializeAsync();
+            await appDb.InitializeAsync();
+
+            int callbacks = 0;
+            using var listener = new CrossProcessEventListener(serviceDb,
+                () => Interlocked.Increment(ref callbacks), testEvent);
+            await listener.StartAsync();
+
+            await serviceDb.AddWordAsync(new Word { Text = "服务端写入" });
+            CrossProcessEventHelper.Signal(testEvent);
+            await Task.Delay(150);
+            Assert.Equal(0, Volatile.Read(ref callbacks));
+
+            await appDb.SetPreferenceAsync("AllWords_Dimension", "Week");
+            CrossProcessEventHelper.Signal(testEvent);
+            await Task.Delay(150);
+            Assert.Equal(0, Volatile.Read(ref callbacks));
+
+            await appDb.AddWordAsync(new Word { Text = "桌面端写入" });
+            CrossProcessEventHelper.Signal(testEvent);
+            for (int waited = 0; Volatile.Read(ref callbacks) == 0 && waited < 2000; waited += 50)
+                await Task.Delay(50);
+            Assert.Equal(1, Volatile.Read(ref callbacks));
+        }
+
+        [Fact]
+        public async Task CrossProcessEventListener_Dispose_ExitsCleanlyWithoutExceptionOrHang()
         {
             string testEvent = $@"Local\Tampo_Test_Dispose_{Guid.NewGuid():N}";
             var db = new DatabaseService(_testDbPath);
             var listener = new CrossProcessEventListener(db, null, testEvent);
-            listener.Start();
+            await listener.StartAsync();
 
             // 稍作等待以确保后台监听线程已进入 WaitAny 阻塞
             Thread.Sleep(50);
@@ -156,7 +232,7 @@ namespace NihongoVocab.Tests
                 Interlocked.Increment(ref callbackCount);
             }, testEvent);
 
-            listener.Start();
+            await listener.StartAsync();
 
             var dbConn2 = new DatabaseService(_testDbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
             await dbConn2.InitializeAsync();

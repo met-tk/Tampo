@@ -421,7 +421,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     child: Column(
                       children: [
                         Text(
-                          'Tampo Android v1.5.0',
+                          'Tampo Android v1.5.2',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,

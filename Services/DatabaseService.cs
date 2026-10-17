@@ -73,9 +73,21 @@ namespace NihongoVocab.Services
     public class DatabaseService
     {
         public static event Action? DataChanged;
+        public static event Action? DeviceMetadataChanged;
         public static bool IsAutoSyncOnStudyEnabled { get; set; } = true;
         private static int _suppressNotificationsCount = 0;
         private static int _pendingNotifications = 0;
+        private static long _dataRevision = 0;
+
+        public static long DataRevision => Interlocked.Read(ref _dataRevision);
+
+        public static void NotifyViewDataChanged()
+        {
+            Interlocked.Increment(ref _dataRevision);
+            DataChanged?.Invoke();
+        }
+
+        private static void NotifyDeviceMetadataChanged() => DeviceMetadataChanged?.Invoke();
 
         public static void NotifyDataChanged()
         {
@@ -84,7 +96,7 @@ namespace NihongoVocab.Services
                 Interlocked.Exchange(ref _pendingNotifications, 1);
                 return;
             }
-            DataChanged?.Invoke();
+            NotifyViewDataChanged();
             if (OperatingSystem.IsWindows())
             {
                 // 检查用户偏好：本地打卡后是否向局域网同步守护服务发送通知广播（默认开启）
@@ -182,7 +194,7 @@ namespace NihongoVocab.Services
                 {
                     await _database.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL;");
                     await _database.ExecuteAsync("PRAGMA synchronous=NORMAL;");
-                    await _database.ExecuteAsync("PRAGMA busy_timeout=5000;");
+                    await _database.ExecuteScalarAsync<int>("PRAGMA busy_timeout=5000;");
                 }
                 catch (Exception ex)
                 {
@@ -264,6 +276,8 @@ namespace NihongoVocab.Services
                     CrashLogger.LogException(migEx, "DatabaseService.InitializeAsync.Migration");
                 }
 
+                await EnsureSyncContentChangeTrackingAsync(_database);
+
                 _isInitialized = true;
             }
             catch (Exception ex)
@@ -275,6 +289,33 @@ namespace NihongoVocab.Services
             {
                 _dbLock.Release();
             }
+        }
+
+        private static async Task EnsureSyncContentChangeTrackingAsync(SQLiteAsyncConnection database)
+        {
+            // 仅词库同步内容的写入才推进跨进程变更标记；偏好设置、设备活跃时间不触发列表刷新或 SSE。
+            await database.ExecuteAsync("CREATE TABLE IF NOT EXISTS SyncContentVersion (Id INTEGER PRIMARY KEY, Version INTEGER NOT NULL)");
+            await database.ExecuteAsync("INSERT OR IGNORE INTO SyncContentVersion (Id, Version) VALUES (1, random() & 9223372036854775807)");
+            foreach (string table in new[] { "Words", "WordLists", "ReviewLogs", "SyncTombstones" })
+            {
+                foreach (string operation in new[] { "INSERT", "UPDATE", "DELETE" })
+                {
+                    string triggerName = $"tampo_sync_content_{table.ToLowerInvariant()}_{operation.ToLowerInvariant()}";
+                    await database.ExecuteAsync(
+                        $"CREATE TRIGGER IF NOT EXISTS {triggerName} AFTER {operation} ON {table} " +
+                        "BEGIN UPDATE SyncContentVersion SET Version = random() & 9223372036854775807 WHERE Id = 1; END");
+                }
+            }
+            await database.ExecuteAsync(
+                "CREATE TRIGGER IF NOT EXISTS tampo_sync_content_epoch_insert AFTER INSERT ON UserPreferences " +
+                "WHEN NEW.Key = 'sync_epoch' BEGIN UPDATE SyncContentVersion SET Version = random() & 9223372036854775807 WHERE Id = 1; END");
+            await database.ExecuteAsync(
+                "CREATE TRIGGER IF NOT EXISTS tampo_sync_content_epoch_update AFTER UPDATE ON UserPreferences " +
+                "WHEN NEW.Key = 'sync_epoch' AND NEW.Value <> OLD.Value " +
+                "BEGIN UPDATE SyncContentVersion SET Version = random() & 9223372036854775807 WHERE Id = 1; END");
+            await database.ExecuteAsync(
+                "CREATE TRIGGER IF NOT EXISTS tampo_sync_content_epoch_delete AFTER DELETE ON UserPreferences " +
+                "WHEN OLD.Key = 'sync_epoch' BEGIN UPDATE SyncContentVersion SET Version = random() & 9223372036854775807 WHERE Id = 1; END");
         }
 
         private async Task EnsureInitializedAsync()
@@ -1497,13 +1538,12 @@ namespace NihongoVocab.Services
 
                 if (string.IsNullOrWhiteSpace(query))
                 {
-                    return await q.OrderBy(w => w.Id).Take(100).ToListAsync();
+                    return await q.OrderBy(w => w.Id).ToListAsync();
                 }
 
                 return await q
                     .Where(w => w.Text.Contains(query))
                     .OrderBy(w => w.Id)
-                    .Take(100)
                     .ToListAsync();
             }
             finally
@@ -2146,15 +2186,17 @@ namespace NihongoVocab.Services
             await _dbLock.WaitAsync();
             try
             {
-                await _database!.DeleteAllAsync<Word>();
-                await _database!.DeleteAllAsync<WordList>();
-                await _database!.DeleteAllAsync<ReviewLog>();
-                await _database!.DeleteAllAsync<SyncTombstone>();
-
-                // 清空数据属于重大物理重置，生成全新纪元并递增数据版本，阻断移动端脏数据覆写
-                string newEpoch = "epoch_" + Guid.NewGuid().ToString("N");
-                await _database!.ExecuteAsync("INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('sync_epoch', ?)", newEpoch);
-                await _database!.ExecuteAsync("INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('data_version', COALESCE((SELECT CAST(Value AS INTEGER) FROM UserPreferences WHERE Key = 'data_version'), 0) + 1)");
+                // 数据清空与纪元更新必须同时提交，失败时保留原词库和同步状态。
+                await _database!.RunInTransactionAsync(conn =>
+                {
+                    conn.DeleteAll<Word>();
+                    conn.DeleteAll<WordList>();
+                    conn.DeleteAll<ReviewLog>();
+                    conn.DeleteAll<SyncTombstone>();
+                    string newEpoch = "epoch_" + Guid.NewGuid().ToString("N");
+                    conn.Execute("INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('sync_epoch', ?)", newEpoch);
+                    conn.Execute("INSERT OR REPLACE INTO UserPreferences (Key, Value) VALUES ('data_version', COALESCE((SELECT CAST(Value AS INTEGER) FROM UserPreferences WHERE Key = 'data_version'), 0) + 1)");
+                });
             }
             catch (Exception ex)
             {
@@ -2216,7 +2258,11 @@ namespace NihongoVocab.Services
             await _dbLock.WaitAsync();
             try
             {
-                await _database!.InsertOrReplaceAsync(new UserPreference { Key = key, Value = value });
+                await _database!.ExecuteAsync(
+                    "INSERT INTO UserPreferences (Key, Value) VALUES (?, ?) " +
+                    "ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value " +
+                    "WHERE UserPreferences.Value <> excluded.Value",
+                    key, value);
             }
             catch (Exception ex)
             {
@@ -2336,7 +2382,7 @@ namespace NihongoVocab.Services
 
             if (rows > 0)
             {
-                NotifyDataChanged();
+                NotifyDeviceMetadataChanged();
                 return true;
             }
             return false;
@@ -2368,7 +2414,7 @@ namespace NihongoVocab.Services
 
             if (rows > 0)
             {
-                NotifyDataChanged();
+                NotifyDeviceMetadataChanged();
                 return true;
             }
             return false;
@@ -2439,7 +2485,7 @@ namespace NihongoVocab.Services
 
                 device.CustomAlias = string.IsNullOrWhiteSpace(alias) ? null : alias.Trim();
                 await _database!.UpdateAsync(device);
-                NotifyDataChanged();
+                NotifyDeviceMetadataChanged();
                 return true;
             }
             catch (Exception ex)
@@ -2458,29 +2504,28 @@ namespace NihongoVocab.Services
         #region 临时配对会话管理 (PairingSessions)
 
         /// <summary>
-        /// <summary>
         /// 生成一个 6 位配对码，并持久化到 PairingSessions 表。
-        /// 若未指定 validity，默认时长为 5 分钟；主程序可通过传入更长时长（如 10 年）实现长效免过期配对。
+        /// 配对码最多有效 5 分钟；即使调用方传入更长时长也不会延长低熵凭据的暴露时间。
         /// </summary>
         public async Task<string> CreatePairingCodeAsync(TimeSpan? validity = null)
         {
             await EnsureInitializedAsync();
             var duration = validity ?? TimeSpan.FromMinutes(5);
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            long expiresAt = now + (long)duration.TotalSeconds;
-
-            string code = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6");
+            long expiresAt = now + (long)Math.Min(duration.TotalSeconds, TimeSpan.FromMinutes(5).TotalSeconds);
 
             await _dbLock.WaitAsync();
             try
             {
-                var session = new PairingSession
+                for (int attempt = 0; attempt < 20; attempt++)
                 {
-                    Code = code,
-                    CreatedAt = now,
-                    ExpiresAt = expiresAt
-                };
-                await _database!.InsertOrReplaceAsync(session);
+                    string code = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString("D6");
+                    int inserted = await _database!.ExecuteAsync(
+                        "INSERT OR IGNORE INTO PairingSessions (Code, CreatedAt, ExpiresAt) VALUES (?, ?, ?)",
+                        code, now, expiresAt);
+                    if (inserted == 1) return code;
+                }
+                throw new InvalidOperationException("Unable to allocate a unique pairing code.");
             }
             catch (Exception ex)
             {
@@ -2491,8 +2536,6 @@ namespace NihongoVocab.Services
             {
                 _dbLock.Release();
             }
-
-            return code;
         }
 
         /// <summary>
@@ -2511,8 +2554,8 @@ namespace NihongoVocab.Services
             try
             {
                 var deletedCodes = await _database!.QueryScalarsAsync<string>(
-                    "DELETE FROM PairingSessions WHERE Code = ? AND ExpiresAt >= ? RETURNING Code",
-                    trimmedCode, now);
+                    "DELETE FROM PairingSessions WHERE Code = ? AND ExpiresAt > ? AND CreatedAt >= ? RETURNING Code",
+                    trimmedCode, now, now - 300);
 
                 return deletedCodes.Count > 0;
             }
@@ -2591,6 +2634,12 @@ namespace NihongoVocab.Services
             return await _database!.ExecuteScalarAsync<long>("PRAGMA data_version;");
         }
 
+        public async Task<long> GetSyncContentVersionAsync()
+        {
+            await EnsureInitializedAsync();
+            return await _database!.ExecuteScalarAsync<long>("SELECT Version FROM SyncContentVersion WHERE Id = 1;");
+        }
+
         /// <summary>
         /// 执行标量查询并返回指定类型结果（用于 PRAGMA 诊断等）
         /// </summary>
@@ -2650,13 +2699,15 @@ namespace NihongoVocab.Services
                 }
 
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = !string.IsNullOrWhiteSpace(customFileName) ? customFileName.Trim() : $"vocab_auto_{timestamp}.db";
+                string fileName = !string.IsNullOrWhiteSpace(customFileName)
+                    ? customFileName.Trim()
+                    : $"vocab_auto_{timestamp}_{Guid.NewGuid():N}.db";
+                if (fileName != Path.GetFileName(fileName) ||
+                    fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                    !fileName.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Backup name must be a .db file name within the backup directory.", nameof(customFileName));
                 string backupPath = Path.Combine(backupDir, fileName);
-
-                if (File.Exists(backupPath))
-                {
-                    File.Delete(backupPath);
-                }
+                string temporaryPath = backupPath + ".tmp_" + Guid.NewGuid().ToString("N");
 
                 // 备份前主动冲刷 WAL 缓存到主库
                 try
@@ -2665,15 +2716,17 @@ namespace NihongoVocab.Services
                 }
                 catch { }
 
-                // 优先使用 SQLite 原生 VACUUM INTO 原子生成完整快照
+                // 在临时文件中创建 SQLite 一致性快照，成功后才替换同名旧备份。
                 try
                 {
-                    await _database!.ExecuteAsync($"VACUUM INTO '{backupPath.Replace("'", "''")}';");
+                    await _database!.ExecuteAsync($"VACUUM INTO '{temporaryPath.Replace("'", "''")}';");
+                    File.Move(temporaryPath, backupPath, overwrite: true);
                 }
                 catch
                 {
-                    // 若 VACUUM INTO 遇到权限或其他限制，回退为稳健的文件级快照复制
-                    File.Copy(_dbPath, backupPath, true);
+                    if (File.Exists(temporaryPath))
+                        File.Delete(temporaryPath);
+                    throw;
                 }
 
                 // 保留最近 10 份自动备份，清理更早的历史备份（按时间戳文件名倒序）
@@ -2755,9 +2808,10 @@ namespace NihongoVocab.Services
                 if (string.IsNullOrWhiteSpace(backupPath) || !File.Exists(backupPath)) return false;
 
                 // 深度防御：严格校验文件归属于快照备份目录，杜绝误传或路径逃逸
-                string expectedDir = Path.GetFullPath(GetBackupsDirectoryPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string expectedDir = Path.GetFullPath(GetBackupsDirectoryPath())
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 string fullPath = Path.GetFullPath(backupPath);
-                if (!fullPath.StartsWith(expectedDir, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(Path.GetDirectoryName(fullPath), expectedDir, StringComparison.OrdinalIgnoreCase))
                 {
                     CrashLogger.LogInfo($"DeleteBackupFile rejected path outside backups directory: {backupPath}");
                     return false;
@@ -2804,43 +2858,75 @@ namespace NihongoVocab.Services
                 return false;
             }
 
+            // 在覆盖现有数据库前验证整库完整性和应用所需的核心表。
+            SQLiteAsyncConnection? validation = null;
+            try
+            {
+                validation = new SQLiteAsyncConnection(new SQLiteConnectionString(
+                    backupPath, SQLiteOpenFlags.ReadOnly | SQLiteOpenFlags.FullMutex, storeDateTimeAsTicks: true));
+                string integrity = await validation.ExecuteScalarAsync<string>("PRAGMA integrity_check;");
+                int tables = await validation.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('Words', 'WordLists', 'ReviewLogs')");
+                if (!string.Equals(integrity, "ok", StringComparison.OrdinalIgnoreCase) || tables != 3)
+                    return false;
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "DatabaseService.RestoreFromBackupFileAsync.IntegrityCheck");
+                return false;
+            }
+            finally
+            {
+                if (validation != null)
+                {
+                    try { await validation.CloseAsync(); } catch { }
+                }
+            }
+
             await _dbLock.WaitAsync();
             string preRestore = _dbPath + ".pre_restore";
+            string restoreTemp = _dbPath + ".restore_" + Guid.NewGuid().ToString("N");
+            bool hasPreRestore = false;
+            bool replacedDatabase = false;
             try
             {
                 // 1. 关闭现有连接前冲刷 WAL 并关闭连接
                 if (_database != null)
                 {
-                    try { await _database.ExecuteAsync("PRAGMA wal_checkpoint(TRUNCATE);"); } catch { }
+                    int checkpointBusy = await _database.ExecuteScalarAsync<int>("PRAGMA wal_checkpoint(TRUNCATE);");
+                    if (checkpointBusy != 0)
+                        throw new IOException("Cannot checkpoint the current database before restore.");
                     await _database.CloseAsync();
                     _database = null;
                 }
                 _isInitialized = false;
 
-                // 2. 将当前数据库重命名为 pre_restore 防御意外损坏
-                try
+                // 2. 保留当前数据库，并先完整复制待恢复快照。
+                if (File.Exists(_dbPath))
                 {
-                    if (File.Exists(_dbPath))
-                    {
-                        File.Copy(_dbPath, preRestore, true);
-                    }
+                    File.Copy(_dbPath, preRestore, true);
+                    hasPreRestore = true;
                 }
-                catch { }
+                File.Copy(backupPath, restoreTemp);
 
                 // 3. 删除 WAL 与 SHM 临时缓存
                 string walPath = _dbPath + "-wal";
                 string shmPath = _dbPath + "-shm";
-                try { if (File.Exists(walPath)) File.Delete(walPath); } catch { }
-                try { if (File.Exists(shmPath)) File.Delete(shmPath); } catch { }
+                if (File.Exists(walPath)) File.Delete(walPath);
+                if (File.Exists(shmPath)) File.Delete(shmPath);
 
-                // 4. 将合法备份文件覆盖为主数据库
-                File.Copy(backupPath, _dbPath, true);
+                // 4. 同目录原子替换，避免复制中途失败留下截断的主库。
+                File.Move(restoreTemp, _dbPath, overwrite: true);
+                replacedDatabase = true;
 
                 // 5. 重新建立并初始化连接
                 _database = new SQLiteAsyncConnection(new SQLiteConnectionString(_dbPath, _openFlags, storeDateTimeAsTicks: true));
                 await _database.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL;");
                 await _database.ExecuteAsync("PRAGMA synchronous=NORMAL;");
-                await _database.ExecuteAsync("PRAGMA busy_timeout=5000;");
+                await _database.ExecuteScalarAsync<int>("PRAGMA busy_timeout=5000;");
+                await _database.CreateTableAsync<UserPreference>();
+                await _database.CreateTableAsync<SyncTombstone>();
+                await EnsureSyncContentChangeTrackingAsync(_database);
                 _isInitialized = true;
 
                 NotifyDataChanged();
@@ -2853,10 +2939,21 @@ namespace NihongoVocab.Services
                 // 关键防御：若覆盖失败或连接初始化失败，自动执行 pre_restore 紧急镜像回滚！
                 try
                 {
-                    if (File.Exists(preRestore))
+                    if (_database != null)
                     {
+                        await _database.CloseAsync();
+                        _database = null;
+                    }
+                    if (hasPreRestore)
+                    {
+                        string walPath = _dbPath + "-wal";
+                        string shmPath = _dbPath + "-shm";
+                        if (File.Exists(walPath)) File.Delete(walPath);
+                        if (File.Exists(shmPath)) File.Delete(shmPath);
                         File.Copy(preRestore, _dbPath, true);
                     }
+                    else if (replacedDatabase && File.Exists(_dbPath))
+                        File.Delete(_dbPath);
                 }
                 catch { }
 
@@ -2866,7 +2963,7 @@ namespace NihongoVocab.Services
                     _database = new SQLiteAsyncConnection(new SQLiteConnectionString(_dbPath, _openFlags, storeDateTimeAsTicks: true));
                     await _database.ExecuteScalarAsync<string>("PRAGMA journal_mode=WAL;");
                     await _database.ExecuteAsync("PRAGMA synchronous=NORMAL;");
-                    await _database.ExecuteAsync("PRAGMA busy_timeout=5000;");
+                    await _database.ExecuteScalarAsync<int>("PRAGMA busy_timeout=5000;");
                     _isInitialized = true;
                 }
                 catch { }
@@ -2874,6 +2971,7 @@ namespace NihongoVocab.Services
             }
             finally
             {
+                try { if (File.Exists(restoreTemp)) File.Delete(restoreTemp); } catch { }
                 _dbLock.Release();
             }
         }

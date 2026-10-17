@@ -8,10 +8,10 @@
     <RootNamespace>NihongoVocab.SyncService</RootNamespace>
     <ApplicationIcon>..\Assets\AppIcon.ico</ApplicationIcon>
 
-    <!-- 版本号定义 (对齐 1.5.0) -->
-    <Version>1.5.0</Version>
-    <AssemblyVersion>1.5.0.0</AssemblyVersion>
-    <FileVersion>1.5.0.0</FileVersion>
+    <!-- 版本号定义 (对齐 1.5.2) -->
+    <Version>1.5.2</Version>
+    <AssemblyVersion>1.5.2.0</AssemblyVersion>
+    <FileVersion>1.5.2.0</FileVersion>
     <Product>Tampo Sync Service</Product>
     <Company>taketo</Company>
 
@@ -41,6 +41,7 @@
     <!-- 基础包依赖：与主程序保持版本 100% 一致 -->
     <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
     <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>
 

@@ -55,7 +55,7 @@
   - 界面与安装向导深度支持 **简体中文**、**English**、**日本語** 原生热切换，内存级备援字典确保任何系统环境下零崩溃。
 
 - 📦 **免环境依赖的便携安装体系**
-  - 自研轻量级 WPF 单文件安装向导（`Tampo_Setup_v1.1.0.exe`），强制追加 `\Tampo` 子目录防磁盘污染。
+  - 自研轻量级 WPF 单文件安装向导（`Tampo_Setup_v{版本号}.exe`），强制追加 `\Tampo` 子目录防磁盘污染。
   - 具备旧版本增量检测、无损升级以及卸载时保留个人词库与学习历史的贴心设计。
 
 ---
@@ -65,7 +65,7 @@
 ### 📥 直接下载使用 (推荐)
 
 直接前往 [Releases 页面](https://github.com/met-tk/Tampo/releases/latest) 下载最新的单文件安装器：
-- 文件名：`Tampo_Setup_v1.1.0.exe`
+- 文件名格式：`Tampo_Setup_v{版本号}.exe`
 - 双击运行向导即可自动部署并生成桌面圆角快捷方式，无需手动配置任何 .NET 运行时或环境依赖。
 
 ---
@@ -87,7 +87,7 @@ cd Tampo
 ```powershell
 dotnet test Tests/Tampo.Tests.csproj
 ```
-*(包含 FSRS 调度计算、记忆曲线与词库模型的 35 项单元测试将全部通过)*
+*(测试覆盖 FSRS 调度计算、记忆曲线与词库模型等功能。)*
 
 ### 3. 本地启动调试
 ```powershell
@@ -99,7 +99,7 @@ dotnet run --project Tampo.csproj
 ```powershell
 powershell -ExecutionPolicy Bypass -File ".\build_publish.ps1"
 ```
-脚本将全自动清洗历史缓存、同步 XBF/PRI/静态资源，并在 `Setup/` 目录下生成独立的单文件分发安装包 `Tampo_Setup_v1.1.0.exe`。
+脚本将清理构建缓存、同步 XBF/PRI/静态资源，并在 `Setup/` 目录下生成独立的单文件分发安装包 `Tampo_Setup_v1.5.2.exe` 和更新包 `Tampo_Update_v1.5.2.exe`。
 
 ---
 
