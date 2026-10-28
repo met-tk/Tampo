@@ -76,7 +76,8 @@ namespace NihongoVocab.Views
                 if (FilterControlPanel != null) FilterControlPanel.Visibility = Visibility.Collapsed;
                 if (ImmersiveIcon != null) ImmersiveIcon.Glyph = "\uE73F";
                 if (ImmersiveButton != null) ToolTipService.SetToolTip(ImmersiveButton, loc.GetString("TooltipExitImmersiveMode", "退出沉浸式模式"));
-                mainWindow?.SetImmersiveMode(true);
+                if (BackgroundGrid != null) BackgroundGrid.Padding = new Thickness(14, 10, 14, 10);
+                mainWindow?.SetImmersiveMode(true, "Study");
             }
             else
             {
@@ -84,6 +85,7 @@ namespace NihongoVocab.Views
                 if (FilterControlPanel != null) FilterControlPanel.Visibility = Visibility.Visible;
                 if (ImmersiveIcon != null) ImmersiveIcon.Glyph = "\uE740";
                 if (ImmersiveButton != null) ToolTipService.SetToolTip(ImmersiveButton, loc.GetString("TooltipImmersiveMode", "沉浸式模式"));
+                if (BackgroundGrid != null) BackgroundGrid.Padding = new Thickness(24);
                 mainWindow?.SetImmersiveMode(false);
             }
         }
@@ -197,3 +199,4 @@ namespace NihongoVocab.Views
         }
     }
 }
+

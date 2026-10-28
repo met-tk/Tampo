@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
-  <assemblyIdentity version="1.5.2.0" name="Tampo.app"/>
+  <assemblyIdentity version="1.5.3.0" name="Tampo.app"/>
 
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>
@@ -17,3 +17,4 @@
     </windowsSettings>
   </application>
 </assembly>
+

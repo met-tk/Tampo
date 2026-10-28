@@ -8,10 +8,10 @@
     <RootNamespace>NihongoVocab.SyncService</RootNamespace>
     <ApplicationIcon>..\Assets\AppIcon.ico</ApplicationIcon>
 
-    <!-- 版本号定义 (对齐 1.5.2) -->
-    <Version>1.5.2</Version>
-    <AssemblyVersion>1.5.2.0</AssemblyVersion>
-    <FileVersion>1.5.2.0</FileVersion>
+    <!-- 版本号定义 (对齐 1.5.3) -->
+    <Version>1.5.3</Version>
+    <AssemblyVersion>1.5.3.0</AssemblyVersion>
+    <FileVersion>1.5.3.0</FileVersion>
     <Product>Tampo Sync Service</Product>
     <Company>taketo</Company>
 
@@ -65,3 +65,4 @@
   </ItemGroup>
 
 </Project>
+

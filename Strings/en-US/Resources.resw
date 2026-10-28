@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.5.2</value>
+    <value>v1.5.3</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>Daily Rollover Time</value>
@@ -1956,3 +1956,4 @@ Confirm unbinding?</value>
     <value>Tip: Click for details, middle-click to copy</value>
   </data>
 </root>
+

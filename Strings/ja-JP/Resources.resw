@@ -1441,7 +1441,7 @@
     <value>提取成功：「{0}」 (捕获组: {1})</value>
   </data>
   <data name="VersionLabel" xml:space="preserve">
-    <value>v1.5.2</value>
+    <value>v1.5.3</value>
   </data>
   <data name="DayRolloverLabel" xml:space="preserve">
     <value>日次更新時刻</value>
@@ -1956,3 +1956,4 @@
     <value>ヒント：クリックで詳細表示、中クリックで高速コピー</value>
   </data>
 </root>
+

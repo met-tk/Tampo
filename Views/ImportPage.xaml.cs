@@ -93,7 +93,7 @@ namespace NihongoVocab.Views
                     Grid.SetColumn(CandidatesContainer, 0);
                 }
 
-                mainWindow?.SetImmersiveMode(true, compactWindow: true);
+                mainWindow?.SetImmersiveMode(true, "Import");
                 UpdatePinTopUI();
             }
             else
@@ -277,3 +277,4 @@ namespace NihongoVocab.Views
         }
     }
 }
+

@@ -99,7 +99,7 @@ dotnet run --project Tampo.csproj
 ```powershell
 powershell -ExecutionPolicy Bypass -File ".\build_publish.ps1"
 ```
-脚本将清理构建缓存、同步 XBF/PRI/静态资源，并在 `Setup/` 目录下生成独立的单文件分发安装包 `Tampo_Setup_v1.5.2.exe` 和更新包 `Tampo_Update_v1.5.2.exe`。
+脚本将清理构建缓存、同步 XBF/PRI/静态资源，并在 `Setup/` 目录下生成独立的单文件分发安装包 `Tampo_Setup_v1.5.3.exe` 和更新包 `Tampo_Update_v1.5.3.exe`。
 
 ---
 
@@ -126,3 +126,4 @@ powershell -ExecutionPolicy Bypass -File ".\build_publish.ps1"
 ## 📄 开源许可证
 
 本项目采用 [MIT License](LICENSE) 授权许可。
+

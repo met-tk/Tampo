@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
+$env:APPDATA = "$root\.nuget_appdata"
 $buildRoot = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
 
 function Assert-SafeGeneratedDirectory([string]$path) {
@@ -83,7 +84,7 @@ Get-ChildItem -Path $dst -File -Recurse |
 Write-Host "Done! Publish complete at $dst" -ForegroundColor Green
 
 # ---- Prepare Setup output directory ----------------------------------------
-$version = "1.5.2"
+$version = "1.5.3"
 $csprojContent = Get-Content "$root\Tampo.csproj" -Raw
 if ($csprojContent -match '<Version>([0-9\.]+)</Version>') {
     $version = $matches[1]
@@ -128,3 +129,5 @@ if (Test-Path $setupExeFinal) {
     Write-Host "Files in Setup dir:" -ForegroundColor Yellow
     Get-ChildItem -Path $setupDir | Select-Object Name | Format-Table
 }
+
+

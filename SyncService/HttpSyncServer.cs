@@ -45,7 +45,7 @@ namespace NihongoVocab.SyncService
     public sealed class HttpSyncServer : IAsyncDisposable, IDisposable
     {
         public const int DefaultPort = 52080;
-        public const string ServerVersion = "1.5.2";
+        public const string ServerVersion = "1.5.3";
         public int Port { get; }
 
         private TcpListener? _tcpListener;
@@ -1784,3 +1784,4 @@ namespace NihongoVocab.SyncService
     }
 }
 #endif
+

@@ -13,6 +13,45 @@ namespace NihongoVocab
         private static ContentDialog? _currentActiveDialog;
         private IntPtr _hIconBig = IntPtr.Zero;
         private IntPtr _hIconSmall = IntPtr.Zero;
+        private SubclassProcDelegate? _subclassDelegate;
+        private IntPtr _hwnd = IntPtr.Zero;
+        private const uint SubclassId = 1001;
+        private string _currentImmersiveContext = "Study";
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        private const uint WM_GETMINMAXINFO = 0x0024;
+        private const uint WM_NCDESTROY = 0x0082;
+        private delegate IntPtr SubclassProcDelegate(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData);
+
+        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool SetWindowSubclass(IntPtr hWnd, SubclassProcDelegate pfnSubclass, UIntPtr uIdSubclass, IntPtr dwRefData);
+
+        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool RemoveWindowSubclass(IntPtr hWnd, SubclassProcDelegate pfnSubclass, UIntPtr uIdSubclass);
+
+        [System.Runtime.InteropServices.DllImport("comctl32.dll", SetLastError = true)]
+        private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hWnd);
 
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
         private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
@@ -29,6 +68,8 @@ namespace NihongoVocab
             CrashLogger.LogInfo("MainWindow ctor start");
             this.InitializeComponent();
             App.MainWindowInstance = this;
+            _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            InitWindowSubclass();
             SetWindowIcon();
             RestoreWindowGeometry();
 
@@ -57,6 +98,7 @@ namespace NihongoVocab
             this.Closed += (s, e) =>
             {
                 LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
+                ReleaseWindowSubclass();
                 ReleaseNativeIcons();
                 CrashLogger.LogInfo("MainWindow.Closed event fired!");
             };
@@ -76,6 +118,69 @@ namespace NihongoVocab
                 DestroyIcon(_hIconSmall);
                 _hIconSmall = IntPtr.Zero;
             }
+        }
+
+private void InitWindowSubclass()
+        {
+            try
+            {
+                if (_hwnd != IntPtr.Zero)
+                {
+                    _subclassDelegate = new SubclassProcDelegate(WindowSubclassProc);
+                    SetWindowSubclass(_hwnd, _subclassDelegate, (UIntPtr)SubclassId, IntPtr.Zero);
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "MainWindow.InitWindowSubclass");
+            }
+        }
+
+        private void ReleaseWindowSubclass()
+        {
+            try
+            {
+                if (_hwnd != IntPtr.Zero && _subclassDelegate != null)
+                {
+                    RemoveWindowSubclass(_hwnd, _subclassDelegate, (UIntPtr)SubclassId);
+                    _subclassDelegate = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "MainWindow.ReleaseWindowSubclass");
+            }
+        }
+
+        private IntPtr WindowSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
+        {
+            if (uMsg == WM_GETMINMAXINFO)
+            {
+                IntPtr ret = DefSubclassProc(hWnd, uMsg, wParam, lParam);
+                try
+                {
+                    var mmi = System.Runtime.InteropServices.Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                    uint dpi = GetDpiForWindow(hWnd);
+                    float scale = (dpi > 0) ? (dpi / 96f) : 1.0f;
+
+                    int minW = IsImmersiveMode ? 320 : 760;
+                    int minH = IsImmersiveMode ? 400 : 520;
+
+                    mmi.ptMinTrackSize.X = (int)Math.Round(minW * scale);
+                    mmi.ptMinTrackSize.Y = (int)Math.Round(minH * scale);
+                    System.Runtime.InteropServices.Marshal.StructureToPtr(mmi, lParam, false);
+                    return IntPtr.Zero;
+                }
+                catch { }
+                return ret;
+            }
+
+            if (uMsg == WM_NCDESTROY)
+            {
+                if (_subclassDelegate != null) RemoveWindowSubclass(hWnd, _subclassDelegate, uIdSubclass);
+            }
+
+            return DefSubclassProc(hWnd, uMsg, wParam, lParam);
         }
 
         /// <summary>
@@ -155,9 +260,10 @@ namespace NihongoVocab
 
         private void RestoreWindowGeometry()
         {
-            // 第一阶段：仅注册 AppWindow 关闭事件，真正的几何恢复在数据加载后由 ApplyRestoredGeometry() 完成
+            // 零闪烁（Zero-Jitter）：在窗口激活前同步应用保存的常规几何或屏幕工作区自适应比例
             try
             {
+                WindowPlacementService.ApplyNormalPlacement(this.AppWindow);
                 this.AppWindow.Closing += AppWindow_Closing;
             }
             catch (Exception ex)
@@ -167,57 +273,15 @@ namespace NihongoVocab
         }
 
         /// <summary>
-        /// 第二阶段：在 UserPreferenceService 数据已加载完毕后，从偏好中读取并应用真实的窗口位置/尺寸。
-        /// 由 App.OnLaunched 的后台任务在加载完成后通过 DispatcherQueue 回调此方法。
+        /// 重新应用常规模式窗口几何
         /// </summary>
         public void ApplyRestoredGeometry()
         {
             try
             {
-                var pref = UserPreferenceService.Instance;
-                int width = pref.GetInt("Window_Width", 1200);
-                int height = pref.GetInt("Window_Height", 800);
-                int x = pref.GetInt("Window_X", -1);
-                int y = pref.GetInt("Window_Y", -1);
-                bool isMaximized = pref.GetBool("Window_IsMaximized", false);
-
-                CrashLogger.LogInfo($"ApplyRestoredGeometry: w={width} h={height} x={x} y={y} max={isMaximized}");
-
-                var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
-                    this.AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
-
-                if (displayArea != null)
-                {
-                    var workArea = displayArea.WorkArea;
-                    if (width < 600 || width > workArea.Width) width = Math.Min(1200, workArea.Width);
-                    if (height < 400 || height > workArea.Height) height = Math.Min(800, workArea.Height);
-
-                    // 坐标不合法则安全居中
-                    if (x < workArea.X || x > workArea.X + workArea.Width - 200 ||
-                        y < workArea.Y || y > workArea.Y + workArea.Height - 100)
-                    {
-                        x = workArea.X + (workArea.Width - width) / 2;
-                        y = workArea.Y + (workArea.Height - height) / 2;
-                    }
-
-                    this.AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
-                }
-                else
-                {
-                    this.AppWindow.Resize(new Windows.Graphics.SizeInt32(Math.Max(width, 1000), Math.Max(height, 700)));
-                }
-
-                if (isMaximized && this.AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
-                {
-                    presenter.Maximize();
-                }
-
-                CrashLogger.LogInfo("ApplyRestoredGeometry done");
+                WindowPlacementService.ApplyNormalPlacement(this.AppWindow);
             }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "MainWindow.ApplyRestoredGeometry");
-            }
+            catch { }
         }
 
         private void AppWindow_Closing(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
@@ -229,14 +293,35 @@ namespace NihongoVocab
         {
             try
             {
-                if (this.AppWindow == null || IsImmersiveMode) return;
+                if (this.AppWindow == null) return;
+                if (IsImmersiveMode)
+                {
+                    // 沉浸模式下独立记忆对应模块（学习或导入）小窗位置与尺寸，绝不污染常规主界面状态
+                    WindowPlacementService.SaveImmersivePlacement(this.AppWindow, _currentImmersiveContext);
+                }
+                else
+                {
+                    // 常规模式下独立保存主窗口几何
+                    WindowPlacementService.SaveNormalPlacement(this.AppWindow);
+                    SyncToUserPreferences();
+                }
+            }
+            catch (Exception ex)
+            {
+                CrashLogger.LogException(ex, "MainWindow.SaveWindowGeometry");
+            }
+        }
+
+        private void SyncToUserPreferences()
+        {
+            try
+            {
                 var pref = UserPreferenceService.Instance;
+                if (pref == null || this.AppWindow == null) return;
 
                 if (this.AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
                 {
-                    bool isMaximized = (presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized);
-                    pref.SetBool("Window_IsMaximized", isMaximized);
-
+                    pref.SetBool("Window_IsMaximized", presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized);
                     if (presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Restored)
                     {
                         var pos = this.AppWindow.Position;
@@ -251,10 +336,7 @@ namespace NihongoVocab
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                CrashLogger.LogException(ex, "MainWindow.SaveWindowGeometry");
-            }
+            catch { }
         }
 
         private void SetWindowIcon()
@@ -434,10 +516,6 @@ namespace NihongoVocab
 
         #region 沉浸式模式与窗口置顶管控
 
-        private Windows.Graphics.SizeInt32? _preImmersiveSize;
-        private Windows.Graphics.PointInt32? _preImmersivePosition;
-        private bool _preImmersiveIsMaximized;
-
         public bool IsAlwaysOnTop
         {
             get
@@ -465,52 +543,47 @@ namespace NihongoVocab
 
         public bool IsImmersiveMode { get; private set; }
 
-        public void SetImmersiveMode(bool enable, bool compactWindow = false)
+        public void SetImmersiveMode(bool enable, string context = "Study")
         {
-            if (IsImmersiveMode == enable) return;
-            IsImmersiveMode = enable;
+            string targetContext = string.IsNullOrWhiteSpace(context) ? "Study" : context;
 
             if (enable)
             {
                 NavView.IsPaneVisible = false;
                 UpdateNavPaneSplitter();
 
-                if (compactWindow && this.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+                if (IsImmersiveMode)
                 {
-                    _preImmersiveIsMaximized = (presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized);
-                    _preImmersivePosition = this.AppWindow.Position;
-                    _preImmersiveSize = this.AppWindow.Size;
-
-                    if (_preImmersiveIsMaximized)
+                    // 已在沉浸模式下切换子模块，仅需保存前模块沉浸尺寸并还原目标模块
+                    if (!string.Equals(_currentImmersiveContext, targetContext, StringComparison.OrdinalIgnoreCase))
                     {
-                        presenter.Restore();
+                        WindowPlacementService.SaveImmersivePlacement(this.AppWindow, _currentImmersiveContext);
+                        _currentImmersiveContext = targetContext;
+                        WindowPlacementService.ApplyImmersivePlacement(this.AppWindow, _currentImmersiveContext);
                     }
-
-                    // 零散单一词汇快速记录紧凑悬浮窗口尺寸
-                    this.AppWindow.Resize(new Windows.Graphics.SizeInt32(500, 640));
+                    return;
                 }
+
+                _currentImmersiveContext = targetContext;
+                WindowPlacementService.SaveNormalPlacement(this.AppWindow);
+                IsImmersiveMode = true;
+                WindowPlacementService.ApplyImmersivePlacement(this.AppWindow, _currentImmersiveContext);
             }
             else
             {
+                if (!IsImmersiveMode) return; // 幂等拦截，防止大窗覆盖小窗记忆
+
                 NavView.IsPaneVisible = true;
                 UpdateNavPaneSplitter();
-
-                if (this.AppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
-                {
-                    if (_preImmersiveSize.HasValue)
-                    {
-                        this.AppWindow.Resize(_preImmersiveSize.Value);
-                        if (_preImmersivePosition.HasValue)
-                        {
-                            this.AppWindow.Move(_preImmersivePosition.Value);
-                        }
-                        if (_preImmersiveIsMaximized)
-                        {
-                            presenter.Maximize();
-                        }
-                    }
-                }
+                WindowPlacementService.SaveImmersivePlacement(this.AppWindow, _currentImmersiveContext);
+                IsImmersiveMode = false;
+                WindowPlacementService.ApplyNormalPlacement(this.AppWindow);
             }
+        }
+
+        public void SetImmersiveMode(bool enable, bool compactWindow)
+        {
+            SetImmersiveMode(enable, compactWindow ? "Import" : "Study");
         }
 
         #endregion

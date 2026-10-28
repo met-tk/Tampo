@@ -159,10 +159,9 @@ namespace NihongoVocab
                             });
                         }
 
-                        // 数据加载完毕后，回到UI线程重新应用真实的窗口几何（因为构造时Pref尚未加载）并刷新逻辑日依赖视图
+                        // 数据加载完毕后，刷新依赖逻辑日变更的数据视图
                         UIThreadDispatcher?.TryEnqueue(() =>
                         {
-                            MainWindowInstance?.ApplyRestoredGeometry();
                             DatabaseService.NotifyViewDataChanged();
                         });
                     }
@@ -182,3 +181,4 @@ namespace NihongoVocab
         private CrossProcessEventListener? _crossProcessListener;
     }
 }
+
